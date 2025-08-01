@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combat IA - 4 Robots Arena</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+    body {
+      margin: 0; padding: 0;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 35%, #0f0f23 100%);
+      color: #fff; font-family: 'Orbitron', monospace;
+      overflow: hidden; position: relative;
+    }
+
+    /* Particules d'arrière-plan */
+    .bg-particles {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 1;
+    }
+
+    .particle {
+      position: absolute; width: 2px; height: 2px;
+      background: rgba(78, 205, 196, 0.3); border-radius: 50%;
+      animation: float 20s infinite linear;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-100px) translateX(100px); opacity: 0; }
+    }
+
+    .hud-overlay {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      pointer-events: none;
+    }
+
+    .battle-info {
+      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px;
+      padding: 15px;
+      background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(26,26,46,0.6) 100%);
+      backdrop-filter: blur(15px); border-bottom: 2px solid;
+      border-image: linear-gradient(90deg, #4ecdc4, #ff6b6b, #ffd700, #9b59b6) 1;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+    }
+
+    .ia-panel {
+      background: linear-gradient(145deg, rgba(68,68,68,0.9), rgba(85,85,85,0.7));
+      border: 2px solid; border-radius: 12px; padding: 15px; min-width: 200px;
+      backdrop-filter: blur(10px); position: relative; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      font-size: 12px;
+    }
+
+    .ia-panel::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, currentColor, transparent);
+      animation: scanline 2s infinite;
+    }
+
+    @keyframes scanline {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    .ia1 {
+      border-color: #4ecdc4; color: #4ecdc4;
+      box-shadow: 0 0 30px rgba(78, 205, 196, 0.4), inset 0 0 20px rgba(78, 205, 196, 0.1);
+    }
+
+    .ia2 {
+      border-color: #ff6b6b; color: #ff6b6b;
+      box-shadow: 0 0 30px rgba(255, 107, 107, 0.4), inset 0 0 20px rgba(255, 107, 107, 0.1);
+    }
+
+    .ia3 {
+      border-color: #ffd700; color: #ffd700;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.4), inset 0 0 20px rgba(255, 215, 0, 0.1);
+    }
+
+    .ia4 {
+      border-color: #9b59b6; color: #9b59b6;
+      box-shadow: 0 0 30px rgba(155, 89, 182, 0.4), inset 0 0 20px rgba(155, 89, 182, 0.1);
+    }
+
+    .ia5 {
+      border-color: #9b59b6; color: #9b59b6;
+      box-shadow: 0 0 30px rgba(155, 89, 182, 0.4), inset 0 0 20px rgba(155, 89, 182, 0.1);
+    }
+    .ia6 {
+      border-color: #9b59b6; color: #9b59b6;
+      box-shadow: 0 0 30px rgba(155, 89, 182, 0.4), inset 0 0 20px rgba(155, 89, 182, 0.1);
+    }
+
+    .stat-row {
+      display: flex; justify-content: space-between; margin: 8px 0;
+      font-size: 11px; font-weight: 400; opacity: 0.9;
+      padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stat-row span:last-child {
+      font-weight: 700; text-shadow: 0 0 10px currentColor;
+    }
+
+    .timer {
+      position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+      font-size: 48px; font-weight: 900; color: #ffd700; z-index: 101;
+      text-shadow: 0 0 30px #ffd700, 0 0 60px #ffd700, 0 4px 10px rgba(0,0,0,0.5);
+      font-family: 'Orbitron', monospace; letter-spacing: 4px;
+      filter: drop-shadow(0 0 20px #ffd700);
+    }
+
+    canvas {
+      border: 3px solid; border-image: linear-gradient(45deg, #4ecdc4, #ff6b6b, #ffd700, #9b59b6) 1;
+      background: linear-gradient(180deg, #001133 0%, #000022 70%, #000000 100%);
+      margin: 20px auto; display: block; border-radius: 15px;
+      box-shadow: 0 0 50px rgba(78, 205, 196, 0.3), inset 0 0 50px rgba(0,0,0,0.5);
+      position: relative; z-index: 10;
+    }
+
+    .controls {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      z-index: 100; display: flex; gap: 20px; pointer-events: all;
+    }
+
+    button {
+      padding: 18px 35px; border: none; border-radius: 30px; cursor: pointer;
+      font-weight: 700; font-size: 16px; font-family: 'Orbitron', monospace;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative; overflow: hidden; text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button::before {
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    button:hover::before { left: 100%; }
+
+    button:hover {
+      transform: translateY(-3px) scale(1.05);
+    }
+
+    button:active { transform: translateY(0) scale(0.98); }
+
+    button:disabled {
+      opacity: 0.5; cursor: not-allowed; transform: none;
+      filter: grayscale(1);
+    }
+
+    .train-btn {
+      background: linear-gradient(135deg, #ff8800, #ffaa00, #ff8800);
+      color: #000; box-shadow: 0 6px 25px rgba(255, 136, 0, 0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .train-btn:hover {
+      box-shadow: 0 10px 35px rgba(255, 136, 0, 0.7);
+    }
+
+    .battle-btn {
+      background: linear-gradient(135deg, #28a745, #20c997, #28a745);
+      color: #fff; box-shadow: 0 6px 25px rgba(40, 167, 69, 0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .battle-btn:hover {
+      box-shadow: 0 10px 35px rgba(40, 167, 69, 0.7);
+    }
+
+    .reset-btn {
+      background: linear-gradient(135deg, #4ecdc4, #45b7d1, #4ecdc4);
+      color: #000; box-shadow: 0 6px 25px rgba(78, 205, 196, 0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .reset-btn:hover {
+      box-shadow: 0 10px 35px rgba(78, 205, 196, 0.7);
+    }
+
+    .winner {
+      position: fixed; top: 25%; left: 50%; transform: translateX(-50%);
+      font-size: 28px; padding: 25px 50px; border-radius: 20px;
+      z-index: 101; text-align: center; font-weight: 900;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.6);
+      animation: winnerAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      backdrop-filter: blur(10px); border: 2px solid;
+      font-family: 'Orbitron', monospace; letter-spacing: 2px;
+    }
+
+    @keyframes winnerAppear {
+      0% { opacity: 0; transform: translateX(-50%) scale(0.3) rotate(10deg); }
+      100% { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+    }
+
+    .winner.ia1-win {
+      background: linear-gradient(135deg, #4ecdc4, #45b7d1);
+      color: #000; border-color: #4ecdc4;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .winner.ia2-win {
+      background: linear-gradient(135deg, #ff6b6b, #ff5252);
+      color: #fff; border-color: #ff6b6b;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .winner.ia3-win {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #000; border-color: #ffd700;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .winner.ia4-win {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      color: #fff; border-color: #9b59b6;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .winner.draw {
+      background: linear-gradient(135deg, #34495e, #2c3e50);
+      color: #fff; border-color: #34495e;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .score-panel {
+      position: fixed; bottom: 120px; left: 20px; right: 20px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; z-index: 100;
+      pointer-events: none;
+    }
+
+    .score-info {
+      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(26,26,46,0.7));
+      padding: 15px; border-radius: 12px; backdrop-filter: blur(15px);
+      border: 2px solid; font-weight: 400; font-size: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .score-info.ia1 { border-color: #4ecdc4; }
+    .score-info.ia2 { border-color: #ff6b6b; }
+    .score-info.ia3 { border-color: #ffd700; }
+    .score-info.ia4 { border-color: #9b59b6; }
+
+    .health-bar {
+      width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+      border-radius: 10px; margin-top: 6px; overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .health-fill {
+      height: 100%; transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border-radius: 10px; position: relative;
+    }
+
+    .health-fill::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
+      border-radius: 10px 10px 0 0;
+    }
+
+    .ia1 .health-fill {
+      background: linear-gradient(90deg, #4ecdc4, #45b7d1);
+      box-shadow: 0 0 10px #4ecdc4;
+    }
+
+    .ia2 .health-fill {
+      background: linear-gradient(90deg, #ff6b6b, #ff5252);
+      box-shadow: 0 0 10px #ff6b6b;
+    }
+
+    .ia3 .health-fill {
+      background: linear-gradient(90deg, #ffd700, #ffed4e);
+      box-shadow: 0 0 10px #ffd700;
+    }
+
+    .ia4 .health-fill {
+      background: linear-gradient(90deg, #9b59b6, #8e44ad);
+      box-shadow: 0 0 10px #9b59b6;
+    }
+
+    .arena-effects {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 5;
+    }
+
+    .leaderboard {
+      position: fixed; top: 200px; right: 20px; z-index: 100;
+      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(26,26,46,0.7));
+      padding: 20px; border-radius: 15px; backdrop-filter: blur(15px);
+      border: 2px solid #ffd700; color: #ffd700; font-size: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+<!-- Particules d'arrière-plan -->
+<div class="bg-particles" id="bgParticles"></div>
+
+<div class="hud-overlay">
+  <div class="battle-info">
+    <div class="ia-panel ia1">
+      <h4>🤖 CYBORG BLEU</h4>
+      <div class="stat-row"><span>QI:</span> <span id="ia1-qi">1500</span></div>
+      <div class="stat-row"><span>Précision:</span> <span id="ia1-precision">40%</span></div>
+      <div class="stat-row"><span>Évasion:</span> <span id="ia1-evasion">50%</span></div>
+      <div class="stat-row"><span>Entrainé:</span> <span id="ia1-trained">❌</span></div>
+      <div class="health-bar"><div class="health-fill" id="ia1-health" style="width: 100%"></div></div>
+    </div>
+
+    <div class="ia-panel ia2">
+      <h4>🤖 CYBORG ROUGE</h4>
+      <div class="stat-row"><span>QI:</span> <span id="ia2-qi">1500</span></div>
+      <div class="stat-row"><span>Précision:</span> <span id="ia2-precision">40%</span></div>
+      <div class="stat-row"><span>Évasion:</span> <span id="ia2-evasion">50%</span></div>
+      <div class="stat-row"><span>Entrainé:</span> <span id="ia2-trained">❌</span></div>
+      <div class="health-bar"><div class="health-fill" id="ia2-health" style="width: 100%"></div></div>
+    </div>
+
+    <div class="ia-panel ia3">
+      <h4>🤖 CYBORG GOLD</h4>
+      <div class="stat-row"><span>QI:</span> <span id="ia3-qi">1500</span></div>
+      <div class="stat-row"><span>Précision:</span> <span id="ia3-precision">40%</span></div>
+      <div class="stat-row"><span>Évasion:</span> <span id="ia3-evasion">50%</span></div>
+      <div class="stat-row"><span>Entrainé:</span> <span id="ia3-trained">❌</span></div>
+      <div class="health-bar"><div class="health-fill" id="ia3-health" style="width: 100%"></div></div>
+    </div>
+
+    <div class="ia-panel ia4">
+      <h4>🤖 CYBORG VIOLET</h4>
+      <div class="stat-row"><span>QI:</span> <span id="ia4-qi">1500</span></div>
+      <div class="stat-row"><span>Précision:</span> <span id="ia4-precision">40%</span></div>
+      <div class="stat-row"><span>Évasion:</span> <span id="ia4-evasion">50%</span></div>
+      <div class="stat-row"><span>Entrainé:</span> <span id="ia4-trained">❌</span></div>
+      <div class="health-bar"><div class="health-fill" id="ia4-health" style="width: 100%"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="timer" id="timer">10:00</div>
+
+<div class="leaderboard">
+  <h4>🏆 CLASSEMENT</h4>
+  <div id="leaderboard-content">
+    <div>1. En attente...</div>
+    <div>2. En attente...</div>
+    <div>3. En attente...</div>
+    <div>4. En attente...</div>
+  </div>
+</div>
+
+<canvas id="canvas" width="1200" height="700"></canvas>
+<div class="arena-effects" id="arenaEffects"></div>
+
+<div class="score-panel">
+  <div class="score-info ia1">
+    <h4>📊 STATS BLEU</h4>
+    <div class="stat-row"><span>Éliminations:</span> <span id="ia1-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia1-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia1-accuracy">0%</span></div>
+  </div>
+
+  <div class="score-info ia2">
+    <h4>📊 STATS ROUGE</h4>
+    <div class="stat-row"><span>Éliminations:</span> <span id="ia2-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia2-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia2-accuracy">0%</span></div>
+  </div>
+
+  <div class="score-info ia3">
+    <h4>📊 STATS GOLD</h4>
+    <div class="stat-row"><span>Éliminations:</span> <span id="ia3-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia3-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia3-accuracy">0%</span></div>
+  </div>
+
+  <div class="score-info ia4">
+    <h4>📊 STATS VIOLET</h4>
+    <div class="stat-row"><span>Éliminations:</span> <span id="ia4-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia4-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia4-accuracy">0%</span></div>
+  </div>
+</div>
+
+<div id="winner-display" class="winner" style="display: none;"></div>
+
+<div class="controls">
+  <button id="trainBtn" class="train-btn">🚀 ENTRAÎNER LES 4 ROBOTS</button>
+  <button id="battleBtn" class="battle-btn" disabled>⚔️ BATAILLE ROYALE</button>
+  <button id="resetBtn" class="reset-btn">🔄 SYSTEM RESET</button>
+</div>
+
+<script>
+  // Configuration optimisée pour 4 robots
+  const cfg = {
+    mapWidth: 1200,
+    mapHeight: 700,
+    groundY: 620,
+    battleDuration: 600000, // 10 minutes
+    bulletSpeed: 18,
+    jumpForce: 25,
+    moveSpeed: 6,
+    gravity: 1.0,
+    maxBullets: 20,
+    maxParticles: 40,
+    updateRate: 60
+  };
+
+  // Création des 4 robots
+  const robots = [
+    {
+      id: 'ia1',
+      name: 'CYBORG BLEU',
+      x: 150, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+      onGround: true, shootCD: 0, color: '#4ecdc4', health: 100,
+      hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+      skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+      qi: 1500, bullets: [], alive: true, kills: 0
+    },
+    {
+      id: 'ia2',
+      name: 'CYBORG ROUGE',
+      x: cfg.mapWidth - 180, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+      onGround: true, shootCD: 0, color: '#ff6b6b', health: 100,
+      hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+      skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+      qi: 1500, bullets: [], alive: true, kills: 0
+    },
+    {
+      id: 'ia3',
+      name: 'CYBORG GOLD',
+      x: cfg.mapWidth / 2 - 100, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+      onGround: true, shootCD: 0, color: '#ffd700', health: 100,
+      hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+      skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+      qi: 1500, bullets: [], alive: true, kills: 0
+    },
+    {
+      id: 'ia4',
+      name: 'CYBORG VIOLET',
+      x: cfg.mapWidth / 2 + 100, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+      onGround: true, shootCD: 0, color: '#9b59b6', health: 100,
+      hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+      skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+      qi: 1500, bullets: [], alive: true, kills: 0
+    },
+    {
+      id: 'ia5',
+      name: 'CYBORG VIOLET2',
+      x: cfg.mapWidth / 2 + 100, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+      onGround: true, shootCD: 0, color: '#9b59b6', health: 100,
+      hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+      skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+      qi: 1500, bullets: [], alive: true, kills: 0
+    },
+    {
+      id: 'ia6',
+      name: 'CYBORG VIOLET3',
+      x: cfg.mapWidth / 2 + 100, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+      onGround: true, shootCD: 0, color: '#9b59b6', health: 100,
+      hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+      skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+      qi: 1500, bullets: [], alive: true, kills: 0
+    }
+  ];
+
+  // Variables de bataille
+  let battleRunning = false, battleStartTime = 0, timeLeft = 600;
+  let explosions = [], energyWaves = [];
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Création des particules d'arrière-plan
+  function createBackgroundParticles() {
+    const container = document.getElementById('bgParticles');
+    for (let i = 0; i < 50; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.animationDelay = Math.random() * 20 + 's';
+      particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+      container.appendChild(particle);
+    }
+  }
+
+  // Ajout des méthodes aux robots
+  robots.forEach(robot => {
+    robot.adapt = function(success) {
+      const rate = 0.01;
+      Object.keys(this.skills).forEach(skill => {
+        this.skills[skill] = Math.min(0.95, this.skills[skill] + rate * (success ? 1 : -0.3));
+      });
+      this.updateQI();
+    };
+
+    robot.updateQI = function() {
+      const avgSkill = Object.values(this.skills).reduce((a, b) => a + b) / 5;
+      this.qi = Math.min(12000, 1500 + avgSkill * 8000);
+    };
+
+    robot.takeDamage = function(damage, attacker) {
+      if (!this.alive) return;
+
+      this.health = Math.max(0, this.health - damage);
+
+      if (this.health <= 0) {
+        this.alive = false;
+        if (attacker) {
+          attacker.kills++;
+        }
+        createExplosionEffect(this.x + this.w/2, this.y + this.h/2, '#ffffff', true);
+      }
+    };
+  });
+
+  // Classe Bullet optimisée
+  class EnhancedBullet {
+    constructor(x, y, direction, owner) {
+      this.reset(x, y, direction, owner);
+    }
+
+    reset(x, y, direction, owner) {
+      this.x = x;
+      this.y = y;
+      this.speed = cfg.bulletSpeed * direction;
+      this.w = 12;
+      this.h = 6;
+      this.owner = owner;
+      this.color = owner.color;
+      this.trail = [];
+      this.energy = 1;
+      this.rotation = 0;
+      this.active = true;
+    }
+
+    update() {
+      if (!this.active) return;
+
+      this.x += this.speed;
+      this.rotation += 0.2;
+
+      if (Math.random() < 0.7) {
+        this.trail.push({ x: this.x, y: this.y, energy: this.energy });
+        if (this.trail.length > 5) this.trail.shift();
+      }
+
+      this.trail.forEach(t => t.energy *= 0.92);
+    }
+
+    draw() {
+      if (!this.active) return;
+
+      ctx.save();
+
+      // Trainée
+      if (this.trail.length > 0) {
+        ctx.globalCompositeOperation = 'lighter';
+        this.trail.forEach((t, i) => {
+          const alpha = t.energy * 0.5;
+          const size = (i / this.trail.length) * 4;
+
+          if (alpha > 0.1) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = this.color;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        });
+        ctx.globalCompositeOperation = 'source-over';
+      }
+
+      // Projectile principal
+      ctx.translate(this.x + this.w/2, this.y + this.h/2);
+      ctx.rotate(this.rotation);
+
+      ctx.globalAlpha = 0.8;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = this.color;
+      ctx.fillStyle = this.color;
+
+      ctx.beginPath();
+      ctx.moveTo(-this.w/2, 0);
+      ctx.lineTo(0, -this.h/2);
+      ctx.lineTo(this.w/2, 0);
+      ctx.lineTo(0, this.h/2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.w/4, this.h/4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  // Pool d'objets pour optimiser la mémoire
+  class ObjectPool {
+    static bulletPool = [];
+    static explosionPool = [];
+
+    static getBullet() {
+      return this.bulletPool.pop() || new EnhancedBullet(0, 0, 1, robots[0]);
+    }
+
+    static returnBullet(bullet) {
+      bullet.active = false;
+      if (this.bulletPool.length < 50) {
+        this.bulletPool.push(bullet);
+      }
+    }
+
+    static getExplosion() {
+      return this.explosionPool.pop() || new EnhancedExplosion(0, 0, '#ffffff');
+    }
+
+    static returnExplosion(explosion) {
+      if (this.explosionPool.length < 20) {
+        this.explosionPool.push(explosion);
+      }
+    }
+  }
+
+  // Effets d'explosion optimisés
+  class EnhancedExplosion {
+    constructor(x, y, color) {
+      this.reset(x, y, color);
+    }
+
+    reset(x, y, color, isDestruction = false) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      this.particles = [];
+      this.life = isDestruction ? 80 : 45;
+      this.maxLife = isDestruction ? 80 : 45;
+      this.isDestruction = isDestruction;
+
+      const particleCount = isDestruction ? 25 : 15;
+      for (let i = 0; i < particleCount; i++) {
+        this.particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * (isDestruction ? 25 : 15),
+          vy: (Math.random() - 0.5) * (isDestruction ? 25 : 15),
+          size: Math.random() * (isDestruction ? 10 : 6) + (isDestruction ? 4 : 2),
+          life: 1,
+          decay: Math.random() * 0.04 + 0.03
+        });
+      }
+    }
+
+    update() {
+      this.life--;
+
+      for (let i = this.particles.length - 1; i >= 0; i--) {
+        const p = this.particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        p.life -= p.decay;
+        p.size *= 0.97;
+
+        if (p.life <= 0) {
+          this.particles.splice(i, 1);
+        }
+      }
+    }
+
+    draw() {
+      if (this.particles.length === 0) return;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      this.particles.forEach(p => {
+        const alpha = p.life * (this.life / this.maxLife);
+
+        if (alpha > 0.1) {
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.shadowBlur = this.isDestruction ? 20 : 10;
+          ctx.shadowColor = this.color;
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (alpha > 0.3) {
+            ctx.globalAlpha = alpha * 0.6;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      });
+
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.restore();
+    }
+
+    isDead() {
+      return this.life <= 0 && this.particles.length === 0;
+    }
+  }
+
+  // IA de combat pour bataille royale
+  class CombatAI {
+    static think(robot, enemies, allBullets) {
+      if (!robot.alive) return;
+
+      // Trouver l'ennemi le plus proche et le plus menaçant
+      const aliveEnemies = enemies.filter(e => e.alive);
+      if (aliveEnemies.length === 0) return;
+
+      const closestEnemy = aliveEnemies.reduce((closest, enemy) => {
+        const distToEnemy = Math.abs(enemy.x - robot.x);
+        const distToClosest = Math.abs(closest.x - robot.x);
+        return distToEnemy < distToClosest ? enemy : closest;
+      });
+
+      const distance = Math.abs(closestEnemy.x - robot.x);
+      const heightDiff = Math.abs(closestEnemy.y - robot.y);
+      const enemyDirection = closestEnemy.x > robot.x ? 1 : -1;
+
+      // Détecter les balles dangereuses de tous les ennemis
+      const dangerousBullets = allBullets.filter(b => {
+        if (b.owner === robot) return false;
+        const bulletDirection = b.speed > 0 ? 1 : -1;
+        const willHit = Math.abs(b.y - robot.y) < 70;
+        const inRange = bulletDirection > 0 ?
+                (b.x < robot.x + 250 && b.x > robot.x - 80) :
+                (b.x > robot.x - 250 && b.x < robot.x + 80);
+        return willHit && inRange;
+      });
+
+      robot.dx = 0;
+
+      // Esquive multi-directionnelle
+      if (dangerousBullets.length > 0) {
+        const bullet = dangerousBullets[0];
+        const dodgeDirection = bullet.speed > 0 ? -1 : 1;
+
+        robot.dx = dodgeDirection * cfg.moveSpeed * 2.5 * robot.skills.evasion;
+
+        if (robot.onGround && Math.random() < robot.skills.reaction * 0.9) {
+          robot.dy = -cfg.jumpForce;
+          robot.onGround = false;
+        }
+        robot.adapt(true);
+      } else {
+        // Positionnement tactique dans une bataille royale
+        const optimalDistance = 300;
+
+        // Éviter d'être encerclé
+        const leftEnemies = aliveEnemies.filter(e => e.x < robot.x).length;
+        const rightEnemies = aliveEnemies.filter(e => e.x > robot.x).length;
+
+        if (leftEnemies > rightEnemies + 1) {
+          robot.dx = cfg.moveSpeed * robot.skills.positioning;
+        } else if (rightEnemies > leftEnemies + 1) {
+          robot.dx = -cfg.moveSpeed * robot.skills.positioning;
+        } else if (distance > optimalDistance + 120) {
+          robot.dx = enemyDirection * cfg.moveSpeed * robot.skills.positioning;
+        } else if (distance < optimalDistance - 120) {
+          robot.dx = -enemyDirection * cfg.moveSpeed * robot.skills.positioning;
+        } else {
+          if (Math.random() < 0.2) {
+            robot.dx = (Math.random() - 0.5) * cfg.moveSpeed * robot.skills.positioning;
+          }
+        }
+      }
+
+      // Système de tir intelligent pour bataille royale
+      if (robot.shootCD <= 0 && distance < 600) {
+        let accuracy = robot.skills.precision;
+
+        // Bonus de précision basé sur la distance
+        if (distance < 200) accuracy *= 1.2;
+        else if (distance > 400) accuracy *= 0.8;
+
+        const heightPenalty = Math.min(0.3, heightDiff / 250);
+        const finalAccuracy = Math.max(0.2, accuracy - heightPenalty);
+
+        // Tirer plus souvent quand il y a plus d'ennemis
+        const aggressionBonus = Math.max(0, (aliveEnemies.length - 1) * 0.1);
+        const shootChance = finalAccuracy + aggressionBonus;
+
+        if (Math.random() < shootChance) {
+          const bulletDirection = enemyDirection;
+          const bulletY = robot.y + robot.h/2;
+
+          const bullet = ObjectPool.getBullet();
+          bullet.reset(robot.x + (bulletDirection > 0 ? robot.w : 0), bulletY, bulletDirection, robot);
+          robot.bullets.push(bullet);
+
+          robot.shots++;
+          robot.shootCD = Math.max(5, 30 - (robot.skills.aggression * 20));
+          robot.dx -= bulletDirection * 2;
+        }
+      }
+
+      // Sauts tactiques
+      if (heightDiff > 100 && distance < 450 && robot.onGround && Math.random() < robot.skills.aggression * 0.4) {
+        robot.dy = -cfg.jumpForce * 0.8;
+        robot.onGround = false;
+      }
+    }
+  }
+
+  // Système d'entraînement intensif
+  class CombatTraining {
+    static async trainAllRobots() {
+      for (let i = 0; i < 4; i++) {
+        await this.trainRobot(robots[i], i + 1);
+      }
+    }
+
+    static async trainRobot(robot, robotNum) {
+      for (let i = 0; i < 15000; i += 100) {
+        this.simulateBatch(robot, 100);
+        document.getElementById('trainBtn').textContent = `🔄 Robot ${robotNum}: ${i + 100}/15000`;
+        if (i % 300 === 0) {
+          await new Promise(r => setTimeout(r, 10));
+        }
+      }
+      robot.trained = true;
+    }
+
+    static simulateBatch(robot, size) {
+      for (let i = 0; i < size; i++) {
+        const enemyCount = Math.floor(Math.random() * 3) + 1;
+        const bulletThreats = Math.random() * 5;
+        const shotsTaken = Math.random() * 10 + 3;
+
+        const skill = (robot.skills.precision + robot.skills.evasion + robot.skills.reaction) / 3;
+        const hitChance = Math.max(0.1, skill * 0.7);
+        const survivalChance = Math.max(0.2, skill * 0.85 - bulletThreats * 0.12);
+
+        const hits = Math.floor(shotsTaken * hitChance);
+        const survived = Math.random() < survivalChance;
+
+        robot.adapt(hits > shotsTaken * 0.4 && survived);
+
+        const combatBonus = hits / shotsTaken;
+        robot.skills.precision += combatBonus * 0.003;
+        robot.skills.aggression += (survived ? 0.002 : -0.001);
+
+        Object.keys(robot.skills).forEach(skill => {
+          robot.skills[skill] = Math.max(0.1, Math.min(0.95, robot.skills[skill]));
+        });
+      }
+      robot.updateQI();
+    }
+  }
+
+  // Fonctions principales
+  async function trainAllRobots() {
+    document.getElementById('trainBtn').disabled = true;
+    await CombatTraining.trainAllRobots();
+    document.getElementById('trainBtn').textContent = '🏆 TOUS LES ROBOTS ENTRAÎNÉS !';
+    document.getElementById('battleBtn').disabled = false;
+
+    setTimeout(() => {
+      document.getElementById('trainBtn').textContent = '🚀 ENTRAÎNER LES 4 ROBOTS';
+      document.getElementById('trainBtn').disabled = false;
+    }, 4000);
+  }
+
+  function startBattle() {
+    if (!robots.every(r => r.trained)) {
+      alert('⚠️ Tous les robots doivent être entraînés !');
+      return;
+    }
+
+    battleRunning = true;
+    battleStartTime = Date.now();
+    timeLeft = 600;
+
+    // Reset des robots aux positions de départ
+    const positions = [
+      { x: 150, y: cfg.groundY - 50 },
+      { x: cfg.mapWidth - 180, y: cfg.groundY - 50 },
+      { x: cfg.mapWidth / 2 - 100, y: cfg.groundY - 50 },
+      { x: cfg.mapWidth / 2 + 100, y: cfg.groundY - 50 }
+    ];
+
+    robots.forEach((robot, i) => {
+      robot.x = positions[i].x;
+      robot.y = positions[i].y;
+      robot.dx = robot.dy = 0;
+      robot.onGround = true;
+      robot.shootCD = 0;
+      robot.hits = robot.shots = robot.kills = 0;
+      robot.health = 100;
+      robot.alive = true;
+      robot.glowIntensity = 0.3;
+      robot.bullets = [];
+    });
+
+    explosions = [];
+    energyWaves = [];
+
+    document.getElementById('battleBtn').textContent = '⚔️ BATAILLE EN COURS';
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('winner-display').style.display = 'none';
+  }
+
+  function endBattle() {
+    battleRunning = false;
+
+    const aliveRobots = robots.filter(r => r.alive);
+    const sortedByKills = [...robots].sort((a, b) => b.kills - a.kills || b.hits - a.hits);
+
+    const winnerDiv = document.getElementById('winner-display');
+    winnerDiv.style.display = 'block';
+
+    if (aliveRobots.length === 1) {
+      const winner = aliveRobots[0];
+      winnerDiv.textContent = `🏆 VICTOIRE ${winner.name} ! 🏆`;
+      winnerDiv.className = `winner ${winner.id}-win`;
+      winner.adapt(true);
+    } else if (aliveRobots.length === 0) {
+      winnerDiv.textContent = `💥 DESTRUCTION MUTUELLE ! 💥`;
+      winnerDiv.className = 'winner draw';
+    } else {
+      const winner = sortedByKills[0];
+      winnerDiv.textContent = `🏆 VICTOIRE ${winner.name} ! (${winner.kills} kills) 🏆`;
+      winnerDiv.className = `winner ${winner.id}-win`;
+    }
+
+    document.getElementById('battleBtn').textContent = '⚔️ BATAILLE ROYALE';
+    document.getElementById('battleBtn').disabled = false;
+  }
+
+  function resetGame() {
+    battleRunning = false;
+
+    robots.forEach(robot => {
+      robot.skills = { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 };
+      robot.qi = 1500;
+      robot.trained = false;
+      robot.hits = robot.shots = robot.kills = 0;
+      robot.health = 100;
+      robot.alive = true;
+      robot.bullets = [];
+    });
+
+    explosions = [];
+    energyWaves = [];
+
+    document.getElementById('trainBtn').textContent = '🚀 ENTRAÎNER LES 4 ROBOTS';
+    document.getElementById('trainBtn').disabled = false;
+    document.getElementById('battleBtn').textContent = '⚔️ BATAILLE ROYALE';
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('winner-display').style.display = 'none';
+  }
+
+  function createExplosionEffect(x, y, color, isDestruction = false) {
+    if (explosions.length < cfg.maxParticles) {
+      const explosion = ObjectPool.getExplosion();
+      explosion.reset(x, y, color, isDestruction);
+      explosions.push(explosion);
+    }
+
+    if (energyWaves.length < 10) {
+      energyWaves.push({
+        x: x,
+        y: y,
+        radius: 0,
+        maxRadius: isDestruction ? 100 : 60,
+        color: color,
+        life: isDestruction ? 40 : 25,
+        maxLife: isDestruction ? 40 : 25
+      });
+    }
+  }
+
+  // Mise à jour du jeu
+  function update() {
+    if (!battleRunning) return;
+
+    // Timer
+    const elapsed = Date.now() - battleStartTime;
+    timeLeft = Math.max(0, Math.ceil((cfg.battleDuration - elapsed) / 1000));
+
+    if (elapsed >= cfg.battleDuration || robots.filter(r => r.alive).length <= 1) {
+      endBattle();
+      return;
+    }
+
+    // Collecte de toutes les balles pour la détection de menaces
+    const allBullets = robots.reduce((acc, robot) => acc.concat(robot.bullets), []);
+
+    // IA decisions
+    if (Date.now() % 2 === 0) {
+      robots.forEach(robot => {
+        if (robot.alive) {
+          const enemies = robots.filter(r => r !== robot);
+          CombatAI.think(robot, enemies, allBullets);
+        }
+      });
+    }
+
+    // Physique des robots
+    robots.forEach(robot => {
+      if (robot.alive) {
+        updateRobotPhysics(robot);
+      }
+    });
+
+    // Mise à jour des balles
+    updateBulletsOptimized();
+
+    // Mise à jour des explosions
+    updateExplosions();
+
+    // Mise à jour des ondes énergétiques
+    updateEnergyWaves();
+
+    // Collisions
+    checkCollisionsOptimized();
+  }
+
+  function updateRobotPhysics(robot) {
+    robot.x += robot.dx;
+    robot.y += robot.dy;
+
+    if (!robot.onGround) robot.dy += cfg.gravity;
+    if (robot.y >= cfg.groundY - robot.h) {
+      robot.y = cfg.groundY - robot.h;
+      robot.dy = 0;
+      robot.onGround = true;
+    }
+
+    // Limites de la map avec bordures
+    robot.x = Math.max(10, Math.min(cfg.mapWidth - robot.w - 10, robot.x));
+    robot.dx *= 0.9;
+
+    if (robot.shootCD > 0) robot.shootCD--;
+
+    robot.glowIntensity = 0.3 + Math.sin(Date.now() * 0.003) * 0.15;
+  }
+
+  function updateBulletsOptimized() {
+    robots.forEach(robot => {
+      robot.bullets = robot.bullets.filter((b, index) => {
+        if (index >= cfg.maxBullets) {
+          ObjectPool.returnBullet(b);
+          return false;
+        }
+        b.update();
+        if (b.x < -100 || b.x > cfg.mapWidth + 100) {
+          ObjectPool.returnBullet(b);
+          return false;
+        }
+        return true;
+      });
+    });
+  }
+
+  function updateExplosions() {
+    for (let i = explosions.length - 1; i >= 0; i--) {
+      explosions[i].update();
+      if (explosions[i].isDead()) {
+        ObjectPool.returnExplosion(explosions[i]);
+        explosions.splice(i, 1);
+      }
+    }
+  }
+
+  function updateEnergyWaves() {
+    energyWaves.forEach(wave => {
+      wave.radius += (wave.maxRadius - wave.radius) * 0.2;
+      wave.life--;
+    });
+    energyWaves = energyWaves.filter(wave => wave.life > 0);
+  }
+
+  // Détection des collisions
+  function checkCollisionsOptimized() {
+    robots.forEach(shooter => {
+      if (!shooter.alive) return;
+
+      shooter.bullets.forEach((bullet, bulletIndex) => {
+        robots.forEach(target => {
+          if (target === shooter || !target.alive) return;
+
+          // Zone de collision élargie
+          const targetZone = {
+            x: target.x - 5, y: target.y - 5,
+            w: target.w + 10, h: target.h + 10
+          };
+
+          // Pré-vérification rapide
+          if (bullet.x < targetZone.x || bullet.x > targetZone.x + targetZone.w ||
+                  bullet.y < targetZone.y || bullet.y > targetZone.y + targetZone.h) {
+            return;
+          }
+
+          // Vérification précise
+          if (bullet.x < target.x + target.w && bullet.x + bullet.w > target.x &&
+                  bullet.y < target.y + target.h && bullet.y + bullet.h > target.y) {
+
+            ObjectPool.returnBullet(bullet);
+            shooter.bullets.splice(bulletIndex, 1);
+            shooter.hits++;
+
+            target.takeDamage(15, shooter);
+
+            createExplosionEffect(target.x + target.w/2, target.y + target.h/2, shooter.color);
+
+            // Effet de recul
+            const knockback = bullet.speed > 0 ? 8 : -8;
+            target.dx += knockback;
+            if (target.onGround && target.alive) {
+              target.dy = -12;
+              target.onGround = false;
+            }
+          }
+        });
+      });
+    });
+  }
+
+  // Rendu amélioré
+  function draw() {
+    // Arrière-plan avec dégradé
+    const gradient = ctx.createLinearGradient(0, 0, 0, cfg.mapHeight);
+    gradient.addColorStop(0, '#001133');
+    gradient.addColorStop(0.3, '#000022');
+    gradient.addColorStop(0.7, '#000011');
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, cfg.mapWidth, cfg.mapHeight);
+
+    // Grille énergétique
+    ctx.save();
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 10]);
+
+    for (let x = 0; x < cfg.mapWidth; x += 60) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, cfg.mapHeight);
+      ctx.stroke();
+    }
+
+    for (let y = 0; y < cfg.mapHeight; y += 60) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(cfg.mapWidth, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Sol futuriste
+    ctx.save();
+    const groundGradient = ctx.createLinearGradient(0, cfg.groundY, 0, cfg.mapHeight);
+    groundGradient.addColorStop(0, 'rgba(78, 205, 196, 0.3)');
+    groundGradient.addColorStop(0.5, 'rgba(78, 205, 196, 0.1)');
+    groundGradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+    ctx.fillStyle = groundGradient;
+    ctx.fillRect(0, cfg.groundY, cfg.mapWidth, cfg.mapHeight - cfg.groundY);
+
+    ctx.strokeStyle = '#4ecdc4';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#4ecdc4';
+    ctx.beginPath();
+    ctx.moveTo(0, cfg.groundY);
+    ctx.lineTo(cfg.mapWidth, cfg.groundY);
+    ctx.stroke();
+    ctx.restore();
+
+    if (battleRunning) {
+      // Ondes énergétiques
+      energyWaves.forEach(wave => {
+        ctx.save();
+        ctx.globalAlpha = (wave.life / wave.maxLife) * 0.6;
+        ctx.strokeStyle = wave.color;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = wave.color;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Robots
+      robots.forEach(robot => {
+        if (robot.alive) {
+          drawEnhancedRobot(robot);
+        } else {
+          drawDestroyedRobot(robot);
+        }
+      });
+
+      // Balles
+      robots.forEach(robot => {
+        robot.bullets.forEach(b => b.draw());
+      });
+
+      // Explosions
+      explosions.forEach(exp => exp.draw());
+
+      // Compteur de robots vivants
+      const aliveCount = robots.filter(r => r.alive).length;
+      ctx.save();
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 24px Orbitron';
+      ctx.textAlign = 'center';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#ffd700';
+      ctx.fillText(`ROBOTS RESTANTS: ${aliveCount}`, cfg.mapWidth/2, 50);
+      ctx.restore();
+
+    } else {
+      // Écran d'attente
+      ctx.save();
+      ctx.fillStyle = '#4ecdc4';
+      ctx.font = 'bold 36px Orbitron';
+      ctx.textAlign = 'center';
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#4ecdc4';
+      ctx.fillText('ARÈNE DE COMBAT - 4 ROBOTS', cfg.mapWidth/2, cfg.mapHeight/2 - 60);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = '18px Orbitron';
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = '#fff';
+      ctx.fillText('Entraînez les 4 robots puis lancez la bataille royale !', cfg.mapWidth/2, cfg.mapHeight/2 + 20);
+      ctx.restore();
+    }
+  }
+
+  function drawEnhancedRobot(robot) {
+    ctx.save();
+
+    // Aura énergétique
+    const auraSize = 25 + robot.glowIntensity * 15;
+    const auraGradient = ctx.createRadialGradient(
+            robot.x + robot.w/2, robot.y + robot.h/2, 0,
+            robot.x + robot.w/2, robot.y + robot.h/2, auraSize
+    );
+    auraGradient.addColorStop(0, robot.color + '80');
+    auraGradient.addColorStop(0.7, robot.color + '30');
+    auraGradient.addColorStop(1, robot.color + '00');
+
+    ctx.fillStyle = auraGradient;
+    ctx.fillRect(robot.x - auraSize/2, robot.y - auraSize/2, robot.w + auraSize, robot.h + auraSize);
+
+    // Corps du cyborg
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = robot.color;
+
+    const bodyGradient = ctx.createLinearGradient(robot.x, robot.y, robot.x + robot.w, robot.y + robot.h);
+    bodyGradient.addColorStop(0, robot.color);
+    bodyGradient.addColorStop(0.5, '#ffffff');
+    bodyGradient.addColorStop(1, robot.color);
+    ctx.fillStyle = bodyGradient;
+    ctx.fillRect(robot.x, robot.y, robot.w, robot.h);
+
+    // Détails cybernétiques
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(robot.x + 5, robot.y + 5, robot.w - 10, 3);
+    ctx.fillRect(robot.x + 5, robot.y + robot.h - 8, robot.w - 10, 3);
+    ctx.fillRect(robot.x + robot.w/2 - 1, robot.y, 2, robot.h);
+
+    // Yeux lumineux
+    ctx.fillStyle = robot.color;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(robot.x + 10, robot.y + 12, 3, 0, Math.PI * 2);
+    ctx.arc(robot.x + robot.w - 10, robot.y + 12, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Barre de santé
+    const healthBarWidth = robot.w;
+    const healthBarHeight = 4;
+    const healthY = robot.y - 15;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fillRect(robot.x, healthY, healthBarWidth, healthBarHeight);
+
+    const healthGradient = ctx.createLinearGradient(robot.x, healthY, robot.x + healthBarWidth, healthY);
+    healthGradient.addColorStop(0, '#ff0000');
+    healthGradient.addColorStop(0.5, '#ffff00');
+    healthGradient.addColorStop(1, '#00ff00');
+    ctx.fillStyle = healthGradient;
+    ctx.fillRect(robot.x, healthY, (robot.health / 100) * healthBarWidth, healthBarHeight);
+
+    ctx.restore();
+  }
+
+  function drawDestroyedRobot(robot) {
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#666666';
+    ctx.fillRect(robot.x, robot.y, robot.w, robot.h);
+
+    // Croix de destruction
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(robot.x, robot.y);
+    ctx.lineTo(robot.x + robot.w, robot.y + robot.h);
+    ctx.moveTo(robot.x + robot.w, robot.y);
+    ctx.lineTo(robot.x, robot.y + robot.h);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Mise à jour de l'interface
+  // Mise à jour de l'interface
+  function updateUI() {
+    robots.forEach((robot, i) => {
+      const index = i + 1;
+      document.getElementById(`ia${index}-qi`).textContent = Math.floor(robot.qi);
+      document.getElementById(`ia${index}-precision`).textContent = Math.floor(robot.skills.precision * 100) + '%';
+      document.getElementById(`ia${index}-evasion`).textContent = Math.floor(robot.skills.evasion * 100) + '%';
+      document.getElementById(`ia${index}-trained`).textContent = robot.trained ? '✅' : '❌';
+      document.getElementById(`ia${index}-hits`).textContent = robot.hits;
+      document.getElementById(`ia${index}-shots`).textContent = robot.shots;
+      document.getElementById(`ia${index}-accuracy`).textContent = robot.shots > 0
+              ? Math.floor((robot.hits / robot.shots) * 100) + '%'
+              : '0%';
+
+      // Barre de vie dans HUD
+      const healthEl = document.getElementById(`ia${index}-health`);
+      healthEl.style.width = robot.health + '%';
+    });
+
+    // Timer
+    const minutes = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+    const seconds = String(timeLeft % 60).padStart(2, '0');
+    document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+
+    // Classement (tri par kills et QI)
+    const sorted = [...robots].sort((a, b) => b.kills - a.kills || b.qi - a.qi);
+    const leaderboardHTML = sorted.map((r, i) => `${i + 1}. ${r.name} (${r.kills} kills)`).join('<br>');
+    document.getElementById('leaderboard-content').innerHTML = leaderboardHTML;
+  }
+
+  // Boucle principale
+  function gameLoop() {
+    update();
+    draw();
+    updateUI();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Initialisation
+  createBackgroundParticles();
+  gameLoop();
+
+  // Gestion des boutons
+  document.getElementById('trainBtn').addEventListener('click', trainAllRobots);
+  document.getElementById('battleBtn').addEventListener('click', startBattle);
+  document.getElementById('resetBtn').addEventListener('click', resetGame);
+</script>
+</body>
+</html>

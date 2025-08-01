@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Mini Mario</title>
+    <style>
+        body {
+            margin: 0;
+            background: #87CEEB;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: #87CEEB;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const marioImage = new Image();
+    let imageReady = false;
+
+    marioImage.onload = () => {
+        imageReady = true;
+        gameLoop();
+    };
+
+    marioImage.onerror = () => {
+        console.warn("Image Mario introuvable, rectangle rouge utilisé.");
+        imageReady = false;
+        gameLoop();
+    };
+
+    marioImage.src = "C:\\Users\\kriss\\Desktop\\jeu3d\\1619791365722.jpg";
+
+    const mario = {
+        x: 100,
+        y: 0,
+        width: 30,
+        height: 50,
+        dx: 0,
+        dy: 0,
+        speed: 3,
+        jumping: false,
+        lives: 5,
+        score: 0
+    };
+
+    const bullets = [];
+    const enemyBullets = [];
+    const gravity = 0.5;
+    const jumpPower = -10;
+    const keys = {};
+
+    let enemies = [];
+    let birds = [];
+    let bombs = [];
+    let platforms = [];
+    const ground = { x: 0, y: 350, width: 800, height: 50, color: "#228B22" };
+    let scrollOffset = 0;
+    let backgroundObjects = [];
+
+    for (let i = 0; i < 50; i++) {
+        backgroundObjects.push({
+            x: i * 400,
+            y: 300 + Math.random() * 30,
+            width: 20,
+            height: 50,
+            color: "#654321"
+        });
+    }
+
+    for (let i = 0; i < 20; i++) {
+        platforms.push({
+            x: i * 400 + 200,
+            y: 280,
+            width: 100,
+            height: 10,
+            color: "#8B4513"
+        });
+    }
+
+    function spawnEnemy() {
+        const x = scrollOffset + canvas.width + Math.random() * 400;
+        enemies.push({
+            x,
+            y: 320,
+            width: 30,
+            height: 30,
+            color: "green",
+            alive: true,
+            type: Math.random() < 0.5 ? "walker" : "charger",
+            dx: 0,
+            range: [x - 50, x + 50],
+            shootCooldown: Math.random() * 3000 + 2000
+        });
+    }
+
+    function spawnBomb() {
+        const x = scrollOffset + Math.random() * canvas.width;
+        bombs.push({
+            x,
+            y: -20,
+            width: 10,
+            height: 20,
+            speed: 3
+        });
+    }
+
+    function shootEnemyBullet(enemy) {
+        if (!enemy.alive) return;
+        enemyBullets.push({
+            x: enemy.x,
+            y: enemy.y + enemy.height / 2,
+            width: 6,
+            height: 4,
+            speed: 3
+        });
+    }
+
+    function spawnBird() {
+        const x = scrollOffset + canvas.width + Math.random() * 500;
+        const y = 50 + Math.random() * 100;
+        birds.push({
+            x,
+            y,
+            width: 25,
+            height: 25,
+            color: "purple",
+            alive: true,
+            speed: 2 + Math.random() * 2
+        });
+    }
+
+    setInterval(() => {
+        if (enemies.length < 10) spawnEnemy();
+        if (birds.length < 5) spawnBird();
+        if (bombs.length < 10) spawnBomb();
+    }, 2000);
+
+    document.addEventListener("keydown", e => {
+        keys[e.key] = true;
+
+        if ((e.key === "ArrowUp" || e.key.toLowerCase() === "z") && !mario.jumping) {
+            mario.dy = jumpPower;
+            mario.jumping = true;
+        }
+
+        if (e.key.toLowerCase() === "a") {
+            bullets.push({
+                x: mario.x + (mario.dx >= 0 ? mario.width : -10),
+                y: mario.y + mario.height / 2 - 2,
+                width: 10,
+                height: 4,
+                speed: mario.dx >= 0 ? 6 : -6
+            });
+        }
+
+        if (e.key.toLowerCase() === "f") {
+            const punchBox = {
+                x: mario.x + mario.width,
+                y: mario.y + 10,
+                width: 20,
+                height: 20
+            };
+            enemies.forEach(enemy => {
+                if (enemy.alive && punchBox.x < enemy.x + enemy.width && punchBox.x + punchBox.width > enemy.x && punchBox.y < enemy.y + enemy.height && punchBox.y + punchBox.height > enemy.y) {
+                    enemy.alive = false;
+                    mario.score += 10;
+                }
+            });
+            birds.forEach(bird => {
+                if (bird.alive && punchBox.x < bird.x + bird.width && punchBox.x + punchBox.width > bird.x && punchBox.y < bird.y + bird.height && punchBox.y + punchBox.height > bird.y) {
+                    bird.alive = false;
+                    mario.score += 10;
+                }
+            });
+        }
+    });
+
+    document.addEventListener("keyup", e => {
+        keys[e.key] = false;
+    });
+
+    function update() {
+        bullets.forEach((b, i) => {
+            enemies.forEach(enemy => {
+                if (enemy.alive && b.x < enemy.x + enemy.width && b.x + b.width > enemy.x && b.y < enemy.y + enemy.height && b.y + b.height > enemy.y) {
+                    enemy.alive = false;
+                    mario.score += 10;
+                    bullets.splice(i, 1);
+                }
+            });
+            birds.forEach(bird => {
+                if (bird.alive && b.x < bird.x + bird.width && b.x + b.width > bird.x && b.y < bird.y + bird.height && b.y + b.height > bird.y) {
+                    bird.alive = false;
+                    mario.score += 10;
+                    bullets.splice(i, 1);
+                }
+            });
+        });
+
+        enemies.forEach(enemy => {
+            if (enemy.alive && mario.x < enemy.x + enemy.width && mario.x + mario.width > enemy.x && mario.y + mario.height > enemy.y + 10 && mario.y < enemy.y + enemy.height) {
+                mario.lives--;
+                enemy.alive = false;
+            }
+        });
+
+        mario.dy += gravity;
+        mario.y += mario.dy;
+        mario.x += mario.dx;
+        if (keys["ArrowLeft"]) mario.dx = -mario.speed;
+        else if (keys["ArrowRight"]) mario.dx = mario.speed;
+        else mario.dx = 0;
+
+        if (mario.y + mario.height >= ground.y) {
+            mario.y = ground.y - mario.height;
+            mario.dy = 0;
+            mario.jumping = false;
+        }
+
+        scrollOffset += mario.dx;
+
+        bullets.forEach((b, i) => {
+            b.x += b.speed;
+            if (b.x > scrollOffset + canvas.width || b.x < scrollOffset) bullets.splice(i, 1);
+        });
+
+        enemyBullets.forEach((b, i) => {
+            b.x -= b.speed;
+            if (b.x < mario.x + mario.width && b.x + b.width > mario.x && b.y < mario.y + mario.height && b.y + b.height > mario.y) {
+                mario.lives--;
+                enemyBullets.splice(i, 1);
+            } else if (b.x + b.width < scrollOffset) {
+                enemyBullets.splice(i, 1);
+            }
+        });
+
+        bombs.forEach((bomb, i) => {
+            bomb.y += bomb.speed;
+            if (bomb.x < mario.x + mario.width && bomb.x + bomb.width > mario.x && bomb.y < mario.y + mario.height && bomb.y + bomb.height > mario.y) {
+                mario.lives--;
+                bombs.splice(i, 1);
+            }
+        });
+
+        enemies.forEach(enemy => {
+            if (!enemy.alive) return;
+            if (enemy.type === "walker") {
+                if (!enemy.reverse) enemy.x += 1;
+                else enemy.x -= 1;
+                if (enemy.x > enemy.range[1]) enemy.reverse = true;
+                if (enemy.x < enemy.range[0]) enemy.reverse = false;
+            } else if (enemy.type === "charger") {
+                if (Math.abs(enemy.x - mario.x) < 300) {
+                    enemy.x += mario.x < enemy.x ? -2 : 2;
+                }
+            }
+            enemy.shootCooldown -= 16;
+            if (enemy.shootCooldown <= 0) {
+                shootEnemyBullet(enemy);
+                enemy.shootCooldown = Math.random() * 3000 + 2000;
+            }
+        });
+
+        birds.forEach(bird => {
+            if (!bird.alive) return;
+            bird.x -= bird.speed;
+            if (bird.x < mario.x + mario.width && bird.x + bird.width > mario.x && bird.y < mario.y + mario.height && bird.y + bird.height > mario.y) {
+                mario.lives--;
+                bird.alive = false;
+            }
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        backgroundObjects.forEach(obj => {
+            ctx.fillStyle = obj.color;
+            ctx.fillRect(obj.x - scrollOffset, obj.y, obj.width, obj.height);
+        });
+        ctx.fillStyle = ground.color;
+        ctx.fillRect(ground.x, ground.y, ground.width, ground.height);
+        platforms.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x - scrollOffset, p.y, p.width, p.height);
+        });
+        if (imageReady) {
+            ctx.drawImage(marioImage, mario.x, mario.y, mario.width, mario.height);
+        } else {
+            ctx.fillStyle = "red";
+            ctx.fillRect(mario.x, mario.y, mario.width, mario.height);
+        }
+        bullets.forEach(b => {
+            ctx.fillStyle = "black";
+            ctx.fillRect(b.x - scrollOffset, b.y, b.width, b.height);
+        });
+        enemyBullets.forEach(b => {
+            ctx.fillStyle = "orange";
+            ctx.fillRect(b.x - scrollOffset, b.y, b.width, b.height);
+        });
+        bombs.forEach(b => {
+            ctx.fillStyle = "gray";
+            ctx.fillRect(b.x - scrollOffset, b.y, b.width, b.height);
+        });
+        enemies.forEach(e => {
+            if (!e.alive) return;
+            ctx.fillStyle = e.color;
+            ctx.fillRect(e.x - scrollOffset, e.y, e.width, e.height);
+        });
+        birds.forEach(b => {
+            if (!b.alive) return;
+            ctx.fillStyle = b.color;
+            ctx.fillRect(b.x - scrollOffset, b.y, b.width, b.height);
+        });
+        ctx.fillStyle = "black";
+        ctx.fillText("Vies : " + mario.lives, 10, 20);
+        ctx.fillText("Score : " + mario.score, 10, 40);
+    }
+
+    function gameLoop() {
+        try {
+            update();
+            draw();
+        } catch (e) {
+            console.error("Erreur dans la boucle de jeu:", e);
+        }
+        requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>

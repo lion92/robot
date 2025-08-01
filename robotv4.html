@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combat IA vs IA - Enhanced 2D</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+    body {
+      margin: 0; padding: 0;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 35%, #0f0f23 100%);
+      color: #fff; font-family: 'Orbitron', monospace;
+      overflow: hidden; position: relative;
+    }
+
+    /* Particules d'arrière-plan */
+    .bg-particles {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 1;
+    }
+
+    .particle {
+      position: absolute; width: 2px; height: 2px;
+      background: rgba(78, 205, 196, 0.3); border-radius: 50%;
+      animation: float 20s infinite linear;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-100px) translateX(100px); opacity: 0; }
+    }
+
+    .hud-overlay {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      pointer-events: none;
+    }
+
+    .battle-info {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(26,26,46,0.6) 100%);
+      backdrop-filter: blur(15px); border-bottom: 2px solid;
+      border-image: linear-gradient(90deg, #4ecdc4, #ff6b6b) 1;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+    }
+
+    .ia-panel {
+      background: linear-gradient(145deg, rgba(68,68,68,0.9), rgba(85,85,85,0.7));
+      border: 2px solid; border-radius: 15px; padding: 20px; min-width: 250px;
+      backdrop-filter: blur(10px); position: relative; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .ia-panel::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, currentColor, transparent);
+      animation: scanline 2s infinite;
+    }
+
+    @keyframes scanline {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    .ia1 {
+      border-color: #4ecdc4; color: #4ecdc4;
+      box-shadow: 0 0 30px rgba(78, 205, 196, 0.4), inset 0 0 20px rgba(78, 205, 196, 0.1);
+    }
+
+    .ia2 {
+      border-color: #ff6b6b; color: #ff6b6b;
+      box-shadow: 0 0 30px rgba(255, 107, 107, 0.4), inset 0 0 20px rgba(255, 107, 107, 0.1);
+    }
+
+    .vs {
+      font-size: 42px; font-weight: 900; color: #ffd700;
+      text-shadow: 0 0 20px #ffd700, 0 0 40px #ffd700;
+      animation: pulse 3s infinite; align-self: center;
+      filter: drop-shadow(0 0 10px #ffd700);
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.1) rotate(2deg); }
+      75% { transform: scale(1.1) rotate(-2deg); }
+    }
+
+    .stat-row {
+      display: flex; justify-content: space-between; margin: 10px 0;
+      font-size: 14px; font-weight: 400; opacity: 0.9;
+      padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stat-row span:last-child {
+      font-weight: 700; text-shadow: 0 0 10px currentColor;
+    }
+
+    .timer {
+      position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+      font-size: 64px; font-weight: 900; color: #ffd700; z-index: 101;
+      text-shadow: 0 0 30px #ffd700, 0 0 60px #ffd700, 0 4px 10px rgba(0,0,0,0.5);
+      font-family: 'Orbitron', monospace; letter-spacing: 4px;
+      filter: drop-shadow(0 0 20px #ffd700);
+    }
+
+    canvas {
+      border: 3px solid; border-image: linear-gradient(45deg, #4ecdc4, #ff6b6b, #4ecdc4) 1;
+      background: linear-gradient(180deg, #001133 0%, #000022 70%, #000000 100%);
+      margin: 20px auto; display: block; border-radius: 15px;
+      box-shadow: 0 0 50px rgba(78, 205, 196, 0.3), inset 0 0 50px rgba(0,0,0,0.5);
+      position: relative; z-index: 10;
+    }
+
+    .controls {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      z-index: 100; display: flex; gap: 20px; pointer-events: all;
+    }
+
+    button {
+      padding: 18px 35px; border: none; border-radius: 30px; cursor: pointer;
+      font-weight: 700; font-size: 16px; font-family: 'Orbitron', monospace;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative; overflow: hidden; text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button::before {
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    button:hover::before { left: 100%; }
+
+    button:hover {
+      transform: translateY(-3px) scale(1.05);
+    }
+
+    button:active { transform: translateY(0) scale(0.98); }
+
+    button:disabled {
+      opacity: 0.5; cursor: not-allowed; transform: none;
+      filter: grayscale(1);
+    }
+
+    .train-btn {
+      background: linear-gradient(135deg, #ff8800, #ffaa00, #ff8800);
+      color: #000; box-shadow: 0 6px 25px rgba(255, 136, 0, 0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .train-btn:hover {
+      box-shadow: 0 10px 35px rgba(255, 136, 0, 0.7);
+    }
+
+    .battle-btn {
+      background: linear-gradient(135deg, #28a745, #20c997, #28a745);
+      color: #fff; box-shadow: 0 6px 25px rgba(40, 167, 69, 0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .battle-btn:hover {
+      box-shadow: 0 10px 35px rgba(40, 167, 69, 0.7);
+    }
+
+    .reset-btn {
+      background: linear-gradient(135deg, #4ecdc4, #45b7d1, #4ecdc4);
+      color: #000; box-shadow: 0 6px 25px rgba(78, 205, 196, 0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .reset-btn:hover {
+      box-shadow: 0 10px 35px rgba(78, 205, 196, 0.7);
+    }
+
+    .winner {
+      position: fixed; top: 25%; left: 50%; transform: translateX(-50%);
+      font-size: 32px; padding: 25px 50px; border-radius: 20px;
+      z-index: 101; text-align: center; font-weight: 900;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.6);
+      animation: winnerAppear 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      backdrop-filter: blur(10px); border: 2px solid;
+      font-family: 'Orbitron', monospace; letter-spacing: 2px;
+    }
+
+    @keyframes winnerAppear {
+      0% { opacity: 0; transform: translateX(-50%) scale(0.3) rotate(10deg); }
+      100% { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+    }
+
+    .winner.ia1-win {
+      background: linear-gradient(135deg, #4ecdc4, #45b7d1);
+      color: #000; border-color: #4ecdc4;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .winner.ia2-win {
+      background: linear-gradient(135deg, #ff6b6b, #ff5252);
+      color: #fff; border-color: #ff6b6b;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .winner.draw {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #000; border-color: #ffd700;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .score-panel {
+      position: fixed; bottom: 30px; left: 30px; right: 30px;
+      display: flex; justify-content: space-between; z-index: 100;
+      pointer-events: none;
+    }
+
+    .score-info {
+      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(26,26,46,0.7));
+      padding: 20px; border-radius: 15px; backdrop-filter: blur(15px);
+      min-width: 220px; border: 2px solid; font-weight: 400;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .score-info.ia1 { border-color: #4ecdc4; }
+    .score-info.ia2 { border-color: #ff6b6b; }
+
+    .health-bar {
+      width: 100%; height: 8px; background: rgba(255,255,255,0.1);
+      border-radius: 10px; margin-top: 8px; overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .health-fill {
+      height: 100%; transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      border-radius: 10px; position: relative;
+    }
+
+    .health-fill::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
+      border-radius: 10px 10px 0 0;
+    }
+
+    .ia1 .health-fill {
+      background: linear-gradient(90deg, #4ecdc4, #45b7d1);
+      box-shadow: 0 0 10px #4ecdc4;
+    }
+
+    .ia2 .health-fill {
+      background: linear-gradient(90deg, #ff6b6b, #ff5252);
+      box-shadow: 0 0 10px #ff6b6b;
+    }
+
+    .arena-effects {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 5;
+    }
+  </style>
+</head>
+<body>
+<!-- Particules d'arrière-plan -->
+<div class="bg-particles" id="bgParticles"></div>
+
+<div class="hud-overlay">
+  <div class="battle-info">
+    <div class="ia-panel ia1">
+      <h3>🤖 IA CYBORG BLEUE</h3>
+      <div class="stat-row"><span>QI Neural:</span> <span id="ia1-qi">1500</span></div>
+      <div class="stat-row"><span>Précision:</span> <span id="ia1-precision">40%</span></div>
+      <div class="stat-row"><span>Évasion:</span> <span id="ia1-evasion">50%</span></div>
+      <div class="stat-row"><span>Réaction:</span> <span id="ia1-reaction">60%</span></div>
+      <div class="stat-row"><span>Entrainée:</span> <span id="ia1-trained">❌</span></div>
+      <div class="health-bar"><div class="health-fill" id="ia1-health" style="width: 100%"></div></div>
+    </div>
+
+    <div class="vs">⚡ VS ⚡</div>
+
+    <div class="ia-panel ia2">
+      <h3>🤖 IA CYBORG ROUGE</h3>
+      <div class="stat-row"><span>QI Neural:</span> <span id="ia2-qi">1500</span></div>
+      <div class="stat-row"><span>Précision:</span> <span id="ia2-precision">40%</span></div>
+      <div class="stat-row"><span>Évasion:</span> <span id="ia2-evasion">50%</span></div>
+      <div class="stat-row"><span>Réaction:</span> <span id="ia2-reaction">60%</span></div>
+      <div class="stat-row"><span>Entrainée:</span> <span id="ia2-trained">❌</span></div>
+      <div class="health-bar"><div class="health-fill" id="ia2-health" style="width: 100%"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="timer" id="timer">4:00</div>
+
+<canvas id="canvas" width="1200" height="700"></canvas>
+<div class="arena-effects" id="arenaEffects"></div>
+
+<div class="score-panel">
+  <div class="score-info ia1">
+    <h4>📊 STATS CYBORG BLEU</h4>
+    <div class="stat-row"><span>Éliminations:</span> <span id="ia1-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia1-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia1-accuracy">0%</span></div>
+  </div>
+
+  <div class="score-info ia2">
+    <h4>📊 STATS CYBORG ROUGE</h4>
+    <div class="stat-row"><span>Éliminations:</span> <span id="ia2-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia2-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia2-accuracy">0%</span></div>
+  </div>
+</div>
+
+<div id="winner-display" class="winner" style="display: none;"></div>
+
+<div class="controls">
+  <button id="trainBtn" class="train-btn">🚀 CRÉER ROBOTS QUASI-PARFAITS</button>
+  <button id="battleBtn" class="battle-btn" disabled>⚔️ INITIATE COMBAT</button>
+  <button id="resetBtn" class="reset-btn">🔄 SYSTEM RESET</button>
+</div>
+
+<script>
+  // Configuration
+  const cfg = {
+    mapWidth: 1200,
+    mapHeight: 700,
+    groundY: 620,
+    battleDuration: 240000, // 4 minutes
+    bulletSpeed: 15,
+    jumpForce: 22,
+    moveSpeed: 5,
+    gravity: 0.9
+  };
+
+  // IA Objects avec nouvelles propriétés visuelles
+  const ia1 = {
+    x: 180, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+    onGround: true, shootCD: 0, color: '#4ecdc4', health: 100,
+    hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+    skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+    qi: 1500,
+    trailParticles: [],
+
+    adapt(success) {
+      const rate = 0.01;
+      Object.keys(this.skills).forEach(skill => {
+        this.skills[skill] = Math.min(0.95, this.skills[skill] + rate * (success ? 1 : -0.3));
+      });
+      this.updateQI();
+    },
+
+    updateQI() {
+      const avgSkill = Object.values(this.skills).reduce((a, b) => a + b) / 5;
+      this.qi = Math.min(12000, 1500 + avgSkill * 8000); // QI maximal augmenté à 12000
+
+      // Bonus QI pour robots quasi-parfaits
+      if (this.isPerfect) {
+        this.qi = Math.max(this.qi, 9500);
+      }
+    }
+  };
+
+  const ia2 = {
+    x: cfg.mapWidth - 220, y: cfg.groundY - 50, w: 35, h: 50, dx: 0, dy: 0,
+    onGround: true, shootCD: 0, color: '#ff6b6b', health: 100,
+    hits: 0, shots: 0, trained: false, glowIntensity: 0.3,
+    skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+    qi: 1500,
+    trailParticles: [],
+
+    adapt(success) {
+      const rate = 0.01;
+      Object.keys(this.skills).forEach(skill => {
+        this.skills[skill] = Math.min(0.95, this.skills[skill] + rate * (success ? 1 : -0.3));
+      });
+      this.updateQI();
+    },
+
+    updateQI() {
+      const avgSkill = Object.values(this.skills).reduce((a, b) => a + b) / 5;
+      this.qi = Math.min(8000, 1500 + avgSkill * 4000);
+    }
+  };
+
+  // Variables de bataille
+  let battleRunning = false, battleStartTime = 0, timeLeft = 240;
+  let bullets1 = [], bullets2 = [], explosions = [], energyWaves = [];
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Création des particules d'arrière-plan
+  function createBackgroundParticles() {
+    const container = document.getElementById('bgParticles');
+    for (let i = 0; i < 50; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.animationDelay = Math.random() * 20 + 's';
+      particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+      container.appendChild(particle);
+    }
+  }
+
+  // Classe Bullet améliorée
+  class EnhancedBullet {
+    constructor(x, y, direction, owner) {
+      this.x = x;
+      this.y = y;
+      this.speed = cfg.bulletSpeed * direction;
+      this.w = 12;
+      this.h = 6;
+      this.owner = owner;
+      this.color = owner === 'ia1' ? '#4ecdc4' : '#ff6b6b';
+      this.trail = [];
+      this.energy = 1;
+      this.rotation = 0;
+    }
+
+    update() {
+      this.x += this.speed;
+      this.rotation += 0.3;
+
+      // Ajout de trainée
+      this.trail.push({ x: this.x, y: this.y, energy: this.energy });
+      if (this.trail.length > 8) this.trail.shift();
+
+      // Diminution de l'énergie des particules de trainée
+      this.trail.forEach(t => t.energy *= 0.9);
+    }
+
+    draw() {
+      ctx.save();
+
+      // Dessin de la trainée
+      this.trail.forEach((t, i) => {
+        const alpha = t.energy * 0.6;
+        const size = (i / this.trail.length) * 6;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Projectile principal
+      ctx.translate(this.x + this.w/2, this.y + this.h/2);
+      ctx.rotate(this.rotation);
+
+      // Aura énergétique
+      ctx.globalAlpha = 0.8;
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = this.color;
+      ctx.fillStyle = this.color;
+
+      // Forme du projectile (losange énergétique)
+      ctx.beginPath();
+      ctx.moveTo(-this.w/2, 0);
+      ctx.lineTo(0, -this.h/2);
+      ctx.lineTo(this.w/2, 0);
+      ctx.lineTo(0, this.h/2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Cœur brillant
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.w/4, this.h/4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  // Effets d'explosion améliorés
+  class EnhancedExplosion {
+    constructor(x, y, color) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      this.particles = [];
+      this.life = 60;
+      this.maxLife = 60;
+
+      // Création des particules
+      for (let i = 0; i < 25; i++) {
+        this.particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 20,
+          vy: (Math.random() - 0.5) * 20,
+          size: Math.random() * 8 + 2,
+          life: 1,
+          decay: Math.random() * 0.03 + 0.02
+        });
+      }
+    }
+
+    update() {
+      this.life--;
+      this.particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        p.life -= p.decay;
+        p.size *= 0.98;
+      });
+
+      this.particles = this.particles.filter(p => p.life > 0);
+    }
+
+    draw() {
+      ctx.save();
+
+      this.particles.forEach(p => {
+        const alpha = p.life * (this.life / this.maxLife);
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cœur blanc
+        ctx.globalAlpha = alpha * 0.8;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      ctx.restore();
+    }
+
+    isDead() {
+      return this.life <= 0 && this.particles.length === 0;
+    }
+  }
+
+  // IA de combat quasi-parfaite
+  class CombatAI {
+    static think(ia, enemy, enemyBullets) {
+      const distance = Math.abs(enemy.x - ia.x);
+      const heightDiff = Math.abs(enemy.y - ia.y);
+      const enemyDirection = enemy.x > ia.x ? 1 : -1;
+
+      const dangerousBullets = enemyBullets.filter(b => {
+        const bulletDirection = b.speed > 0 ? 1 : -1;
+        const willHit = Math.abs(b.y - ia.y) < 70;
+        const inRange = bulletDirection > 0 ?
+                (b.x < ia.x + 250 && b.x > ia.x - 80) :
+                (b.x > ia.x - 250 && b.x < ia.x + 80);
+        return willHit && inRange;
+      });
+
+      ia.dx = 0;
+
+      // Capacités quasi-parfaites d'esquive
+      if (dangerousBullets.length > 0) {
+        const bullet = dangerousBullets[0];
+        const dodgeDirection = bullet.speed > 0 ? -1 : 1;
+
+        // Esquive quasi-parfaite
+        const dodgeMultiplier = ia.isPerfect ? 3.5 : 2.5;
+        ia.dx = dodgeDirection * cfg.moveSpeed * dodgeMultiplier * ia.skills.evasion;
+
+        // Saut d'esquive quasi-parfait
+        const jumpChance = ia.isPerfect ? ia.skills.reaction * 0.95 : ia.skills.reaction * 0.9;
+        if (ia.onGround && Math.random() < jumpChance) {
+          ia.dy = -cfg.jumpForce * (ia.isPerfect ? 1.2 : 1.0);
+          ia.onGround = false;
+        }
+        ia.adapt(true);
+      } else {
+        // Positionnement tactique quasi-parfait
+        const optimalDistance = ia.isPerfect ? 350 : 400;
+        const positioningMultiplier = ia.isPerfect ? 1.5 : 1.0;
+
+        if (distance > optimalDistance + 120) {
+          ia.dx = enemyDirection * cfg.moveSpeed * ia.skills.positioning * positioningMultiplier;
+        } else if (distance < optimalDistance - 120) {
+          ia.dx = -enemyDirection * cfg.moveSpeed * ia.skills.positioning * positioningMultiplier;
+        } else {
+          // Mouvement imprévisible pour robots quasi-parfaits
+          const unpredictability = ia.isPerfect ? 0.25 : 0.15;
+          if (Math.random() < unpredictability) {
+            ia.dx = (Math.random() - 0.5) * cfg.moveSpeed * ia.skills.positioning * positioningMultiplier;
+          }
+        }
+      }
+
+      // Système de tir quasi-parfait
+      if (ia.shootCD <= 0 && distance < 800) {
+        let accuracy = ia.skills.precision;
+
+        // Bonus de précision pour robots quasi-parfaits
+        if (ia.isPerfect) {
+          accuracy *= 1.1; // 10% de bonus
+
+          // Série de tirs parfaits
+          if (ia.consecutiveHits >= 3) {
+            accuracy = Math.min(0.99, accuracy * 1.2);
+          }
+        }
+
+        const heightPenalty = Math.min(0.3, heightDiff / 250);
+        const finalAccuracy = Math.max(0.2, accuracy - heightPenalty);
+
+        if (Math.random() < finalAccuracy) {
+          const bulletDirection = enemyDirection;
+          const bulletY = ia.y + ia.h/2;
+
+          if (ia === ia1) {
+            bullets1.push(new EnhancedBullet(ia.x + (bulletDirection > 0 ? ia.w : 0), bulletY, bulletDirection, 'ia1'));
+          } else {
+            bullets2.push(new EnhancedBullet(ia.x + (bulletDirection > 0 ? ia.w : 0), bulletY, bulletDirection, 'ia2'));
+          }
+
+          ia.shots++;
+
+          // Cadence de tir améliorée pour robots quasi-parfaits
+          const fireRateBonus = ia.isPerfect ? 10 : 5;
+          ia.shootCD = Math.max(5, 30 - (ia.skills.aggression * 20) - fireRateBonus);
+
+          // Effet de recul réduit pour robots quasi-parfaits
+          const recoilReduction = ia.isPerfect ? 0.5 : 1.0;
+          ia.dx -= bulletDirection * 2 * recoilReduction;
+        }
+      }
+
+      // Sauts tactiques quasi-parfaits
+      const jumpTacticalChance = ia.isPerfect ? ia.skills.aggression * 0.5 : ia.skills.aggression * 0.4;
+      if (heightDiff > 100 && distance < 450 && ia.onGround && Math.random() < jumpTacticalChance) {
+        ia.dy = -cfg.jumpForce * (ia.isPerfect ? 0.9 : 0.8);
+        ia.onGround = false;
+      }
+    }
+  }
+
+  // Système d'entraînement intensif (20,000 simulations)
+  class CombatTraining {
+    static async trainIA(ia, iaName) {
+      for (let i = 0; i < 20000; i += 100) {
+        this.simulateBatch(ia, 100);
+        document.getElementById('trainBtn').textContent = `🔄 ${iaName}: ${i + 100}/20000`;
+        // Mise à jour visuelle plus rapide pour 20k
+        if (i % 500 === 0) {
+          await new Promise(r => setTimeout(r, 10));
+        }
+      }
+      ia.trained = true;
+    }
+
+    static simulateBatch(ia, size) {
+      for (let i = 0; i < size; i++) {
+        const enemyDistance = Math.random() * 500 + 100;
+        const bulletThreats = Math.random() * 4;
+        const shotsTaken = Math.random() * 8 + 2;
+
+        const skill = (ia.skills.precision + ia.skills.evasion + ia.skills.reaction) / 3;
+        const hitChance = Math.max(0.1, skill * 0.6);
+        const survivalChance = Math.max(0.2, skill * 0.9 - bulletThreats * 0.15);
+
+        const hits = Math.floor(shotsTaken * hitChance);
+        const survived = Math.random() < survivalChance;
+
+        ia.adapt(hits > shotsTaken * 0.4 && survived);
+
+        const combatBonus = hits / shotsTaken;
+        ia.skills.precision += combatBonus * 0.003;
+        ia.skills.aggression += (survived ? 0.002 : -0.001);
+
+        Object.keys(ia.skills).forEach(skill => {
+          ia.skills[skill] = Math.max(0.1, Math.min(0.95, ia.skills[skill]));
+        });
+      }
+      ia.updateQI();
+    }
+  }
+
+  // Fonctions principales
+  async function trainBothAI() {
+    document.getElementById('trainBtn').disabled = true;
+
+    await CombatTraining.trainIA(ia1, 'CYBORG BLEU');
+    await CombatTraining.trainIA(ia2, 'CYBORG ROUGE');
+
+    document.getElementById('trainBtn').textContent = '🏆 ROBOTS QUASI-PARFAITS CRÉÉS !';
+    document.getElementById('battleBtn').disabled = false;
+
+    setTimeout(() => {
+      document.getElementById('trainBtn').textContent = '🚀 CRÉER ROBOTS QUASI-PARFAITS';
+      document.getElementById('trainBtn').disabled = false;
+    }, 4000);
+  }
+
+  function startBattle() {
+    if (!ia1.trained || !ia2.trained) {
+      alert('⚠️ Neural Training required for both AIs!');
+      return;
+    }
+
+    battleRunning = true;
+    battleStartTime = Date.now();
+    timeLeft = 240;
+
+    // Reset positions et stats
+    ia1.x = 180; ia1.y = cfg.groundY - 50; ia1.dx = 0; ia1.dy = 0;
+    ia2.x = cfg.mapWidth - 220; ia2.y = cfg.groundY - 50; ia2.dx = 0; ia2.dy = 0;
+    ia1.onGround = ia2.onGround = true;
+    ia1.shootCD = ia2.shootCD = 0;
+    ia1.hits = ia1.shots = ia2.hits = ia2.shots = 0;
+    ia1.health = ia2.health = 100;
+    ia1.glowIntensity = ia2.glowIntensity = 0.3;
+
+    bullets1 = [];
+    bullets2 = [];
+    explosions = [];
+    energyWaves = [];
+
+    document.getElementById('battleBtn').textContent = '⚔️ COMBAT ACTIVE';
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('winner-display').style.display = 'none';
+  }
+
+  function endBattle() {
+    battleRunning = false;
+
+    const winner = ia1.hits > ia2.hits ? 'CYBORG BLEU' :
+            ia2.hits > ia1.hits ? 'CYBORG ROUGE' : 'ÉGALITÉ';
+
+    const winnerDiv = document.getElementById('winner-display');
+    winnerDiv.style.display = 'block';
+
+    if (winner === 'CYBORG BLEU') {
+      winnerDiv.textContent = `🏆 VICTOIRE CYBORG BLEU ! (${ia1.hits} vs ${ia2.hits}) 🏆`;
+      winnerDiv.className = 'winner ia1-win';
+      ia1.adapt(true);
+      ia2.adapt(false);
+    } else if (winner === 'CYBORG ROUGE') {
+      winnerDiv.textContent = `🏆 VICTOIRE CYBORG ROUGE ! (${ia2.hits} vs ${ia1.hits}) 🏆`;
+      winnerDiv.className = 'winner ia2-win';
+      ia2.adapt(true);
+      ia1.adapt(false);
+    } else {
+      winnerDiv.textContent = `🤝 MATCH NUL ! (${ia1.hits} - ${ia2.hits}) 🤝`;
+      winnerDiv.className = 'winner draw';
+      ia1.adapt(true);
+      ia2.adapt(true);
+    }
+
+    document.getElementById('battleBtn').textContent = '⚔️ INITIATE COMBAT';
+    document.getElementById('battleBtn').disabled = false;
+  }
+
+  function resetGame() {
+    battleRunning = false;
+
+    // Reset IA1
+    ia1.skills = { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 };
+    ia1.qi = 1500; ia1.trained = false; ia1.hits = ia1.shots = 0; ia1.health = 100;
+
+    // Reset IA2
+    ia2.skills = { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 };
+    ia2.qi = 1500; ia2.trained = false; ia2.hits = ia2.shots = 0; ia2.health = 100;
+
+    bullets1 = []; bullets2 = []; explosions = []; energyWaves = [];
+
+    document.getElementById('trainBtn').textContent = '🚀 CRÉER ROBOTS QUASI-PARFAITS';
+    document.getElementById('trainBtn').disabled = false;
+    document.getElementById('battleBtn').textContent = '⚔️ INITIATE COMBAT';
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('winner-display').style.display = 'none';
+  }
+
+  function createExplosionEffect(x, y, color) {
+    explosions.push(new EnhancedExplosion(x, y, color));
+
+    // Effet d'onde énergétique
+    energyWaves.push({
+      x: x,
+      y: y,
+      radius: 0,
+      maxRadius: 80,
+      color: color,
+      life: 30,
+      maxLife: 30
+    });
+  }
+
+  // Mise à jour du jeu
+  function update() {
+    if (!battleRunning) return;
+
+    // Timer
+    const elapsed = Date.now() - battleStartTime;
+    timeLeft = Math.max(0, Math.ceil((cfg.battleDuration - elapsed) / 1000));
+
+    if (elapsed >= cfg.battleDuration) {
+      endBattle();
+      return;
+    }
+
+    // IA decisions
+    CombatAI.think(ia1, ia2, bullets2);
+    CombatAI.think(ia2, ia1, bullets1);
+
+    // Physique des IA
+    [ia1, ia2].forEach(ia => {
+      ia.x += ia.dx;
+      ia.y += ia.dy;
+
+      if (!ia.onGround) ia.dy += cfg.gravity;
+      if (ia.y >= cfg.groundY - ia.h) {
+        ia.y = cfg.groundY - ia.h;
+        ia.dy = 0;
+        ia.onGround = true;
+      }
+
+      // Limites de la map
+      ia.x = Math.max(0, Math.min(cfg.mapWidth - ia.w, ia.x));
+      ia.dx *= 0.88; // Friction
+
+      if (ia.shootCD > 0) ia.shootCD--;
+
+      // Mise à jour de l'intensité de lueur
+      ia.glowIntensity = 0.3 + Math.sin(Date.now() * 0.005) * 0.2;
+    });
+
+    // Mise à jour des balles
+    bullets1 = bullets1.filter(b => {
+      b.update();
+      return b.x >= -50 && b.x <= cfg.mapWidth + 50;
+    });
+
+    bullets2 = bullets2.filter(b => {
+      b.update();
+      return b.x >= -50 && b.x <= cfg.mapWidth + 50;
+    });
+
+    // Mise à jour des explosions
+    explosions.forEach(exp => exp.update());
+    explosions = explosions.filter(exp => !exp.isDead());
+
+    // Mise à jour des ondes énergétiques
+    energyWaves.forEach(wave => {
+      wave.radius += (wave.maxRadius - wave.radius) * 0.15;
+      wave.life--;
+    });
+    energyWaves = energyWaves.filter(wave => wave.life > 0);
+
+    checkCollisions();
+  }
+
+  // Détection des collisions avec tracking de performance
+  function checkCollisions() {
+    // Balles de IA1 vs IA2
+    bullets1.forEach((bullet, bi) => {
+      if (bullet.x < ia2.x + ia2.w && bullet.x + bullet.w > ia2.x &&
+              bullet.y < ia2.y + ia2.h && bullet.y + bullet.h > ia2.y) {
+        bullets1.splice(bi, 1);
+        ia1.hits++;
+        ia2.health = Math.max(0, ia2.health - 10);
+
+        // Tracking pour robots quasi-parfaits
+        if (ia1.isPerfect) {
+          ia1.consecutiveHits++;
+          if (ia1.consecutiveHits >= 5) {
+            ia1.perfectShots++;
+          }
+        }
+
+        createExplosionEffect(ia2.x + ia2.w/2, ia2.y + ia2.h/2, '#4ecdc4');
+
+        // Effet de recul
+        ia2.dx += 8;
+        if (ia2.onGround) {
+          ia2.dy = -12;
+          ia2.onGround = false;
+        }
+      }
+    });
+
+    // Balles de IA2 vs IA1
+    bullets2.forEach((bullet, bi) => {
+      if (bullet.x < ia1.x + ia1.w && bullet.x + bullet.w > ia1.x &&
+              bullet.y < ia1.y + ia1.h && bullet.y + bullet.h > ia1.y) {
+        bullets2.splice(bi, 1);
+        ia2.hits++;
+        ia1.health = Math.max(0, ia1.health - 10);
+
+        // Tracking pour robots quasi-parfaits
+        if (ia2.isPerfect) {
+          ia2.consecutiveHits++;
+          if (ia2.consecutiveHits >= 5) {
+            ia2.perfectShots++;
+          }
+        }
+
+        createExplosionEffect(ia1.x + ia1.w/2, ia1.y + ia1.h/2, '#ff6b6b');
+
+        // Effet de recul
+        ia1.dx -= 8;
+        if (ia1.onGround) {
+          ia1.dy = -12;
+          ia1.onGround = false;
+        }
+      }
+    });
+
+    // Reset des séries si pas de tir récent
+    if (ia1.shootCD > 20) ia1.consecutiveHits = 0;
+    if (ia2.shootCD > 20) ia2.consecutiveHits = 0;
+  }
+
+  // Rendu amélioré
+  function draw() {
+    // Arrière-plan avec dégradé amélioré
+    const gradient = ctx.createLinearGradient(0, 0, 0, cfg.mapHeight);
+    gradient.addColorStop(0, '#001133');
+    gradient.addColorStop(0.3, '#000022');
+    gradient.addColorStop(0.7, '#000011');
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, cfg.mapWidth, cfg.mapHeight);
+
+    // Grille énergétique
+    ctx.save();
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 10]);
+
+    // Lignes verticales
+    for (let x = 0; x < cfg.mapWidth; x += 60) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, cfg.mapHeight);
+      ctx.stroke();
+    }
+
+    // Lignes horizontales
+    for (let y = 0; y < cfg.mapHeight; y += 60) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(cfg.mapWidth, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Sol futuriste
+    ctx.save();
+    const groundGradient = ctx.createLinearGradient(0, cfg.groundY, 0, cfg.mapHeight);
+    groundGradient.addColorStop(0, 'rgba(78, 205, 196, 0.3)');
+    groundGradient.addColorStop(0.5, 'rgba(78, 205, 196, 0.1)');
+    groundGradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+    ctx.fillStyle = groundGradient;
+    ctx.fillRect(0, cfg.groundY, cfg.mapWidth, cfg.mapHeight - cfg.groundY);
+
+    // Ligne de sol brillante
+    ctx.strokeStyle = '#4ecdc4';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#4ecdc4';
+    ctx.beginPath();
+    ctx.moveTo(0, cfg.groundY);
+    ctx.lineTo(cfg.mapWidth, cfg.groundY);
+    ctx.stroke();
+    ctx.restore();
+
+    if (battleRunning) {
+      // Dessiner les ondes énergétiques
+      energyWaves.forEach(wave => {
+        ctx.save();
+        ctx.globalAlpha = (wave.life / wave.maxLife) * 0.6;
+        ctx.strokeStyle = wave.color;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = wave.color;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // IA1 (Cyborg Bleu) avec effets améliorés
+      drawEnhancedIA(ia1);
+
+      // IA2 (Cyborg Rouge) avec effets améliorés
+      drawEnhancedIA(ia2);
+
+      // Balles améliorées
+      bullets1.forEach(b => b.draw());
+      bullets2.forEach(b => b.draw());
+
+      // Explosions
+      explosions.forEach(exp => exp.draw());
+
+      // HUD de combat futuriste
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.font = 'bold 24px Orbitron';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#4ecdc4';
+      ctx.textAlign = 'left';
+      ctx.fillText(`BLEU: ${ia1.hits} KILLS`, 30, 50);
+
+      ctx.shadowColor = '#ff6b6b';
+      ctx.textAlign = 'right';
+      ctx.fillText(`ROUGE: ${ia2.hits} KILLS`, cfg.mapWidth - 30, 50);
+      ctx.restore();
+
+    } else {
+      // Écran d'attente futuriste
+      ctx.save();
+      ctx.fillStyle = '#4ecdc4';
+      ctx.font = 'bold 36px Orbitron';
+      ctx.textAlign = 'center';
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#4ecdc4';
+      ctx.fillText('CYBORG COMBAT ARENA', cfg.mapWidth/2, cfg.mapHeight/2 - 60);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.font = '18px Orbitron';
+      ctx.shadowBlur = 5;
+      ctx.shadowColor = '#fff';
+      ctx.fillText('Initialisez l\'entraînement neural puis lancez le combat !', cfg.mapWidth/2, cfg.mapHeight/2 + 20);
+      ctx.restore();
+    }
+  }
+
+  function drawEnhancedIA(ia) {
+    ctx.save();
+
+    // Aura énergétique
+    const auraSize = 25 + ia.glowIntensity * 15;
+    const auraGradient = ctx.createRadialGradient(
+            ia.x + ia.w/2, ia.y + ia.h/2, 0,
+            ia.x + ia.w/2, ia.y + ia.h/2, auraSize
+    );
+    auraGradient.addColorStop(0, ia.color + '80');
+    auraGradient.addColorStop(0.7, ia.color + '30');
+    auraGradient.addColorStop(1, ia.color + '00');
+
+    ctx.fillStyle = auraGradient;
+    ctx.fillRect(ia.x - auraSize/2, ia.y - auraSize/2, ia.w + auraSize, ia.h + auraSize);
+
+    // Corps du cyborg
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = ia.color;
+
+    // Corps principal
+    const bodyGradient = ctx.createLinearGradient(ia.x, ia.y, ia.x + ia.w, ia.y + ia.h);
+    bodyGradient.addColorStop(0, ia.color);
+    bodyGradient.addColorStop(0.5, '#ffffff');
+    bodyGradient.addColorStop(1, ia.color);
+    ctx.fillStyle = bodyGradient;
+    ctx.fillRect(ia.x, ia.y, ia.w, ia.h);
+
+    // Détails cybernétiques
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(ia.x + 5, ia.y + 5, ia.w - 10, 3); // Ligne supérieure
+    ctx.fillRect(ia.x + 5, ia.y + ia.h - 8, ia.w - 10, 3); // Ligne inférieure
+    ctx.fillRect(ia.x + ia.w/2 - 1, ia.y, 2, ia.h); // Ligne centrale
+
+    // Yeux lumineux
+    ctx.fillStyle = ia.color;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(ia.x + 10, ia.y + 12, 3, 0, Math.PI * 2);
+    ctx.arc(ia.x + ia.w - 10, ia.y + 12, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Indicateur de santé
+    const healthBarWidth = ia.w;
+    const healthBarHeight = 4;
+    const healthY = ia.y - 15;
+
+    // Fond de la barre de santé
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fillRect(ia.x, healthY, healthBarWidth, healthBarHeight);
+
+    // Barre de santé
+    const healthGradient = ctx.createLinearGradient(ia.x, healthY, ia.x + healthBarWidth, healthY);
+    healthGradient.addColorStop(0, '#ff0000');
+    healthGradient.addColorStop(0.5, '#ffff00');
+    healthGradient.addColorStop(1, '#00ff00');
+    ctx.fillStyle = healthGradient;
+    ctx.fillRect(ia.x, healthY, (ia.health / 100) * healthBarWidth, healthBarHeight);
+
+    ctx.restore();
+  }
+
+  // Mise à jour de l'interface
+  function updateUI() {
+    // IA1
+    document.getElementById('ia1-qi').textContent = Math.floor(ia1.qi);
+    document.getElementById('ia1-precision').textContent = Math.floor(ia1.skills.precision * 100) + '%';
+    document.getElementById('ia1-evasion').textContent = Math.floor(ia1.skills.evasion * 100) + '%';
+    document.getElementById('ia1-reaction').textContent = Math.floor(ia1.skills.reaction * 100) + '%';
+    document.getElementById('ia1-trained').textContent = ia1.trained ? '✅' : '❌';
+    document.getElementById('ia1-hits').textContent = ia1.hits;
+    document.getElementById('ia1-shots').textContent = ia1.shots;
+    document.getElementById('ia1-accuracy').textContent = ia1.shots > 0 ? Math.floor((ia1.hits / ia1.shots) * 100) + '%' : '0%';
+    document.getElementById('ia1-health').style.width = ia1.health + '%';
+
+    // IA2
+    document.getElementById('ia2-qi').textContent = Math.floor(ia2.qi);
+    document.getElementById('ia2-precision').textContent = Math.floor(ia2.skills.precision * 100) + '%';
+    document.getElementById('ia2-evasion').textContent = Math.floor(ia2.skills.evasion * 100) + '%';
+    document.getElementById('ia2-reaction').textContent = Math.floor(ia2.skills.reaction * 100) + '%';
+    document.getElementById('ia2-trained').textContent = ia2.trained ? '✅' : '❌';
+    document.getElementById('ia2-hits').textContent = ia2.hits;
+    document.getElementById('ia2-shots').textContent = ia2.shots;
+    document.getElementById('ia2-accuracy').textContent = ia2.shots > 0 ? Math.floor((ia2.hits / ia2.shots) * 100) + '%' : '0%';
+    document.getElementById('ia2-health').style.width = ia2.health + '%';
+
+    // Timer
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  // Boucle principale
+  function gameLoop() {
+    update();
+    draw();
+    updateUI();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Event listeners
+  document.getElementById('trainBtn').addEventListener('click', trainBothAI);
+  document.getElementById('battleBtn').addEventListener('click', startBattle);
+  document.getElementById('resetBtn').addEventListener('click', resetGame);
+
+  // Initialisation
+  createBackgroundParticles();
+  gameLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combat IA vs IA</title>
+  <style>
+    body {
+      margin: 0; padding: 20px; background: #111; color: #fff;
+      font-family: Arial; text-align: center;
+    }
+    canvas {
+      border: 3px solid #4ecdc4; background: linear-gradient(180deg, #001133, #000000);
+      margin: 20px 0; border-radius: 10px;
+    }
+    .battle-info {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #333; padding: 20px; border-radius: 10px; margin: 20px 0;
+    }
+    .ia-panel {
+      background: #444; padding: 15px; border-radius: 8px; min-width: 200px;
+    }
+    .ia1 { border-left: 4px solid #4ecdc4; }
+    .ia2 { border-left: 4px solid #ff6b6b; }
+    .vs { font-size: 32px; font-weight: bold; color: #ffd700; }
+    .stat-row { display: flex; justify-content: space-between; margin: 5px 0; }
+    .controls { margin: 20px 0; }
+    button {
+      padding: 12px 24px; margin: 8px; background: #4ecdc4; color: #000;
+      border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+      font-size: 16px;
+    }
+    button:hover { background: #45b7d1; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .train-btn { background: #ff8800; }
+    .battle-btn { background: #28a745; color: #fff; }
+    .timer { font-size: 48px; color: #ffd700; margin: 20px 0; }
+    .winner { font-size: 24px; margin: 20px 0; padding: 15px; border-radius: 10px; }
+    .winner.ia1-win { background: #4ecdc4; color: #000; }
+    .winner.ia2-win { background: #ff6b6b; color: #fff; }
+    .winner.draw { background: #ffd700; color: #000; }
+  </style>
+</head>
+<body>
+<h1>⚔️ Combat IA vs IA ⚔️</h1>
+
+<div class="battle-info">
+  <div class="ia-panel ia1">
+    <h3>🤖 IA BLEUE</h3>
+    <div class="stat-row"><span>QI:</span> <span id="ia1-qi">1500</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia1-precision">40%</span></div>
+    <div class="stat-row"><span>Évasion:</span> <span id="ia1-evasion">50%</span></div>
+    <div class="stat-row"><span>Réaction:</span> <span id="ia1-reaction">60%</span></div>
+    <div class="stat-row"><span>Entrainée:</span> <span id="ia1-trained">❌</span></div>
+  </div>
+
+  <div class="vs">VS</div>
+
+  <div class="ia-panel ia2">
+    <h3>🤖 IA ROUGE</h3>
+    <div class="stat-row"><span>QI:</span> <span id="ia2-qi">1500</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia2-precision">40%</span></div>
+    <div class="stat-row"><span>Évasion:</span> <span id="ia2-evasion">50%</span></div>
+    <div class="stat-row"><span>Réaction:</span> <span id="ia2-reaction">60%</span></div>
+    <div class="stat-row"><span>Entrainée:</span> <span id="ia2-trained">❌</span></div>
+  </div>
+</div>
+
+<div class="timer" id="timer">4:00</div>
+
+<canvas id="canvas" width="1000" height="600"></canvas>
+
+<div class="battle-info">
+  <div class="ia-panel ia1">
+    <h3>📊 SCORE IA BLEUE</h3>
+    <div class="stat-row"><span>Touches:</span> <span id="ia1-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia1-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia1-accuracy">0%</span></div>
+  </div>
+
+  <div id="winner-display" class="winner" style="display: none;"></div>
+
+  <div class="ia-panel ia2">
+    <h3>📊 SCORE IA ROUGE</h3>
+    <div class="stat-row"><span>Touches:</span> <span id="ia2-hits">0</span></div>
+    <div class="stat-row"><span>Tirs:</span> <span id="ia2-shots">0</span></div>
+    <div class="stat-row"><span>Précision:</span> <span id="ia2-accuracy">0%</span></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="trainBtn" onclick="trainBothAI()" class="train-btn">⚡ ENTRAÎNER LES 2 IA (1000x chacune)</button>
+  <button id="battleBtn" onclick="startBattle()" class="battle-btn" disabled>⚔️ COMMENCER LE COMBAT (4 min)</button>
+  <button onclick="reset()">🔄 Reset</button>
+</div>
+
+<script>
+  // Configuration
+  const cfg = {
+    mapWidth: 1000,
+    mapHeight: 600,
+    groundY: 550,
+    battleDuration: 240000, // 4 minutes
+    bulletSpeed: 12,
+    jumpForce: 18,
+    moveSpeed: 4,
+    gravity: 0.8
+  };
+
+  // IA 1 (Bleue)
+  const ia1 = {
+    x: 150, y: cfg.groundY - 40, w: 30, h: 40, dx: 0, dy: 0,
+    onGround: true, shootCD: 0, color: '#4ecdc4',
+    hits: 0, shots: 0, trained: false,
+    skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+    qi: 1500,
+
+    adapt(success) {
+      const rate = 0.01;
+      Object.keys(this.skills).forEach(skill => {
+        this.skills[skill] = Math.min(0.95, this.skills[skill] + rate * (success ? 1 : -0.3));
+      });
+      this.updateQI();
+    },
+
+    updateQI() {
+      const avgSkill = Object.values(this.skills).reduce((a, b) => a + b) / 5;
+      this.qi = Math.min(8000, 1500 + avgSkill * 4000);
+    }
+  };
+
+  // IA 2 (Rouge)
+  const ia2 = {
+    x: cfg.mapWidth - 180, y: cfg.groundY - 40, w: 30, h: 40, dx: 0, dy: 0,
+    onGround: true, shootCD: 0, color: '#ff6b6b',
+    hits: 0, shots: 0, trained: false,
+    skills: { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 },
+    qi: 1500,
+
+    adapt(success) {
+      const rate = 0.01;
+      Object.keys(this.skills).forEach(skill => {
+        this.skills[skill] = Math.min(0.95, this.skills[skill] + rate * (success ? 1 : -0.3));
+      });
+      this.updateQI();
+    },
+
+    updateQI() {
+      const avgSkill = Object.values(this.skills).reduce((a, b) => a + b) / 5;
+      this.qi = Math.min(8000, 1500 + avgSkill * 4000);
+    }
+  };
+
+  // Variables de bataille
+  let battleRunning = false, battleStartTime = 0, timeLeft = 240;
+  let bullets1 = [], bullets2 = [], impactEffects = [];
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Classes
+  class Bullet {
+    constructor(x, y, direction, owner) {
+      this.x = x;
+      this.y = y;
+      this.speed = cfg.bulletSpeed * direction;
+      this.w = 8;
+      this.h = 4;
+      this.owner = owner;
+      this.color = owner === 'ia1' ? '#4ecdc4' : '#ff6b6b';
+    }
+
+    update() {
+      this.x += this.speed;
+    }
+
+    draw() {
+      ctx.save();
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = this.color;
+      ctx.fillStyle = this.color;
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+      ctx.restore();
+    }
+  }
+
+  // IA de combat
+  class CombatAI {
+    static think(ia, enemy, enemyBullets) {
+      const distance = Math.abs(enemy.x - ia.x);
+      const heightDiff = Math.abs(enemy.y - ia.y);
+      const enemyDirection = enemy.x > ia.x ? 1 : -1;
+
+      // Analyse des balles dangereuses
+      const dangerousBullets = enemyBullets.filter(b => {
+        const bulletDirection = b.speed > 0 ? 1 : -1;
+        const willHit = Math.abs(b.y - ia.y) < 50;
+        const inRange = bulletDirection > 0 ?
+                (b.x < ia.x + 150 && b.x > ia.x - 50) :
+                (b.x > ia.x - 150 && b.x < ia.x + 50);
+        return willHit && inRange;
+      });
+
+      // Reset movement
+      ia.dx = 0;
+
+      // PRIORITÉ 1: Esquiver les balles
+      if (dangerousBullets.length > 0) {
+        const bullet = dangerousBullets[0];
+        const dodgeDirection = bullet.speed > 0 ? -1 : 1;
+        ia.dx = dodgeDirection * cfg.moveSpeed * 2 * ia.skills.evasion;
+
+        // Saut d'esquive
+        if (ia.onGround && Math.random() < ia.skills.reaction * 0.8) {
+          ia.dy = -cfg.jumpForce;
+          ia.onGround = false;
+        }
+        ia.adapt(true);
+      }
+      // PRIORITÉ 2: Positionnement
+      else {
+        const optimalDistance = 350;
+        if (distance > optimalDistance + 100) {
+          // Se rapprocher
+          ia.dx = enemyDirection * cfg.moveSpeed * ia.skills.positioning;
+        } else if (distance < optimalDistance - 100) {
+          // Prendre ses distances
+          ia.dx = -enemyDirection * cfg.moveSpeed * ia.skills.positioning;
+        } else {
+          // Mouvement latéral aléatoire
+          if (Math.random() < 0.1) {
+            ia.dx = (Math.random() - 0.5) * cfg.moveSpeed * ia.skills.positioning;
+          }
+        }
+      }
+
+      // PRIORITÉ 3: Attaque
+      if (ia.shootCD <= 0 && distance < 600) {
+        const accuracy = ia.skills.precision;
+        const heightPenalty = Math.min(0.4, heightDiff / 150);
+        const finalAccuracy = Math.max(0.1, accuracy - heightPenalty);
+
+        if (Math.random() < finalAccuracy) {
+          const bulletDirection = enemyDirection;
+          const bulletY = ia.y + ia.h/2;
+
+          if (ia === ia1) {
+            bullets1.push(new Bullet(ia.x + (bulletDirection > 0 ? ia.w : 0), bulletY, bulletDirection, 'ia1'));
+          } else {
+            bullets2.push(new Bullet(ia.x + (bulletDirection > 0 ? ia.w : 0), bulletY, bulletDirection, 'ia2'));
+          }
+
+          ia.shots++;
+          ia.shootCD = Math.max(5, 25 - (ia.skills.aggression * 15));
+        }
+      }
+
+      // Saut tactique
+      if (heightDiff > 80 && distance < 400 && ia.onGround && Math.random() < ia.skills.aggression * 0.3) {
+        ia.dy = -cfg.jumpForce * 0.7;
+        ia.onGround = false;
+      }
+    }
+  }
+
+  // Système d'entraînement
+  class CombatTraining {
+    static async trainIA(ia, iaName) {
+      for (let i = 0; i < 1000; i += 50) {
+        this.simulateBatch(ia, 50);
+        document.getElementById('trainBtn').textContent = `🔄 ${iaName}: ${i + 50}/1000`;
+        await new Promise(r => setTimeout(r, 15));
+      }
+      ia.trained = true;
+    }
+
+    static simulateBatch(ia, size) {
+      for (let i = 0; i < size; i++) {
+        const enemyDistance = Math.random() * 500 + 100;
+        const bulletThreats = Math.random() * 4;
+        const shotsTaken = Math.random() * 8 + 2;
+
+        const skill = (ia.skills.precision + ia.skills.evasion + ia.skills.reaction) / 3;
+        const hitChance = Math.max(0.1, skill * 0.6);
+        const survivalChance = Math.max(0.2, skill * 0.9 - bulletThreats * 0.15);
+
+        const hits = Math.floor(shotsTaken * hitChance);
+        const survived = Math.random() < survivalChance;
+
+        ia.adapt(hits > shotsTaken * 0.4 && survived);
+
+        // Évolution spécialisée
+        const combatBonus = hits / shotsTaken;
+        ia.skills.precision += combatBonus * 0.003;
+        ia.skills.aggression += (survived ? 0.002 : -0.001);
+
+        Object.keys(ia.skills).forEach(skill => {
+          ia.skills[skill] = Math.max(0.1, Math.min(0.95, ia.skills[skill]));
+        });
+      }
+      ia.updateQI();
+    }
+  }
+
+  // Fonctions principales
+  async function trainBothAI() {
+    document.getElementById('trainBtn').disabled = true;
+
+    await CombatTraining.trainIA(ia1, 'IA BLEUE');
+    await CombatTraining.trainIA(ia2, 'IA ROUGE');
+
+    document.getElementById('trainBtn').textContent = '✅ LES 2 IA SONT ENTRAÎNÉES';
+    document.getElementById('battleBtn').disabled = false;
+
+    setTimeout(() => {
+      document.getElementById('trainBtn').textContent = '⚡ RE-ENTRAÎNER (+1000x chacune)';
+      document.getElementById('trainBtn').disabled = false;
+    }, 3000);
+  }
+
+  function startBattle() {
+    if (!ia1.trained || !ia2.trained) {
+      alert('⚠️ Les deux IA doivent être entraînées avant le combat !');
+      return;
+    }
+
+    battleRunning = true;
+    battleStartTime = Date.now();
+    timeLeft = 240;
+
+    // Reset positions et stats
+    ia1.x = 150; ia1.y = cfg.groundY - 40; ia1.dx = 0; ia1.dy = 0;
+    ia2.x = cfg.mapWidth - 180; ia2.y = cfg.groundY - 40; ia2.dx = 0; ia2.dy = 0;
+    ia1.onGround = ia2.onGround = true;
+    ia1.shootCD = ia2.shootCD = 0;
+    ia1.hits = ia1.shots = ia2.hits = ia2.shots = 0;
+
+    bullets1 = [];
+    bullets2 = [];
+    impactEffects = [];
+
+    document.getElementById('battleBtn').textContent = '⚔️ COMBAT EN COURS...';
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('winner-display').style.display = 'none';
+  }
+
+  function endBattle() {
+    battleRunning = false;
+
+    const winner = ia1.hits > ia2.hits ? 'IA BLEUE' :
+            ia2.hits > ia1.hits ? 'IA ROUGE' : 'ÉGALITÉ';
+
+    const winnerDiv = document.getElementById('winner-display');
+    winnerDiv.style.display = 'block';
+
+    if (winner === 'IA BLEUE') {
+      winnerDiv.textContent = `🏆 VICTOIRE IA BLEUE ! (${ia1.hits} touches vs ${ia2.hits}) 🏆`;
+      winnerDiv.className = 'winner ia1-win';
+      ia1.adapt(true);
+      ia2.adapt(false);
+    } else if (winner === 'IA ROUGE') {
+      winnerDiv.textContent = `🏆 VICTOIRE IA ROUGE ! (${ia2.hits} touches vs ${ia1.hits}) 🏆`;
+      winnerDiv.className = 'winner ia2-win';
+      ia2.adapt(true);
+      ia1.adapt(false);
+    } else {
+      winnerDiv.textContent = `🤝 MATCH NUL ! (${ia1.hits} - ${ia2.hits}) 🤝`;
+      winnerDiv.className = 'winner draw';
+      ia1.adapt(true);
+      ia2.adapt(true);
+    }
+
+    document.getElementById('battleBtn').textContent = '⚔️ NOUVEAU COMBAT (4 min)';
+    document.getElementById('battleBtn').disabled = false;
+  }
+
+  function reset() {
+    battleRunning = false;
+
+    // Reset IA1
+    ia1.skills = { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 };
+    ia1.qi = 1500; ia1.trained = false; ia1.hits = ia1.shots = 0;
+
+    // Reset IA2
+    ia2.skills = { precision: 0.4, evasion: 0.5, reaction: 0.6, positioning: 0.45, aggression: 0.3 };
+    ia2.qi = 1500; ia2.trained = false; ia2.hits = ia2.shots = 0;
+
+    bullets1 = []; bullets2 = []; impactEffects = [];
+
+    document.getElementById('trainBtn').textContent = '⚡ ENTRAÎNER LES 2 IA (1000x chacune)';
+    document.getElementById('trainBtn').disabled = false;
+    document.getElementById('battleBtn').textContent = '⚔️ COMMENCER LE COMBAT (4 min)';
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('winner-display').style.display = 'none';
+  }
+
+  function createImpactEffect(x, y, color) {
+    for (let i = 0; i < 10; i++) {
+      impactEffects.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 12,
+        vy: (Math.random() - 0.5) * 12,
+        life: 40,
+        color: color
+      });
+    }
+  }
+
+  // Mise à jour du jeu
+  function update() {
+    if (!battleRunning) return;
+
+    // Timer
+    const elapsed = Date.now() - battleStartTime;
+    timeLeft = Math.max(0, Math.ceil((cfg.battleDuration - elapsed) / 1000));
+
+    if (elapsed >= cfg.battleDuration) {
+      endBattle();
+      return;
+    }
+
+    // IA decisions
+    CombatAI.think(ia1, ia2, bullets2);
+    CombatAI.think(ia2, ia1, bullets1);
+
+    // Physique des IA
+    [ia1, ia2].forEach(ia => {
+      ia.x += ia.dx;
+      ia.y += ia.dy;
+
+      if (!ia.onGround) ia.dy += cfg.gravity;
+      if (ia.y >= cfg.groundY - ia.h) {
+        ia.y = cfg.groundY - ia.h;
+        ia.dy = 0;
+        ia.onGround = true;
+      }
+
+      // Limites de la map
+      ia.x = Math.max(0, Math.min(cfg.mapWidth - ia.w, ia.x));
+      ia.dx *= 0.85; // Friction
+
+      if (ia.shootCD > 0) ia.shootCD--;
+    });
+
+    // Mise à jour des balles
+    bullets1 = bullets1.filter(b => {
+      b.update();
+      return b.x >= -20 && b.x <= cfg.mapWidth + 20;
+    });
+
+    bullets2 = bullets2.filter(b => {
+      b.update();
+      return b.x >= -20 && b.x <= cfg.mapWidth + 20;
+    });
+
+    checkCollisions();
+  }
+
+  // Détection des collisions
+  function checkCollisions() {
+    // Balles de IA1 vs IA2
+    bullets1.forEach((bullet, bi) => {
+      if (bullet.x < ia2.x + ia2.w && bullet.x + bullet.w > ia2.x &&
+              bullet.y < ia2.y + ia2.h && bullet.y + bullet.h > ia2.y) {
+        bullets1.splice(bi, 1);
+        ia1.hits++;
+        createImpactEffect(ia2.x + ia2.w/2, ia2.y + ia2.h/2, '#4ecdc4');
+      }
+    });
+
+    // Balles de IA2 vs IA1
+    bullets2.forEach((bullet, bi) => {
+      if (bullet.x < ia1.x + ia1.w && bullet.x + bullet.w > ia1.x &&
+              bullet.y < ia1.y + ia1.h && bullet.y + bullet.h > ia1.y) {
+        bullets2.splice(bi, 1);
+        ia2.hits++;
+        createImpactEffect(ia1.x + ia1.w/2, ia1.y + ia1.h/2, '#ff6b6b');
+      }
+    });
+  }
+
+  // Rendu
+  function draw() {
+    // Fond dégradé
+    const gradient = ctx.createLinearGradient(0, 0, 0, cfg.mapHeight);
+    gradient.addColorStop(0, '#001133');
+    gradient.addColorStop(0.7, '#000022');
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, cfg.mapWidth, cfg.mapHeight);
+
+    // Sol
+    ctx.fillStyle = '#333';
+    ctx.fillRect(0, cfg.groundY, cfg.mapWidth, cfg.mapHeight - cfg.groundY);
+
+    // Lignes de guidage
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < cfg.mapWidth; x += 100) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, cfg.mapHeight);
+      ctx.stroke();
+    }
+
+    if (battleRunning) {
+      // IA1 (Bleue)
+      ctx.save();
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = ia1.color;
+      ctx.fillStyle = ia1.color;
+      ctx.fillRect(ia1.x, ia1.y, ia1.w, ia1.h);
+      ctx.restore();
+
+      // IA2 (Rouge)
+      ctx.save();
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = ia2.color;
+      ctx.fillStyle = ia2.color;
+      ctx.fillRect(ia2.x, ia2.y, ia2.w, ia2.h);
+      ctx.restore();
+
+      // Balles
+      bullets1.forEach(b => b.draw());
+      bullets2.forEach(b => b.draw());
+
+      // Effets d'impact
+      impactEffects = impactEffects.filter(effect => {
+        ctx.save();
+        ctx.globalAlpha = effect.life / 40;
+        ctx.fillStyle = effect.color;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        effect.x += effect.vx;
+        effect.y += effect.vy;
+        effect.vy += 0.3;
+        effect.life--;
+
+        return effect.life > 0;
+      });
+
+      // HUD de combat
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(`IA BLEUE: ${ia1.hits} touches`, 20, 35);
+      ctx.textAlign = 'right';
+      ctx.fillText(`IA ROUGE: ${ia2.hits} touches`, cfg.mapWidth - 20, 35);
+
+    } else {
+      // Écran d'attente
+      ctx.fillStyle = '#4ecdc4';
+      ctx.font = '32px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('ARÈNE DE COMBAT IA', cfg.mapWidth/2, cfg.mapHeight/2 - 50);
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px Arial';
+      ctx.fillText('Entraînez les IA puis lancez le combat de 4 minutes !', cfg.mapWidth/2, cfg.mapHeight/2 + 20);
+    }
+  }
+
+  // Mise à jour de l'interface
+  function updateUI() {
+    // IA1
+    document.getElementById('ia1-qi').textContent = Math.floor(ia1.qi);
+    document.getElementById('ia1-precision').textContent = Math.floor(ia1.skills.precision * 100) + '%';
+    document.getElementById('ia1-evasion').textContent = Math.floor(ia1.skills.evasion * 100) + '%';
+    document.getElementById('ia1-reaction').textContent = Math.floor(ia1.skills.reaction * 100) + '%';
+    document.getElementById('ia1-trained').textContent = ia1.trained ? '✅' : '❌';
+    document.getElementById('ia1-hits').textContent = ia1.hits;
+    document.getElementById('ia1-shots').textContent = ia1.shots;
+    document.getElementById('ia1-accuracy').textContent = ia1.shots > 0 ? Math.floor((ia1.hits / ia1.shots) * 100) + '%' : '0%';
+
+    // IA2
+    document.getElementById('ia2-qi').textContent = Math.floor(ia2.qi);
+    document.getElementById('ia2-precision').textContent = Math.floor(ia2.skills.precision * 100) + '%';
+    document.getElementById('ia2-evasion').textContent = Math.floor(ia2.skills.evasion * 100) + '%';
+    document.getElementById('ia2-reaction').textContent = Math.floor(ia2.skills.reaction * 100) + '%';
+    document.getElementById('ia2-trained').textContent = ia2.trained ? '✅' : '❌';
+    document.getElementById('ia2-hits').textContent = ia2.hits;
+    document.getElementById('ia2-shots').textContent = ia2.shots;
+    document.getElementById('ia2-accuracy').textContent = ia2.shots > 0 ? Math.floor((ia2.hits / ia2.shots) * 100) + '%' : '0%';
+
+    // Timer
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  // Boucle principale
+  function gameLoop() {
+    update();
+    draw();
+    updateUI();
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+</script>
+</body>
+</html>

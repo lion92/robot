@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de Zombies 3D</title>
+    <style>
+        body { margin: 0; background: black; overflow: hidden; color: white; }
+        canvas { display: block; }
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-family: monospace;
+            font-size: 20px;
+            color: white;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+<div id="hud">Vies: <span id="lives">5</span> | Niveau: <span id="level">1</span></div>
+<script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three';
+
+    let scene = new THREE.Scene();
+    let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    let renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    let spaceship;
+    let enemies = [];
+    let bullets = [];
+    let enemyBullets = [];
+    let lives = 5;
+    let level = 1;
+    let isGameOver = false;
+    let shootCooldown = 0;
+
+    const explosionParticles = [];
+
+    function createSpaceship() {
+        let geometry = new THREE.BoxGeometry(1, 1, 1);
+        let material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+        spaceship = new THREE.Mesh(geometry, material);
+        spaceship.position.y = -2;
+        scene.add(spaceship);
+    }
+
+    function createEnemies() {
+        enemies = [];
+        for (let i = 0; i < level * 5; i++) {
+            let geometry = new THREE.BoxGeometry(1, 1.5, 0.5);
+            let material = new THREE.MeshStandardMaterial({ color: 0x884422 });
+            let enemy = new THREE.Mesh(geometry, material);
+            enemy.position.set(Math.random() * 10 - 5, Math.random() * 4 - 1, 0);
+            enemy.userData = { speed: 0.01 + Math.random() * 0.01 };
+            scene.add(enemy);
+            enemies.push(enemy);
+        }
+    }
+
+    function shoot() {
+        let geometry = new THREE.BoxGeometry(0.1, 0.5, 0.1);
+        let material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+        let bullet = new THREE.Mesh(geometry, material);
+        bullet.position.copy(spaceship.position);
+        bullet.userData = { dy: 0.2 };
+        bullets.push(bullet);
+        scene.add(bullet);
+        shootSound();
+    }
+
+    function shootSound() {
+        const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+        audio.volume = 0.2;
+        audio.play();
+    }
+
+    function explosionSound() {
+        const audio = new Audio("https://actions.google.com/sounds/v1/explosions/explosion.ogg");
+        audio.volume = 0.3;
+        audio.play();
+    }
+
+    function createExplosion(pos) {
+        for (let i = 0; i < 10; i++) {
+            const geom = new THREE.SphereGeometry(0.05);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const particle = new THREE.Mesh(geom, mat);
+            particle.position.copy(pos);
+            particle.userData = {
+                dx: (Math.random() - 0.5) * 0.2,
+                dy: (Math.random() - 0.5) * 0.2,
+                life: 30
+            };
+            explosionParticles.push(particle);
+            scene.add(particle);
+        }
+        explosionSound();
+    }
+
+    function updateExplosions() {
+        for (let i = explosionParticles.length - 1; i >= 0; i--) {
+            const p = explosionParticles[i];
+            p.position.x += p.userData.dx;
+            p.position.y += p.userData.dy;
+            p.userData.life--;
+            if (p.userData.life <= 0) {
+                scene.remove(p);
+                explosionParticles.splice(i, 1);
+            }
+        }
+    }
+
+    function updateBullets() {
+        bullets.forEach((b, i) => {
+            b.position.y += b.userData.dy;
+            if (b.position.y > 10) {
+                scene.remove(b);
+                bullets.splice(i, 1);
+            }
+        });
+    }
+
+    function checkCollisions() {
+        bullets.forEach((bullet, bi) => {
+            enemies.forEach((enemy, ei) => {
+                if (bullet.position.distanceTo(enemy.position) < 0.8) {
+                    createExplosion(enemy.position);
+                    scene.remove(bullet);
+                    scene.remove(enemy);
+                    bullets.splice(bi, 1);
+                    enemies.splice(ei, 1);
+                }
+            });
+        });
+
+        enemies.forEach((e, i) => {
+            if (e.position.distanceTo(spaceship.position) < 0.8) {
+                lives--;
+                document.getElementById("lives").textContent = lives;
+                scene.remove(e);
+                enemies.splice(i, 1);
+                if (lives <= 0) {
+                    alert("Vous avez été mangé par les zombies !");
+                    isGameOver = true;
+                }
+            }
+        });
+    }
+
+    function updateEnemies() {
+        enemies.forEach(e => {
+            let dir = new THREE.Vector3();
+            dir.subVectors(spaceship.position, e.position).normalize();
+            e.position.x += dir.x * e.userData.speed;
+            e.position.y += dir.y * e.userData.speed;
+        });
+    }
+
+    function aiControl() {
+        if (shootCooldown > 0) shootCooldown--;
+
+        let safeX = spaceship.position.x;
+        let safeY = spaceship.position.y;
+
+        let closest = enemies.reduce((closest, e) => {
+            let dist = spaceship.position.distanceTo(e.position);
+            return dist < closest.dist ? { enemy: e, dist } : closest;
+        }, { enemy: null, dist: Infinity }).enemy;
+
+        if (closest) {
+            let dx = closest.position.x - spaceship.position.x;
+            let dy = closest.position.y - spaceship.position.y;
+            if (Math.abs(dx) > 0.2) safeX += dx > 0 ? 0.05 : -0.05;
+            if (Math.abs(dy) > 0.2) safeY += dy > 0 ? 0.05 : -0.05;
+
+            if (Math.abs(dx) < 0.3 && shootCooldown <= 0) {
+                shoot();
+                shootCooldown = 30;
+            }
+        }
+
+        spaceship.position.x += (safeX - spaceship.position.x) * 0.2;
+        spaceship.position.y += (safeY - spaceship.position.y) * 0.2;
+    }
+
+    function animate() {
+        if (isGameOver) return;
+
+        requestAnimationFrame(animate);
+        aiControl();
+        updateBullets();
+        updateEnemies();
+        updateExplosions();
+        checkCollisions();
+        document.getElementById("level").textContent = level;
+
+        if (enemies.length === 0) {
+            level++;
+            if (level > 10) return alert("Victoire ! Vous avez survécu aux 10 vagues de zombies !");
+            createEnemies();
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    createSpaceship();
+    createEnemies();
+
+    let light = new THREE.AmbientLight(0xffffff);
+    scene.add(light);
+
+    let directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(0, 1, 1).normalize();
+    scene.add(directionalLight);
+
+    camera.position.z = 10;
+    camera.lookAt(scene.position);
+
+    animate();
+</script>
+</body>
+</html>

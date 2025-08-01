@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>IA Mario AUTO-APPRENTISSAGE - Entraînement Continu</title>
+    <style>
+        body {
+            margin: 0;
+            background: linear-gradient(45deg, #001122, #003366);
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB, #4682B4);
+            border: 3px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+
+<script>
+    console.log('Initialisation du jeu...');
+    // === INITIALISATION DU JEU ===
+    const canvas = document.getElementById("gameCanvas");
+    if (!canvas) console.error('Canvas introuvable !');
+    const ctx = canvas.getContext("2d");
+
+    // Définition de Mario
+    const mario = {
+        x: 150, y: 250, width: 30, height: 50,
+        dx: 0, dy: 0, speed: 8, maxSpeed: 15,
+        jumping: false, lives: 5, score: 0,
+        shootCooldown: 0, invulnerable: 0,
+        perfectStreak: 0,
+        evasionSkill: 0.5, combatSkill: 0.5, predictionSkill: 0.5,
+        adaptiveSpeed: 8, learningRate: 0.1
+    };
+
+    // Statistiques IA
+    const learningStats = { totalSessions: 1, totalDeaths: 0, totalKills: 0, sessionKills: 0 };
+
+    // Validation des compétences
+    function validateSkills() {
+        mario.evasionSkill = Math.max(0.1, Math.min(1, mario.evasionSkill));
+        mario.combatSkill = Math.max(0.1, Math.min(1, mario.combatSkill));
+        mario.predictionSkill = Math.max(0.1, Math.min(1, mario.predictionSkill));
+        mario.adaptiveSpeed = 8 + mario.evasionSkill * 7;
+    }
+
+    // IA simulées
+    const SmartPredictor = {
+        predictTrajectory(threat) {
+            const dx = threat.x - mario.x;
+            const dy = threat.y - mario.y;
+            const dist = Math.hypot(dx, dy);
+            return { dangerLevel: Math.max(0, 100 - dist + threat.speed * 10) * mario.predictionSkill };
+        }
+    };
+    const SmartEvasion = { executeEvasion(dangers) { mario.x += dangers.length * 5; } };
+    const SmartCombat = { findBestTarget(enemies) { return enemies.find(e => e.alive) || null; } };
+    function executeSmartShot(target) { target.alive = false; learningStats.sessionKills++; }
+    function smartPositioning(target) { mario.x += target.x < mario.x ? -1 : 1; }
+
+    // PRÉ-ENTRAÎNEMENT IA
+    function preTrainAI(cycles = 10000) {
+        console.log(`⚡ Pré-entraînement IA (${cycles} cycles)…`);
+        for (let i = 0; i < cycles; i++) {
+            const fakeThreats = [
+                { type: 'bullet', x: mario.x + 50, y: mario.y, speed: 3 },
+                { type: 'bomb', x: mario.x - 30, y: mario.y - 50, speed: 2 }
+            ];
+            const fakeEnemies = [ { alive: true, x: mario.x + 150, y: mario.y, width: 30, height: 30 } ];
+            const predictions = fakeThreats.map(t => SmartPredictor.predictTrajectory(t));
+            const dangers = predictions.filter(p => p.dangerLevel > 50);
+            if (dangers.length) {
+                SmartEvasion.executeEvasion(dangers);
+                mario.evasionSkill += mario.learningRate * 0.0005;
+            } else {
+                const target = SmartCombat.findBestTarget(fakeEnemies);
+                if (target) { executeSmartShot(target); smartPositioning(target); mario.combatSkill += mario.learningRate * 0.0005; }
+            }
+            validateSkills();
+            mario.score += Math.floor(Math.random() * 2);
+        }
+        console.log(`✅ Pré-entraînement terminé (${cycles} cycles)`);
+    }
+
+    // BOUCLE DE JEU
+    function gameLoop() {
+        try {
+            requestAnimationFrame(gameLoop);
+            ctx.fillStyle = "#003366";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#ff4444";
+            ctx.fillRect(mario.x, mario.y, mario.width, mario.height);
+            ctx.fillStyle = "white";
+            ctx.font = "16px Courier New";
+            ctx.fillText(`Score: ${mario.score} | Sessions: ${learningStats.totalSessions}`, 10, 20);
+        } catch (e) {
+            console.error('Erreur dans gameLoop:', e);
+        }
+    }
+
+    // LANCEMENT
+    preTrainAI(10000);
+    gameLoop();
+</script>
+
+</body>
+</html>

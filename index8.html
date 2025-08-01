@@ -1,0 +1,1444 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>IA Mario AUTO-APPRENTISSAGE - Entraînement Continu</title>
+    <style>
+        body {
+            margin: 0;
+            background: linear-gradient(45deg, #001122, #003366);
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB, #4682B4);
+            border: 3px solid #00ff00;
+            box-shadow: 0 0 20px #00ff00;
+        }
+        .training-brain {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #000000, #1a1a1a);
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 11px;
+            border: 2px solid #00ff00;
+            width: 250px;
+        }
+        .neural-status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            animation: neuralPulse 1s infinite;
+        }
+        @keyframes neuralPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .training-log {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 10px;
+            width: 280px;
+            height: 100px;
+            overflow-y: auto;
+        }
+        .session-info {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            background: rgba(255, 165, 0, 0.9);
+            color: black;
+            padding: 8px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .save-controls {
+            position: absolute;
+            top: 120px;
+            left: 10px;
+            background: rgba(0, 255, 0, 0.9);
+            color: black;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 11px;
+        }
+        .save-btn {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .save-btn:hover { background: #45a049; }
+        .load-input {
+            margin: 2px;
+            padding: 2px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+            font-size: 10px;
+            width: 120px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+
+<div class="neural-status" id="aiStatus">🧠 ENTRAÎNEMENT AUTO</div>
+
+<div class="session-info" id="sessionInfo">Session: 1 | Morts: 0</div>
+
+<div class="save-controls">
+    <div><strong>💾 SAUVEGARDE IA</strong></div>
+    <button class="save-btn" onclick="saveAIBrain()">💾 Sauvegarder</button>
+    <button class="save-btn" onclick="loadAIBrain()">📂 Charger</button>
+    <br>
+    <input type="file" id="loadFile" class="load-input" accept=".json" style="display:none;" onchange="loadFromFile(event)">
+    <div style="font-size: 9px; margin-top: 2px;">
+        <span id="saveStatus">Prêt à sauvegarder</span>
+    </div>
+</div>
+
+<div class="training-brain">
+    <div style="text-align: center; color: #ffff00; font-weight: bold; margin-bottom: 8px;">
+        🧠 APPRENTISSAGE CONTINU 🧠
+    </div>
+    <div>🎯 Précision Globale: <span id="globalAccuracy">100%</span></div>
+    <div>💀 Total Kills: <span id="totalKills">0</span></div>
+    <div>🛡️ Esquives Réussies: <span id="totalDodges">0</span></div>
+    <div>🔥 Meilleur Score: <span id="bestScore">0</span></div>
+    <div>⚡ QI Maximum: <span id="maxIQ">200</span></div>
+    <div>📈 Sessions: <span id="sessionCount">1</span></div>
+    <div>💀 Morts Totales: <span id="totalDeaths">0</span></div>
+    <div style="margin-top: 8px; font-size: 9px; color: #ffaa00;">
+        <div>Redémarrage dans: <span id="restartTimer">-</span></div>
+    </div>
+</div>
+
+<div class="training-log" id="trainingLog">
+    <div><strong>📊 LOG ENTRAÎNEMENT</strong></div>
+    <div id="logContent">🚀 Début entraînement automatique...</div>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Configuration Mario avec validation stricte
+    const mario = {
+        x: 150, y: 250, width: 30, height: 50,
+        dx: 0, dy: 0, speed: 8, maxSpeed: 15,
+        jumping: false, lives: 5, score: 0,
+        shootCooldown: 0, invulnerable: 0,
+        perfectStreak: 0,
+
+        // Compétences d'apprentissage
+        evasionSkill: 1,
+        combatSkill: 1,
+        predictionSkill: 1,
+        adaptiveSpeed: 1,
+        learningRate: 1
+    };
+
+    // Collections
+    const bullets = [], enemyBullets = [], bombs = [], particles = [];
+    const enemies = [], platforms = [];
+    const gravity = 0.5, jumpPower = -15;
+    const ground = { x: 0, y: 350, width: 800, height: 50, color: "#228B22" };
+
+    // Variables d'entraînement
+    let scrollOffset = 0, autoPlay = true, gameEnded = false, gameTime = 0;
+    let autoRestart = true, restartTimer = 0;
+
+    // Stats d'apprentissage persistantes
+    const learningStats = {
+        totalSessions: 1,
+        totalDeaths: 0,
+        totalKills: 0,
+        totalShots: 0,
+        totalHits: 0,
+        totalDodges: 0,
+        totalDodgeAttempts: 0,
+        bestScore: 0,
+        bestStreak: 0,
+        maxIQ: 1000,
+
+        // Session actuelle
+        sessionKills: 0,
+        sessionShots: 0,
+        sessionHits: 0,
+        sessionDodges: 0,
+        sessionDodgeAttempts: 0
+    };
+
+    // Mémoire d'apprentissage avec conversion Map->Object pour JSON
+    const memory = {
+        successfulEvasions: new Map(),
+        failedEvasions: new Map(),
+        enemyPatterns: new Map(),
+        environmentalFactors: new Map()
+    };
+
+    // Système de sauvegarde/chargement de l'IA
+    function saveAIBrain() {
+        try {
+            // Préparer les données à sauvegarder
+            const aiData = {
+                version: "1.0",
+                timestamp: new Date().toISOString(),
+                mario: {
+                    evasionSkill: mario.evasionSkill,
+                    combatSkill: mario.combatSkill,
+                    predictionSkill: mario.predictionSkill,
+                    adaptiveSpeed: mario.adaptiveSpeed,
+                    learningRate: mario.learningRate
+                },
+                learningStats: {
+                    ...learningStats
+                },
+                memory: {
+                    successfulEvasions: Object.fromEntries(memory.successfulEvasions),
+                    failedEvasions: Object.fromEntries(memory.failedEvasions),
+                    enemyPatterns: Object.fromEntries(memory.enemyPatterns),
+                    environmentalFactors: Object.fromEntries(memory.environmentalFactors)
+                },
+                trainingHistory: trainingLog.slice(-20) // Garder les 20 derniers logs
+            };
+
+            // Créer le fichier de sauvegarde
+            const dataStr = JSON.stringify(aiData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+
+            // Créer le lien de téléchargement
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+
+            // Nom du fichier avec timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            link.download = `mario-ai-brain-${timestamp}.json`;
+
+            // Télécharger
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Feedback utilisateur
+            updateSaveStatus("💾 Cerveau sauvegardé!", "#00ff00");
+            addLog(`💾 IA sauvegardée: Sessions=${learningStats.totalSessions}, QI=${Math.floor(learningStats.maxIQ)}`, 'save');
+
+            console.log("🧠 Cerveau IA sauvegardé:", aiData);
+
+        } catch (error) {
+            updateSaveStatus("❌ Erreur sauvegarde", "#ff0000");
+            addLog("❌ Erreur lors de la sauvegarde", 'error');
+            console.error("Erreur sauvegarde:", error);
+        }
+    }
+
+    function loadAIBrain() {
+        document.getElementById('loadFile').click();
+    }
+
+    function loadFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        updateSaveStatus("📂 Chargement...", "#ffaa00");
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const aiData = JSON.parse(e.target.result);
+
+                // Validation des données
+                if (!aiData.version || !aiData.mario || !aiData.learningStats) {
+                    throw new Error("Format de fichier invalide");
+                }
+
+                // Restaurer les compétences de Mario
+                mario.evasionSkill = Math.max(0.1, Math.min(1, aiData.mario.evasionSkill || 0.5));
+                mario.combatSkill = Math.max(0.1, Math.min(1, aiData.mario.combatSkill || 0.5));
+                mario.predictionSkill = Math.max(0.1, Math.min(1, aiData.mario.predictionSkill || 0.5));
+                mario.adaptiveSpeed = aiData.mario.adaptiveSpeed || 8;
+                mario.learningRate = aiData.mario.learningRate || 0.1;
+
+                // Restaurer les statistiques d'apprentissage
+                Object.keys(aiData.learningStats).forEach(key => {
+                    if (learningStats.hasOwnProperty(key)) {
+                        learningStats[key] = aiData.learningStats[key];
+                    }
+                });
+
+                // Restaurer la mémoire d'apprentissage
+                if (aiData.memory) {
+                    // Convertir les objets en Maps
+                    memory.successfulEvasions.clear();
+                    if (aiData.memory.successfulEvasions) {
+                        Object.entries(aiData.memory.successfulEvasions).forEach(([key, value]) => {
+                            memory.successfulEvasions.set(key, value);
+                        });
+                    }
+
+                    memory.failedEvasions.clear();
+                    if (aiData.memory.failedEvasions) {
+                        Object.entries(aiData.memory.failedEvasions).forEach(([key, value]) => {
+                            memory.failedEvasions.set(key, value);
+                        });
+                    }
+
+                    memory.enemyPatterns.clear();
+                    if (aiData.memory.enemyPatterns) {
+                        Object.entries(aiData.memory.enemyPatterns).forEach(([key, value]) => {
+                            memory.enemyPatterns.set(key, value);
+                        });
+                    }
+
+                    memory.environmentalFactors.clear();
+                    if (aiData.memory.environmentalFactors) {
+                        Object.entries(aiData.memory.environmentalFactors).forEach(([key, value]) => {
+                            memory.environmentalFactors.set(key, value);
+                        });
+                    }
+                }
+
+                // Restaurer l'historique d'entraînement (optionnel)
+                if (aiData.trainingHistory) {
+                    trainingLog.length = 0;
+                    trainingLog.push(...aiData.trainingHistory);
+                    trainingLog.push(`📂 IA restaurée: ${file.name}`);
+                    updateTrainingLogDisplay();
+                }
+
+                // Validation finale et mise à jour de l'affichage
+                validateSkills();
+                updateLearningStats();
+
+                // Feedback utilisateur
+                updateSaveStatus("✅ IA chargée!", "#00ff00");
+                addLog(`📂 IA restaurée: Sessions=${learningStats.totalSessions}, Expérience=${memory.successfulEvasions.size + memory.failedEvasions.size} patterns`, 'load');
+                addLog(`🧠 Compétences: Évasion ${(mario.evasionSkill*100).toFixed(1)}% | Combat ${(mario.combatSkill*100).toFixed(1)}%`, 'skill');
+
+                console.log("🧠 Cerveau IA restauré:", aiData);
+
+                // Reset le input file
+                event.target.value = '';
+
+            } catch (error) {
+                updateSaveStatus("❌ Fichier invalide", "#ff0000");
+                addLog("❌ Erreur: fichier de sauvegarde corrompu", 'error');
+                console.error("Erreur chargement:", error);
+                event.target.value = '';
+            }
+        };
+
+        reader.readAsText(file);
+    }
+
+    function updateSaveStatus(message, color) {
+        const statusElement = document.getElementById("saveStatus");
+        if (statusElement) {
+            statusElement.textContent = message;
+            statusElement.style.color = color;
+
+            // Revenir au statut normal après 3 secondes
+            setTimeout(() => {
+                statusElement.textContent = "Prêt à sauvegarder";
+                statusElement.style.color = "black";
+            }, 3000);
+        }
+    }
+
+    function updateTrainingLogDisplay() {
+        const logElement = document.getElementById("logContent");
+        if (logElement) {
+            logElement.innerHTML = trainingLog.map(log => `<div>${log}</div>`).join('');
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+    }
+
+    // Sauvegarde automatique périodique (optionnelle)
+    let autoSaveInterval = null;
+
+    function enableAutoSave(intervalMinutes = 5) {
+        if (autoSaveInterval) clearInterval(autoSaveInterval);
+
+        autoSaveInterval = setInterval(() => {
+            if (learningStats.totalSessions > 1) { // Sauvegarder seulement après la première session
+                saveAIBrain();
+                addLog(`🔄 Sauvegarde automatique effectuée`, 'autosave');
+            }
+        }, intervalMinutes * 60 * 1000);
+
+        addLog(`⏰ Sauvegarde automatique activée (${intervalMinutes}min)`, 'system');
+    }
+
+    // Activer la sauvegarde automatique toutes les 5 minutes
+    // enableAutoSave(5);
+
+    // Log d'entraînement
+    const trainingLog = [];
+
+    function addLog(message, type = 'info') {
+        const time = new Date().toLocaleTimeString();
+        trainingLog.push(`[${time}] ${message}`);
+        if (trainingLog.length > 8) trainingLog.shift();
+
+        const logElement = document.getElementById("logContent");
+        if (logElement) {
+            logElement.innerHTML = trainingLog.map(log => `<div>${log}</div>`).join('');
+        }
+    }
+
+    // Validation sécurisée des coordonnées
+    function validateCoords(obj) {
+        if (!isFinite(obj.x) || obj.x < -1000 || obj.x > 2000) obj.x = 150;
+        if (!isFinite(obj.y) || obj.y < -1000 || obj.y > 1000) obj.y = 250;
+        if (!isFinite(obj.dx)) obj.dx = 0;
+        if (!isFinite(obj.dy)) obj.dy = 0;
+        if (!isFinite(obj.width) || obj.width <= 0) obj.width = 30;
+        if (!isFinite(obj.height) || obj.height <= 0) obj.height = 50;
+    }
+
+    // Validation des compétences
+    // Fonction qui convertit un QI en un coefficient de compétence [0.1 – 1]
+    function skillFromIQ(iq) {
+        // On décale de 100 (QI moyen), on normalise par 1100 (pour couvrir jusqu'à ~1200)
+        // puis on clamp entre 0.1 et 1
+        const raw = (iq - 100) / 1100;
+        return Math.max(0.1, Math.min(1, raw));
+    }
+
+    function validateSkills() {
+        // 1) Assigne un QI, min 50 / max 2000, par défaut 1200
+        mario.IQ = Math.max(50, Math.min(2000, mario.IQ || 1200));
+
+        // 2) Calcule un "skill base" à partir du QI
+        const baseSkill = skillFromIQ(mario.IQ);
+
+        // 3) Applique ce baseSkill aux différentes aptitudes
+        mario.evasionSkill     = Math.max(0.1, Math.min(1, mario.evasionSkill     || baseSkill));
+        mario.combatSkill      = Math.max(0.1, Math.min(1, mario.combatSkill      || baseSkill));
+        mario.predictionSkill  = Math.max(0.1, Math.min(1, mario.predictionSkill  || baseSkill));
+
+        // 4) Ajuste la vitesse adaptative en fonction de l'évasion
+        mario.adaptiveSpeed    = 8 + mario.evasionSkill * 7;
+
+        // (Optionnel) Affiche pour debug
+        console.log(`IQ: ${mario.IQ}, skills:`, {
+            evasion: mario.evasionSkill,
+            combat: mario.combatSkill,
+            prediction: mario.predictionSkill,
+            adaptiveSpeed: mario.adaptiveSpeed
+        });
+    }
+
+    // IA d'apprentissage automatique
+    class LearningAI {
+        static learnFromOutcome(situation, action, result) {
+            const key = `${situation.type}_${action}`;
+
+            if (result.success) {
+                const success = memory.successfulEvasions.get(key) || { count: 0, avgScore: 0 };
+                success.count++;
+                success.avgScore = (success.avgScore + result.score) / 2;
+                memory.successfulEvasions.set(key, success);
+
+                // Améliorer les compétences
+                if (situation.type === 'evasion') {
+                    mario.evasionSkill = Math.min(1, mario.evasionSkill + 0.01);
+                } else if (situation.type === 'combat') {
+                    mario.combatSkill = Math.min(1, mario.combatSkill + 0.01);
+                }
+            } else {
+                const failed = memory.failedEvasions.get(key) || { count: 0 };
+                failed.count++;
+                memory.failedEvasions.set(key, failed);
+            }
+
+            validateSkills();
+        }
+
+        static getBestAction(situation) {
+            const actions = ['jump_left', 'jump_right', 'slide_left', 'slide_right', 'stay'];
+            let bestAction = 'stay';
+            let bestScore = 0;
+
+            actions.forEach(action => {
+                const key = `${situation.type}_${action}`;
+                const success = memory.successfulEvasions.get(key);
+                const failed = memory.failedEvasions.get(key);
+
+                if (success) {
+                    const successRate = success.count / (success.count + (failed?.count || 0));
+                    const score = successRate * success.avgScore * Math.log(success.count + 1);
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestAction = action;
+                    }
+                }
+            });
+
+            return bestAction;
+        }
+    }
+
+    // Prédiction intelligente
+    class SmartPredictor {
+        static predictTrajectory(obj, frames = 80) {
+            const trajectory = [];
+            let x = obj.x, y = obj.y;
+            const speed = obj.speed || 3;
+
+            for (let i = 0; i < frames; i++) {
+                x -= speed;
+                if (obj.type === 'bomb') y += obj.speed || 2;
+
+                const danger = this.calculateDanger(x, y, i);
+                trajectory.push({ x, y, frame: i, danger });
+
+                if (x < -100 || y > canvas.height) break;
+            }
+
+            return {
+                object: obj,
+                trajectory,
+                dangerLevel: Math.max(...trajectory.map(p => p.danger)),
+                timeToImpact: this.findImpactTime(trajectory)
+            };
+        }
+
+        static calculateDanger(x, y, frame) {
+            const dist = Math.sqrt((x - mario.x) ** 2 + (y - mario.y) ** 2);
+            const timeFactor = Math.max(0, 1 - frame / 60);
+            return (1 / Math.max(dist, 1)) * timeFactor * 1000;
+        }
+
+        static findImpactTime(trajectory) {
+            for (let i = 0; i < trajectory.length; i++) {
+                const point = trajectory[i];
+                if (this.willHitMario(point)) return point.frame;
+            }
+            return -1;
+        }
+
+        static willHitMario(point) {
+            const margin = 25;
+            return point.x >= mario.x - margin &&
+                point.x <= mario.x + mario.width + margin &&
+                point.y >= mario.y - margin &&
+                point.y <= mario.y + mario.height + margin;
+        }
+
+        static findSafeZone() {
+            const zones = [];
+
+            for (let x = 50; x < canvas.width - 100; x += 35) {
+                for (let y = mario.y - 100; y <= ground.y - mario.height; y += 35) {
+                    let safety = 100;
+
+                    [...enemyBullets, ...bombs].forEach(threat => {
+                        const pred = this.predictTrajectory(threat);
+                        pred.trajectory.forEach(point => {
+                            const dist = Math.sqrt((point.x - x) ** 2 + (point.y - y) ** 2);
+                            if (dist < 40) safety -= 80;
+                            else if (dist < 70) safety -= 30;
+                        });
+                    });
+
+                    if (safety > 30) {
+                        zones.push({ x, y, safety, distance: Math.abs(x - mario.x) });
+                    }
+                }
+            }
+
+            return zones.sort((a, b) => b.safety - a.safety || a.distance - b.distance)[0];
+        }
+    }
+
+    // Combat intelligent
+    class SmartCombat {
+        static findBestTarget(enemies) {
+            return enemies
+                .filter(e => e.alive)
+                .map(enemy => ({
+                    enemy,
+                    distance: Math.abs(enemy.x - mario.x),
+                    accuracy: this.calculateAccuracy(enemy),
+                    priority: this.calculatePriority(enemy)
+                }))
+                .sort((a, b) => b.priority - a.priority)[0];
+        }
+
+        static calculateAccuracy(enemy) {
+            const distance = Math.abs(enemy.x - mario.x);
+            const vertAlign = Math.abs((enemy.y + enemy.height/2) - (mario.y + mario.height/2));
+
+            const distAcc = Math.max(0.2, 1 - distance / 400);
+            const alignAcc = Math.max(0.6, 1 - vertAlign / 50);
+            const skillBonus = mario.combatSkill * 0.3;
+
+            return Math.min(1, distAcc * alignAcc + skillBonus);
+        }
+
+        static calculatePriority(enemy) {
+            const distance = Math.abs(enemy.x - mario.x);
+            const threat = enemy.shootCooldown < 300 ? 2 : 1;
+            const accuracy = this.calculateAccuracy(enemy);
+
+            return accuracy * threat * (400 - Math.min(distance, 400)) / 400;
+        }
+    }
+
+    // Évasion intelligente
+    class SmartEvasion {
+        static executeEvasion(threats) {
+            if (threats.length === 0) return null;
+
+            learningStats.sessionDodgeAttempts++;
+
+            const situation = {
+                type: 'evasion',
+                threatCount: threats.length,
+                avgDanger: threats.reduce((sum, t) => sum + t.dangerLevel, 0) / threats.length
+            };
+
+            const bestAction = LearningAI.getBestAction(situation);
+            const safeZone = SmartPredictor.findSafeZone();
+
+            let success = false;
+
+            if (safeZone && safeZone.safety > 60) {
+                success = this.moveToSafeZone(safeZone, bestAction);
+            } else {
+                success = this.emergencyEvasion();
+            }
+
+            // Apprendre du résultat
+            LearningAI.learnFromOutcome(situation, bestAction, {
+                success,
+                score: success ? safeZone?.safety || 50 : 0
+            });
+
+            if (success) {
+                learningStats.sessionDodges++;
+                this.addEffect(mario.x, mario.y, "ESQUIVE APPRISE!", "#00ffff");
+            } else {
+                this.addEffect(mario.x, mario.y, "APPRENTISSAGE...", "#ffaa00");
+            }
+
+            return success;
+        }
+
+        static moveToSafeZone(zone, action) {
+            const deltaX = zone.x - mario.x;
+            const deltaY = zone.y - mario.y;
+
+            switch (action) {
+                case 'jump_left':
+                    if (!mario.jumping) {
+                        mario.dy = jumpPower * (1 + mario.evasionSkill * 0.3);
+                        mario.dx = -mario.adaptiveSpeed * 1.2;
+                        mario.jumping = true;
+                    }
+                    break;
+                case 'jump_right':
+                    if (!mario.jumping) {
+                        mario.dy = jumpPower * (1 + mario.evasionSkill * 0.3);
+                        mario.dx = mario.adaptiveSpeed * 1.2;
+                        mario.jumping = true;
+                    }
+                    break;
+                case 'slide_left':
+                    mario.dx = -mario.adaptiveSpeed * 1.4;
+                    break;
+                case 'slide_right':
+                    mario.dx = mario.adaptiveSpeed * 1.4;
+                    break;
+                default:
+                    if (Math.abs(deltaY) > 50 && !mario.jumping) {
+                        mario.dy = jumpPower;
+                        mario.dx = Math.sign(deltaX) * mario.adaptiveSpeed;
+                        mario.jumping = true;
+                    } else {
+                        mario.dx = Math.sign(deltaX) * mario.adaptiveSpeed;
+                    }
+            }
+
+            return zone.safety > 60;
+        }
+
+        static emergencyEvasion() {
+            if (!mario.jumping) {
+                mario.dy = jumpPower * 1.2;
+                mario.jumping = true;
+            }
+            mario.dx = (Math.random() - 0.5) * mario.maxSpeed * 1.5;
+            return false;
+        }
+
+        static addEffect(x, y, text, color) {
+            particles.push({
+                x: x + Math.random() * 20 - 10,
+                y: y + Math.random() * 20 - 10,
+                text, color, life: 50,
+                dx: (Math.random() - 0.5) * 3,
+                dy: -Math.random() * 2
+            });
+        }
+    }
+
+    // IA principale avec apprentissage
+    function smartLearningAI() {
+        if (!autoPlay) return;
+
+        gameTime++;
+        validateCoords(mario);
+        validateSkills();
+
+        if (mario.invulnerable > 0) mario.invulnerable--;
+        if (mario.shootCooldown > 0) mario.shootCooldown--;
+
+        // Améliorer la prédiction avec l'expérience
+        mario.predictionSkill = Math.min(1, mario.predictionSkill + 0.001);
+
+        // Analyser les menaces
+        const allThreats = [...enemyBullets.map(b => ({...b, type: 'bullet'})),
+            ...bombs.map(b => ({...b, type: 'bomb'}))];
+        const predictions = allThreats.map(t => SmartPredictor.predictTrajectory(t));
+
+        const immediateDangers = predictions.filter(p =>
+            p.dangerLevel > 50 && p.timeToImpact >= 0 && p.timeToImpact < 50
+        );
+
+        if (immediateDangers.length > 0) {
+            // MODE ÉVASION AVEC APPRENTISSAGE
+            const evasionSuccess = SmartEvasion.executeEvasion(immediateDangers);
+            updateStatus(`🛡️ ÉVASION ${evasionSuccess ? 'RÉUSSIE' : 'APPRENTISSAGE'}`);
+
+        } else {
+            // MODE COMBAT AVEC APPRENTISSAGE
+            const bestTarget = SmartCombat.findBestTarget(enemies);
+
+            if (bestTarget && bestTarget.accuracy > 0.8 && mario.shootCooldown === 0) {
+                executeSmartShot(bestTarget);
+            }
+
+            if (bestTarget) {
+                smartPositioning(bestTarget);
+                updateStatus("🎯 COMBAT INTELLIGENT");
+            } else {
+                smartHunting();
+                updateStatus("🔍 CHASSE ADAPTATIVE");
+            }
+        }
+
+        updateLearningStats();
+    }
+
+    function executeSmartShot(target) {
+        const enemy = target.enemy;
+        const leadTime = Math.abs(enemy.x - mario.x) / 12;
+        const futureX = enemy.x - leadTime;
+
+        bullets.push({
+            x: mario.x + mario.width,
+            y: mario.y + mario.height / 2 - 2,
+            width: 12, height: 6,
+            speed: 12, smart: true
+        });
+
+        mario.shootCooldown = 15;
+        learningStats.sessionShots++;
+
+        addParticle(mario.x + mario.width, mario.y + mario.height/2, "TIR INTELLIGENT!", "#ffff00");
+    }
+
+    function smartPositioning(target) {
+        const distance = target.enemy.x - mario.x;
+        const optimalRange = 180 + mario.combatSkill * 50;
+
+        if (Math.abs(distance) > optimalRange + 30) {
+            mario.dx = Math.sign(distance) * mario.adaptiveSpeed;
+        } else if (Math.abs(distance) < optimalRange - 30) {
+            mario.dx = -Math.sign(distance) * mario.adaptiveSpeed * 0.8;
+        } else {
+            mario.dx *= 0.9;
+        }
+    }
+
+    function smartHunting() {
+        if (mario.x < 80) {
+            mario.dx = mario.adaptiveSpeed;
+        } else if (mario.x > canvas.width - 150) {
+            mario.dx = -mario.adaptiveSpeed;
+        } else {
+            mario.dx = mario.adaptiveSpeed * 0.7;
+        }
+    }
+
+    function addParticle(x, y, text, color) {
+        particles.push({
+            x: x + Math.random() * 15 - 7,
+            y: y + Math.random() * 15 - 7,
+            text, color, life: 60,
+            dx: (Math.random() - 0.5) * 3,
+            dy: -Math.random() * 2
+        });
+    }
+
+    function updateStatus(status) {
+        const element = document.getElementById("aiStatus");
+        if (element) element.textContent = `🧠 ${status}`;
+    }
+
+    function updateLearningStats() {
+        const accuracy = learningStats.sessionShots > 0 ?
+            (learningStats.sessionHits / learningStats.sessionShots * 100) : 100;
+        const globalAccuracy = learningStats.totalShots > 0 ?
+            (learningStats.totalHits / learningStats.totalShots * 100) : 100;
+        const dodgeRate = learningStats.sessionDodgeAttempts > 0 ?
+            (learningStats.sessionDodges / learningStats.sessionDodgeAttempts * 100) : 100;
+
+        const currentIQ = 200 + mario.evasionSkill * 150 + mario.combatSkill * 150;
+        learningStats.maxIQ = Math.max(learningStats.maxIQ, currentIQ);
+
+        const elements = {
+            globalAccuracy: `${globalAccuracy.toFixed(1)}%`,
+            totalKills: learningStats.totalKills,
+            totalDodges: learningStats.totalDodges,
+            bestScore: learningStats.bestScore,
+            maxIQ: Math.floor(learningStats.maxIQ),
+            sessionCount: learningStats.totalSessions,
+            totalDeaths: learningStats.totalDeaths,
+            sessionInfo: `Session: ${learningStats.totalSessions} | Morts: ${learningStats.totalDeaths} | QI: ${Math.floor(currentIQ)}`
+        };
+
+        Object.keys(elements).forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = elements[id];
+        });
+    }
+
+    // Redémarrage automatique
+    function handleGameOver() {
+        learningStats.totalDeaths++;
+        learningStats.bestScore = Math.max(learningStats.bestScore, mario.score);
+
+        validateSkills();
+
+        addLog(`💀 Mort #${learningStats.totalDeaths} - Score: ${mario.score}`, 'death');
+        addLog(`📈 Compétences: Évasion ${(mario.evasionSkill*100).toFixed(1)}% | Combat ${(mario.combatSkill*100).toFixed(1)}%`, 'skill');
+
+        if (autoRestart) {
+            restartTimer = 180; // 3 secondes
+            addLog(`🔄 Redémarrage automatique dans 3s...`, 'restart');
+        }
+    }
+
+    function autoRestartGame() {
+        if (restartTimer > 0) {
+            restartTimer--;
+            const element = document.getElementById("restartTimer");
+            if (element) element.textContent = `${Math.ceil(restartTimer/60)}s`;
+
+            if (restartTimer === 0) {
+                // Redémarrer en gardant l'apprentissage
+                learningStats.totalSessions++;
+                learningStats.sessionKills = 0;
+                learningStats.sessionShots = 0;
+                learningStats.sessionHits = 0;
+                learningStats.sessionDodges = 0;
+                learningStats.sessionDodgeAttempts = 0;
+
+                // Reset Mario mais garder les compétences apprises
+                mario.x = 150;
+                mario.y = 250;
+                mario.lives = 5;
+                mario.score = 0;
+                mario.dx = 0;
+                mario.dy = 0;
+                mario.perfectStreak = 0;
+                mario.invulnerable = 0;
+                mario.shootCooldown = 0;
+
+                validateSkills();
+
+                // Vider les objets
+                bullets.length = 0;
+                enemyBullets.length = 0;
+                bombs.length = 0;
+                enemies.length = 0;
+                particles.length = 0;
+
+                // Reset environnement
+                scrollOffset = 0;
+                gameTime = 0;
+                gameEnded = false;
+
+                addLog(`🚀 Session ${learningStats.totalSessions} démarrée!`, 'start');
+                addLog(`🧠 IA maintient ses compétences apprises`, 'learn');
+            }
+        } else {
+            const element = document.getElementById("restartTimer");
+            if (element) element.textContent = "-";
+        }
+    }
+
+    // Génération d'environnement
+    function generateEnvironment() {
+        platforms.length = 0;
+        for (let i = 0; i < 20; i++) {
+            platforms.push({
+                x: i * 300 + 200,
+                y: 200 + Math.sin(i * 0.3) * 40,
+                width: 100, height: 12, color: "#8B4513"
+            });
+        }
+    }
+
+    generateEnvironment();
+
+    // Génération d'ennemis avec apprentissage
+    setInterval(() => {
+        if (gameEnded) return;
+
+        const difficulty = Math.min(5, 1 + Math.floor(learningStats.totalSessions / 3));
+        const waveSize = 2 + difficulty;
+        const baseX = scrollOffset + canvas.width + 60;
+
+        for (let i = 0; i < waveSize; i++) {
+            enemies.push({
+                x: baseX + i * 50,
+                y: 300,
+                width: 30, height: 30,
+                color: "darkgreen",
+                alive: true,
+                shootCooldown: 2500 + Math.random() * 1000,
+                level: difficulty
+            });
+        }
+    }, Math.max(2000, 4000 - learningStats.totalSessions * 50));
+
+    // Génération de bombes adaptative
+    setInterval(() => {
+        if (gameEnded || bombs.length >= 3) return;
+
+        bombs.push({
+            x: mario.x + (Math.random() - 0.5) * 250,
+            y: -20,
+            width: 14, height: 18,
+            speed: 2 + learningStats.totalSessions * 0.1,
+            type: 'bomb'
+        });
+    }, Math.max(3000, 6000 - learningStats.totalSessions * 100));
+
+    // Mise à jour du jeu
+    function update() {
+        if (gameEnded) {
+            autoRestartGame();
+            return;
+        }
+
+        smartLearningAI();
+
+        // Physique Mario avec validation
+        validateCoords(mario);
+
+        mario.x += mario.dx;
+        mario.y += mario.dy;
+        mario.dy += gravity;
+        mario.dx *= 0.92;
+
+        // Collision sol
+        if (mario.y + mario.height >= ground.y) {
+            mario.y = ground.y - mario.height;
+            mario.dy = 0;
+            mario.jumping = false;
+        }
+
+        // Collision plateformes
+        platforms.forEach(p => {
+            if (mario.x + mario.width > p.x && mario.x < p.x + p.width &&
+                mario.y + mario.height >= p.y && mario.y + mario.height <= p.y + 15 &&
+                mario.dy >= 0) {
+                mario.y = p.y - mario.height;
+                mario.dy = 0;
+                mario.jumping = false;
+            }
+        });
+
+        // Scrolling
+        if (mario.x > canvas.width * 0.6) {
+            scrollOffset += mario.dx;
+            mario.x = canvas.width * 0.6;
+            [...platforms, ...enemies, ...bullets, ...bombs, ...enemyBullets]
+                .forEach(e => e.x -= mario.dx);
+        }
+
+        mario.x = Math.max(15, Math.min(mario.x, canvas.width - mario.width - 15));
+
+        updateProjectiles();
+        updateEnemies();
+        updateParticles();
+        checkCollisions();
+
+        // Victoire avec seuil adaptatif
+        const victoryThreshold = 20 + learningStats.totalSessions * 2;
+        if (!gameEnded && mario.score >= victoryThreshold) {
+            addLog(`🏆 Victoire! Score: ${mario.score}`, 'victory');
+            handleGameOver();
+        }
+    }
+
+    function updateProjectiles() {
+        bullets.forEach((bullet, i) => {
+            bullet.x += bullet.speed;
+            if (bullet.x > canvas.width + scrollOffset + 100) {
+                bullets.splice(i, 1);
+            }
+        });
+
+        enemyBullets.forEach((bullet, i) => {
+            bullet.x -= bullet.speed || 3;
+            if (bullet.x < -50) enemyBullets.splice(i, 1);
+        });
+
+        bombs.forEach((bomb, i) => {
+            bomb.y += bomb.speed;
+            if (bomb.y > canvas.height) bombs.splice(i, 1);
+        });
+    }
+
+    function updateEnemies() {
+        enemies.forEach((enemy, i) => {
+            if (!enemy.alive) return;
+
+            enemy.x -= 1;
+
+            bullets.forEach((bullet, bi) => {
+                if (bullet.x < enemy.x + enemy.width &&
+                    bullet.x + bullet.width > enemy.x &&
+                    bullet.y < enemy.y + enemy.height &&
+                    bullet.y + bullet.height > enemy.y) {
+
+                    enemy.alive = false;
+                    bullets.splice(bi, 1);
+
+                    learningStats.sessionHits++;
+                    learningStats.sessionKills++;
+                    learningStats.totalHits++;
+                    learningStats.totalKills++;
+                    mario.score++;
+                    mario.perfectStreak++;
+
+                    // Apprendre du succès de combat
+                    const situation = { type: 'combat', distance: Math.abs(enemy.x - mario.x) };
+                    LearningAI.learnFromOutcome(situation, 'shoot', { success: true, score: 10 });
+
+                    addParticle(enemy.x + enemy.width/2, enemy.y + enemy.height/2, "KILL APPRIS!", "#ff4444");
+                }
+            });
+
+            if (enemy.shootCooldown <= 0 && Math.abs(enemy.x - mario.x) < 300) {
+                enemyBullets.push({
+                    x: enemy.x,
+                    y: enemy.y + enemy.height / 2,
+                    width: 8, height: 4,
+                    speed: 3 + enemy.level * 0.2
+                });
+                enemy.shootCooldown = 3000;
+            } else {
+                enemy.shootCooldown--;
+            }
+
+            if (enemy.x < -100) enemies.splice(i, 1);
+        });
+    }
+
+    function updateParticles() {
+        particles.forEach((particle, i) => {
+            particle.x += particle.dx || 0;
+            particle.y += particle.dy || 0;
+            particle.life--;
+
+            if (particle.life <= 0) particles.splice(i, 1);
+        });
+    }
+
+    function checkCollisions() {
+        if (mario.invulnerable > 0) return;
+
+        enemyBullets.forEach((bullet, i) => {
+            if (bullet.x < mario.x + mario.width &&
+                bullet.x + bullet.width > mario.x &&
+                bullet.y < mario.y + mario.height &&
+                bullet.y + bullet.height > mario.y) {
+
+                mario.lives--;
+                mario.invulnerable = 90;
+                mario.perfectStreak = 0;
+                enemyBullets.splice(i, 1);
+
+                // Apprendre de l'échec d'évasion
+                const situation = { type: 'evasion', threatType: 'bullet' };
+                LearningAI.learnFromOutcome(situation, 'failed_dodge', { success: false, score: -10 });
+
+                addParticle(mario.x, mario.y, "APPRENTISSAGE!", "#ff0000");
+
+                if (mario.lives <= 0) {
+                    gameEnded = true;
+                    handleGameOver();
+                }
+            }
+        });
+
+        bombs.forEach((bomb, i) => {
+            if (bomb.x < mario.x + mario.width &&
+                bomb.x + bomb.width > mario.x &&
+                bomb.y < mario.y + mario.height &&
+                bomb.y + bomb.height > mario.y) {
+
+                mario.lives -= 2;
+                mario.invulnerable = 120;
+                mario.perfectStreak = 0;
+                bombs.splice(i, 1);
+
+                // SÉCURISATION après explosion
+                validateCoords(mario);
+
+                // Apprendre de l'explosion
+                const situation = { type: 'evasion', threatType: 'bomb' };
+                LearningAI.learnFromOutcome(situation, 'failed_bomb_dodge', { success: false, score: -20 });
+
+                for (let j = 0; j < 6; j++) {
+                    addParticle(bomb.x, bomb.y, "💥", "#ff8800");
+                }
+
+                addParticle(mario.x, mario.y, "EXPLOSION!", "#ff0000");
+
+                if (mario.lives <= 0) {
+                    gameEnded = true;
+                    handleGameOver();
+                }
+            }
+        });
+    }
+
+    function draw() {
+        // Fond dégradé
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, "#001122");
+        gradient.addColorStop(0.5, "#003366");
+        gradient.addColorStop(1, "#87CEEB");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Sol
+        ctx.fillStyle = ground.color;
+        ctx.fillRect(ground.x, ground.y, ground.width, ground.height);
+
+        // Plateformes
+        platforms.forEach(platform => {
+            ctx.fillStyle = platform.color;
+            ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        });
+
+        // Trajectoires de prédiction si menace détectée
+        if ([...enemyBullets, ...bombs].length > 0) {
+            ctx.strokeStyle = "rgba(255, 0, 0, 0.4)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+
+            [...enemyBullets, ...bombs].forEach(threat => {
+                const prediction = SmartPredictor.predictTrajectory(threat);
+                if (prediction.trajectory.length > 1 && prediction.dangerLevel > 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(threat.x, threat.y);
+                    prediction.trajectory.slice(0, 20).forEach(point => {
+                        ctx.lineTo(point.x, point.y);
+                    });
+                    ctx.stroke();
+                }
+            });
+
+            ctx.setLineDash([]);
+        }
+
+        // Mario avec validation complète
+        if (mario.invulnerable === 0 || Math.floor(gameTime / 3) % 2) {
+            validateCoords(mario);
+            validateSkills();
+
+            const safeX = mario.x;
+            const safeY = mario.y;
+            const safeWidth = mario.width;
+            const safeHeight = mario.height;
+
+            const centerX = safeX + safeWidth/2;
+            const centerY = safeY + safeHeight/2;
+
+            const skillLevel = (mario.evasionSkill + mario.combatSkill) / 2;
+
+            // Aura d'apprentissage sécurisée
+            if (skillLevel > 0.3) {
+                const auraSize = 15 + skillLevel * 20;
+                const auraIntensity = skillLevel * 0.6;
+
+                try {
+                    const auraGradient = ctx.createRadialGradient(
+                        centerX, centerY, 0,
+                        centerX, centerY, auraSize
+                    );
+                    auraGradient.addColorStop(0, `rgba(0, 255, 255, ${auraIntensity})`);
+                    auraGradient.addColorStop(1, "rgba(0, 255, 255, 0)");
+                    ctx.fillStyle = auraGradient;
+                    ctx.fillRect(safeX - auraSize/2, safeY - auraSize/2,
+                        safeWidth + auraSize, safeHeight + auraSize);
+                } catch (e) {
+                    ctx.fillStyle = `rgba(0, 255, 255, ${auraIntensity * 0.3})`;
+                    ctx.fillRect(safeX - 10, safeY - 10, safeWidth + 20, safeHeight + 20);
+                }
+            }
+
+            // Mario principal sécurisé
+            try {
+                const marioGradient = ctx.createLinearGradient(safeX, safeY, safeX, safeY + safeHeight);
+                marioGradient.addColorStop(0, "#ff4444");
+                marioGradient.addColorStop(1, "#cc0000");
+                ctx.fillStyle = marioGradient;
+            } catch (e) {
+                ctx.fillStyle = "#ff4444";
+            }
+
+            ctx.fillRect(safeX, safeY, safeWidth, safeHeight);
+
+            // Indicateur de compétences
+            if (skillLevel > 0.3) {
+                ctx.fillStyle = "#00ffff";
+                ctx.font = "bold 10px Arial";
+                ctx.fillText(`Skill: ${(skillLevel*100).toFixed(0)}%`, safeX, safeY - 8);
+            }
+
+            // Streak
+            if (mario.perfectStreak > 0) {
+                ctx.fillStyle = "#ffff00";
+                ctx.font = "bold 12px Arial";
+                ctx.fillText(`${mario.perfectStreak}x`, safeX + safeWidth + 5, safeY + 15);
+            }
+        }
+
+        // Projectiles
+        bullets.forEach(bullet => {
+            if (bullet.smart) {
+                try {
+                    const trailGradient = ctx.createLinearGradient(bullet.x - 10, bullet.y, bullet.x, bullet.y);
+                    trailGradient.addColorStop(0, "rgba(255, 255, 0, 0)");
+                    trailGradient.addColorStop(1, "rgba(255, 255, 0, 0.8)");
+                    ctx.fillStyle = trailGradient;
+                    ctx.fillRect(bullet.x - 10, bullet.y - 1, 15, bullet.height + 2);
+                } catch (e) {
+                    ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
+                    ctx.fillRect(bullet.x - 5, bullet.y - 1, 10, bullet.height + 2);
+                }
+            }
+
+            ctx.fillStyle = bullet.smart ? "#ffff00" : "#ffaa00";
+            ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        });
+
+        // Balles ennemies
+        enemyBullets.forEach(bullet => {
+            ctx.fillStyle = "#8800ff";
+            ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+
+            ctx.fillStyle = "rgba(136, 0, 255, 0.3)";
+            ctx.fillRect(bullet.x - 3, bullet.y - 3, bullet.width + 6, bullet.height + 6);
+        });
+
+        // Bombes
+        bombs.forEach(bomb => {
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(bomb.x, bomb.y, bomb.width, bomb.height);
+
+            const pulse = Math.sin(gameTime * 0.3) * 0.4 + 0.6;
+            ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
+            const pulseSize = 6 + Math.sin(gameTime * 0.2) * 3;
+            ctx.fillRect(bomb.x - pulseSize, bomb.y - pulseSize,
+                bomb.width + pulseSize * 2, bomb.height + pulseSize * 2);
+        });
+
+        // Ennemis
+        enemies.forEach(enemy => {
+            if (enemy.alive) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.fillRect(enemy.x + 2, enemy.y + 2, enemy.width, enemy.height);
+
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+                if (enemy.level > 1) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = "8px Arial";
+                    ctx.fillText(`L${enemy.level}`, enemy.x + 2, enemy.y + 10);
+                }
+
+                if (enemy.shootCooldown < 180) {
+                    const intensity = 1 - (enemy.shootCooldown / 180);
+                    ctx.fillStyle = `rgba(255, 0, 0, ${intensity * 0.6})`;
+                    ctx.fillRect(enemy.x - 2, enemy.y - 2, enemy.width + 4, enemy.height + 4);
+                }
+
+                ctx.fillStyle = "white";
+                ctx.font = "8px Arial";
+                ctx.fillText(Math.ceil(enemy.shootCooldown / 60) + "s", enemy.x, enemy.y - 2);
+            }
+        });
+
+        // Particules
+        particles.forEach(particle => {
+            ctx.font = "bold 11px Arial";
+            ctx.fillStyle = particle.color;
+            ctx.globalAlpha = particle.life / 60;
+            ctx.fillText(particle.text, particle.x, particle.y);
+            ctx.globalAlpha = 1;
+        });
+
+        // Interface
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+        ctx.fillRect(0, 375, canvas.width, 25);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "14px Arial";
+        ctx.fillText(`Vies: ${mario.lives} | Score: ${mario.score} | Session: ${learningStats.totalSessions}`, 10, 390);
+
+        // Barre de vie sécurisée
+        const lifePercent = Math.max(0, Math.min(1, mario.lives / 5));
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(8, 350, 154, 10);
+
+        try {
+            const lifeGradient = ctx.createLinearGradient(10, 352, 160, 352);
+            const lifeColor = lifePercent > 0.6 ? "#00ff00" : lifePercent > 0.3 ? "#ffaa00" : "#ff0000";
+            const lifeDarkColor = lifePercent > 0.6 ? "#00aa00" : lifePercent > 0.3 ? "#ff8800" : "#cc0000";
+            lifeGradient.addColorStop(0, lifeColor);
+            lifeGradient.addColorStop(1, lifeDarkColor);
+            ctx.fillStyle = lifeGradient;
+        } catch (e) {
+            ctx.fillStyle = lifePercent > 0.6 ? "#00ff00" : lifePercent > 0.3 ? "#ffaa00" : "#ff0000";
+        }
+
+        ctx.fillRect(10, 352, lifePercent * 150, 6);
+        ctx.strokeStyle = "#ffffff";
+        ctx.strokeRect(8, 350, 154, 10);
+
+        // Barres de compétences
+        const skillY = 362;
+
+        ctx.fillStyle = "rgba(0, 255, 255, 0.7)";
+        ctx.fillRect(170, skillY, mario.evasionSkill * 80, 4);
+        ctx.strokeStyle = "#00ffff";
+        ctx.strokeRect(170, skillY, 80, 4);
+
+        ctx.fillStyle = "rgba(255, 255, 0, 0.7)";
+        ctx.fillRect(260, skillY, mario.combatSkill * 80, 4);
+        ctx.strokeStyle = "#ffff00";
+        ctx.strokeRect(260, skillY, 80, 4);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "10px Arial";
+        ctx.fillText("Évasion", 170, 377);
+        ctx.fillText("Combat", 260, 377);
+
+        const currentSkill = ((mario.evasionSkill + mario.combatSkill) / 2 * 100).toFixed(0);
+        ctx.fillStyle = "#00ff00";
+        ctx.font = "12px Arial";
+        ctx.fillText(`IA Apprentissage: ${currentSkill}%`, 350, 390);
+    }
+
+    // Contrôles avec sauvegarde
+    document.addEventListener("keydown", e => {
+        const key = e.key.toLowerCase();
+        if (key === "i") {
+            autoPlay = !autoPlay;
+            updateStatus(autoPlay ? "🧠 ENTRAÎNEMENT AUTO" : "❌ IA DÉSACTIVÉE");
+        }
+        if (key === "r") {
+            autoRestart = !autoRestart;
+            addLog(`🔄 Auto-restart: ${autoRestart ? 'ON' : 'OFF'}`, 'toggle');
+        }
+        if (key === "c") {
+            mario.evasionSkill = 0.5;
+            mario.combatSkill = 0.5;
+            mario.predictionSkill = 0.5;
+            memory.successfulEvasions.clear();
+            memory.failedEvasions.clear();
+            addLog("🧠 Compétences réinitialisées", 'reset');
+        }
+        if (key === "s") {
+            // Raccourci clavier pour sauvegarder
+            saveAIBrain();
+        }
+        if (key === "l") {
+            // Raccourci clavier pour charger
+            loadAIBrain();
+        }
+        if (key === "a") {
+            // Toggle sauvegarde automatique
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+                autoSaveInterval = null;
+                addLog("⏰ Sauvegarde automatique désactivée", 'system');
+            } else {
+                enableAutoSave(3); // Sauvegarde toutes les 3 minutes
+            }
+        }
+    });
+
+    // Boucle de jeu
+    function gameLoop() {
+        requestAnimationFrame(gameLoop);
+        update();
+        draw();
+    }
+
+    // Initialisation avec sauvegarde
+    addLog("🚀 IA d'apprentissage continu initialisée", 'start');
+    addLog("📚 L'IA apprend de chaque mort et s'améliore", 'info');
+    addLog("🔄 Redémarrage automatique activé", 'info');
+    addLog("💾 Sauvegarde/Chargement disponible", 'system');
+
+    console.log("🧠 IA MARIO AUTO-APPRENTISSAGE ACTIVE!");
+    console.log("🎮 Contrôles: I = Toggle IA, R = Toggle Auto-restart, C = Reset compétences");
+    console.log("💾 Sauvegarde: S = Sauvegarder, L = Charger, A = Auto-save toggle");
+    console.log("📈 L'IA apprend en continu et peut sauvegarder son cerveau !");
+
+    // Activer la sauvegarde automatique après 2 minutes de jeu
+    setTimeout(() => {
+        if (learningStats.totalSessions > 1) {
+            enableAutoSave(5);
+        }
+    }, 120000);
+
+    gameLoop();
+</script>
+</body>
+</html>

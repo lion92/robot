@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>IA Mario AUTO-APPRENTISSAGE Accéléré</title>
+    <style>
+        body { margin: 0; background: linear-gradient(45deg, #001122, #003366); overflow: hidden; font-family: 'Courier New', monospace; }
+        canvas { display: block; background: linear-gradient(to bottom, #87CEEB, #4682B4); border: 3px solid #00ff00; box-shadow: 0 0 20px #00ff00; }
+        /* UI styles omitted for brevity... */
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="400"></canvas>
+<!-- UI divs same as before -->
+<script>
+    // ... configuration variables ...
+    let enemySpawnInterval, bombSpawnInterval;
+
+    // Fonction pour (re)démarrer les intervalles de spawn
+    function resetSpawnIntervals() {
+        if (enemySpawnInterval) clearInterval(enemySpawnInterval);
+        if (bombSpawnInterval) clearInterval(bombSpawnInterval);
+        enemySpawnInterval = setInterval(() => spawnEnemy(), ENEMY_SPAWN_RATE);
+        bombSpawnInterval = setInterval(() => spawnBomb(), BOMB_SPAWN_RATE);
+    }
+
+    // Core update function: game state & AI
+    function update() {
+        // physics & movement
+        mario.dy += gravity;
+        mario.x += mario.dx;
+        mario.y += mario.dy;
+        if (mario.y + mario.height > ground.y) {
+            mario.y = ground.y - mario.height;
+            mario.dy = 0;
+            mario.jumping = false;
+        }
+        // AI decision
+        smartLearningAI();
+        // spawn & cleanup logic handled by intervals
+        // collision detection, bullets, enemies, bombs
+        // update particles
+        // update learning stats & memory
+        updateLearningStats();
+        // UI updates
+        document.getElementById('globalAccuracy').textContent = `${Math.round(learningStats.totalHits/learningStats.totalShots*100)||0}%`;
+        document.getElementById('totalKills').textContent = learningStats.totalKills;
+        // ... other stat updates ...
+        // handle game over
+        if (mario.lives <= 0 && !gameEnded) handleGameOver();
+    }
+
+    // Core draw function: render canvas
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // draw ground
+        ctx.fillStyle = ground.color; ctx.fillRect(ground.x, ground.y, ground.width, ground.height);
+        // draw Mario
+        ctx.fillStyle = 'red'; ctx.fillRect(mario.x, mario.y, mario.width, mario.height);
+        // draw enemies, bullets, bombs, particles...
+    }
+
+    // Game loop
+    function gameLoop() {
+        requestAnimationFrame(gameLoop);
+        if (trainingMode && learningStats.maxIQ < TARGET_IQ && learningStats.totalSessions < TARGET_SESSIONS) {
+            for (let i = 0; i < ACCELERATION_FACTOR; i++) update();
+            draw();
+        } else {
+            if (trainingMode) {
+                trainingMode = false;
+                addLog(`✅ Apprentissage terminé`,'system');
+                resetSpawnIntervals();
+            }
+            update();
+            draw();
+        }
+    }
+
+    // Initialization
+    resetSpawnIntervals();
+    gameLoop();
+</script>
+</body>
+</html>
