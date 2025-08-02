@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arena Battle Royale 3D</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #gameContainer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hud {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 15px;
+      border-radius: 10px;
+      border: 2px solid #00ff88;
+      backdrop-filter: blur(15px);
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+    }
+
+    .hud h4 {
+      color: #00ff88;
+      margin-bottom: 8px;
+      text-shadow: 0 0 10px #00ff88;
+    }
+
+    .timer {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 28px;
+      font-weight: 900;
+      text-shadow: 0 0 20px #ff4757;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: 2px solid #ff4757;
+      display: none;
+      box-shadow: 0 0 30px rgba(255, 71, 87, 0.3);
+    }
+
+    .leaderboard {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 15px;
+      border-radius: 10px;
+      border: 2px solid #ffd700;
+      min-width: 220px;
+      backdrop-filter: blur(15px);
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+    }
+
+    .leaderboard h4 {
+      color: #ffd700;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px #ffd700;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 150;
+    }
+
+    .btn {
+      padding: 15px 30px;
+      background: linear-gradient(145deg, #2c2c54, #40407a);
+      border: 2px solid #00d2d3;
+      color: #00d2d3;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, #40407a, #706fd3);
+      box-shadow: 0 0 25px rgba(0, 210, 211, 0.5);
+      transform: translateY(-3px);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .player-controls {
+      position: fixed;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid #00ff88;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      font-size: 12px;
+      display: none;
+      backdrop-filter: blur(15px);
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+    }
+
+    .player-controls h4 {
+      color: #00ff88;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px #00ff88;
+    }
+
+    .status-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      font-weight: 900;
+      text-shadow: 0 0 30px #ff6b6b;
+      z-index: 300;
+      background: rgba(0, 0, 0, 0.95);
+      padding: 25px 50px;
+      border-radius: 15px;
+      border: 3px solid #ff6b6b;
+      display: none;
+      text-align: center;
+      box-shadow: 0 0 50px rgba(255, 107, 107, 0.5);
+    }
+
+    .loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 400;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.9);
+      padding: 30px;
+      border-radius: 15px;
+      border: 2px solid #00d2d3;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <h2 style="color: #00d2d3;">⚡ ARENA BATTLE ROYALE ⚡</h2>
+  <div class="pulse">Choisissez votre mode de jeu</div>
+  <div style="margin: 20px 0;">
+    <button class="btn" id="player0Btn" style="margin: 10px; display: block;">🤖 Combat IA uniquement</button>
+    <button class="btn" id="player1Btn" style="margin: 10px; display: block;">👤 Participer au combat</button>
+  </div>
+</div>
+
+<div id="gameContainer"></div>
+
+<div class="hud" id="hud" style="display: none;">
+  <h4>🎮 JOUEUR</h4>
+  <div>Vie: <span id="playerHealth">100</span>/100</div>
+  <div>Kills: <span id="playerKills">0</span></div>
+  <div>Tirs: <span id="playerShots">0</span></div>
+  <div>Précision: <span id="playerAccuracy">0</span>%</div>
+</div>
+
+<div class="timer" id="timer">5:00</div>
+<div class="status-message" id="statusMessage">PRÊT À COMBATTRE!</div>
+
+<div class="leaderboard" id="leaderboard">
+  <h4>🏆 CLASSEMENT</h4>
+  <div id="leaderboardContent"></div>
+</div>
+
+<div class="player-controls" id="playerControls">
+  <h4>🎮 CONTRÔLES</h4>
+  <div>
+    <strong>↑↓←→</strong> = Déplacement<br>
+    <strong>ESPACE</strong> = Tir<br>
+    <strong>Survivez!</strong>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="trainBtn">🚀 Entraîner</button>
+  <button class="btn" id="battleBtn" disabled>⚔️ Bataille</button>
+  <button class="btn" id="resetBtn">🔄 Reset</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+  // Configuration
+  const CONFIG = {
+    ROBOTS: 6,
+    BATTLE_TIME: 300,
+    OBSTACLES: 0,
+    PLAYER_HP: 100,
+    ROBOT_HP: 80,
+    DAMAGE: 20,
+    PLAYER_SPEED: 0.25,
+    SHOOT_COOLDOWN: 250,
+    RESPAWN_TIME: 4000,
+    ARENA_SIZE: 50
+  };
+
+  const COLORS = [
+    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7',
+    '#dda0dd', '#98d8c8', '#f7dc6f', '#bb8fce', '#85c1e9'
+  ];
+
+  const ROBOT_NAMES = [
+    'Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon',
+    'Zeta', 'Eta', 'Theta', 'Iota', 'Kappa'
+  ];
+
+  // Variables globales
+  let gameState = 'setup';
+  let battleStartTime = 0;
+  let animationId = null;
+  let playerCount = 1;
+
+  let robots = [];
+  let projectiles = [];
+  let obstacles = [];
+  let player = null;
+
+  let keys = { up: false, down: false, left: false, right: false, shoot: false };
+  let lastShot = 0;
+
+  let scene, camera, renderer;
+  let playerMesh, robotMeshes = [], obstacleMeshes = [], projectileMeshes = [];
+
+  // Initialisation Three.js
+  function initThreeJS() {
+    try {
+      scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(0x000022, 20, 120);
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 40, 40);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.setClearColor(0x000022, 1);
+
+      document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+      // Éclairage
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+      directionalLight.position.set(30, 50, 30);
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 1024;
+      directionalLight.shadow.mapSize.height = 1024;
+      scene.add(directionalLight);
+
+      // Sol
+      const floorGeometry = new THREE.PlaneGeometry(CONFIG.ARENA_SIZE * 2.5, CONFIG.ARENA_SIZE * 2.5);
+      const floorMaterial = new THREE.MeshLambertMaterial({
+        color: 0x001144,
+        transparent: true,
+        opacity: 0.9
+      });
+      const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      // Grille
+      const gridHelper = new THREE.GridHelper(CONFIG.ARENA_SIZE * 2, 25, 0x00d2d3, 0x00d2d3);
+      gridHelper.material.opacity = 0.3;
+      gridHelper.material.transparent = true;
+      scene.add(gridHelper);
+
+      setupControls();
+      window.addEventListener('resize', onWindowResize);
+
+      return true;
+    } catch (error) {
+      console.error('Erreur Three.js:', error);
+      return false;
+    }
+  }
+
+  function setupControls() {
+    document.addEventListener('keydown', (e) => {
+      if (gameState !== 'battle' || playerCount === 0) return;
+      switch (e.code) {
+        case 'ArrowUp': keys.up = true; e.preventDefault(); break;
+        case 'ArrowDown': keys.down = true; e.preventDefault(); break;
+        case 'ArrowLeft': keys.left = true; e.preventDefault(); break;
+        case 'ArrowRight': keys.right = true; e.preventDefault(); break;
+        case 'Space': keys.shoot = true; e.preventDefault(); break;
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      switch (e.code) {
+        case 'ArrowUp': keys.up = false; break;
+        case 'ArrowDown': keys.down = false; break;
+        case 'ArrowLeft': keys.left = false; break;
+        case 'ArrowRight': keys.right = false; break;
+        case 'Space': keys.shoot = false; break;
+      }
+    });
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // Création des entités
+  function initGame() {
+    robots = [];
+    projectiles = [];
+    obstacles = [];
+
+    clearMeshes();
+    createPlayer();
+    createRobots();
+    createObstacles();
+    updateUI();
+
+    // Rendu initial
+    if (renderer && scene && camera) {
+      renderer.render(scene, camera);
+    }
+  }
+
+  function clearMeshes() {
+    robotMeshes.forEach(mesh => scene.remove(mesh));
+    obstacleMeshes.forEach(mesh => scene.remove(mesh));
+    projectileMeshes.forEach(mesh => scene.remove(mesh));
+    if (playerMesh) scene.remove(playerMesh);
+
+    robotMeshes = [];
+    obstacleMeshes = [];
+    projectileMeshes = [];
+    playerMesh = null;
+  }
+
+  function createPlayer() {
+    if (playerCount === 0) {
+      player = null;
+      return;
+    }
+
+    player = {
+      id: 'player',
+      name: 'JOUEUR',
+      color: '#00ff88',
+      x: 0, y: 2, z: 0,
+      health: CONFIG.PLAYER_HP,
+      maxHealth: CONFIG.PLAYER_HP,
+      hits: 0,
+      shots: 0,
+      alive: true,
+      size: 1.5,
+      isPlayer: true
+    };
+
+    const playerGeometry = new THREE.BoxGeometry(2, 4, 2);
+    const playerMaterial = new THREE.MeshLambertMaterial({
+      color: 0x00ff88,
+      emissive: 0x004400,
+      emissiveIntensity: 0.2
+    });
+    playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
+    playerMesh.position.set(0, 2, 0);
+    playerMesh.castShadow = true;
+    scene.add(playerMesh);
+  }
+
+  function createRobots() {
+    for (let i = 0; i < CONFIG.ROBOTS; i++) {
+      const angle = (i / CONFIG.ROBOTS) * Math.PI * 2;
+      const radius = 15 + Math.random() * 10;
+
+      const robot = {
+        id: i,
+        name: 'ROBOT ' + ROBOT_NAMES[i],
+        color: COLORS[i],
+        x: Math.cos(angle) * radius,
+        y: 1.5,
+        z: Math.sin(angle) * radius,
+        qi: 1000 + Math.random() * 500,
+        precision: 20 + Math.random() * 30,
+        speed: 0.05 + Math.random() * 0.03,
+        health: CONFIG.ROBOT_HP,
+        maxHealth: CONFIG.ROBOT_HP,
+        hits: 0,
+        shots: 0,
+        alive: true,
+        size: 1.2,
+        lastShot: 0,
+        respawnTime: 0,
+        isPlayer: false,
+        target: null,
+        targetChangeTime: 0
+      };
+      robots.push(robot);
+
+      const robotGeometry = new THREE.BoxGeometry(2, 3, 2);
+      const robotMaterial = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(COLORS[i]),
+        emissive: new THREE.Color(COLORS[i]),
+        emissiveIntensity: 0.1
+      });
+      const robotMesh = new THREE.Mesh(robotGeometry, robotMaterial);
+      robotMesh.position.set(robot.x, robot.y, robot.z);
+      robotMesh.castShadow = true;
+      robotMeshes.push(robotMesh);
+      scene.add(robotMesh);
+    }
+  }
+
+  function createObstacles() {
+    for (let i = 0; i < CONFIG.OBSTACLES; i++) {
+      let x, z;
+      do {
+        x = (Math.random() - 0.5) * CONFIG.ARENA_SIZE;
+        z = (Math.random() - 0.5) * CONFIG.ARENA_SIZE;
+      } while (Math.sqrt(x * x + z * z) < 8);
+
+      const width = 3 + Math.random() * 4;
+      const height = 4 + Math.random() * 6;
+      const depth = 3 + Math.random() * 4;
+
+      obstacles.push({ x, y: height / 2, z, width, height, depth });
+
+      const obstacleGeometry = new THREE.BoxGeometry(width, height, depth);
+      const obstacleMaterial = new THREE.MeshLambertMaterial({
+        color: 0x555555,
+        transparent: true,
+        opacity: 0.8
+      });
+      const obstacleMesh = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+      obstacleMesh.position.set(x, height / 2, z);
+      obstacleMesh.castShadow = true;
+      obstacleMesh.receiveShadow = true;
+      obstacleMeshes.push(obstacleMesh);
+      scene.add(obstacleMesh);
+    }
+  }
+
+  // Interface
+  function updateUI() {
+    const hudElement = document.getElementById('hud');
+    if (playerCount === 0) {
+      hudElement.style.display = 'none';
+    } else {
+      hudElement.style.display = 'block';
+      if (player) {
+        document.getElementById('playerHealth').textContent = Math.max(0, Math.round(player.health));
+        document.getElementById('playerKills').textContent = player.hits;
+        document.getElementById('playerShots').textContent = player.shots;
+        const accuracy = player.shots > 0 ? Math.round((player.hits / player.shots) * 100) : 0;
+        document.getElementById('playerAccuracy').textContent = accuracy;
+      }
+    }
+
+    if (gameState === 'battle') {
+      const elapsed = Math.floor((Date.now() - battleStartTime) / 1000);
+      const remaining = Math.max(0, CONFIG.BATTLE_TIME - elapsed);
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      if (remaining <= 0) endBattle();
+    }
+
+    updateLeaderboard();
+  }
+
+  function updateLeaderboard() {
+    const leaderboard = document.getElementById('leaderboardContent');
+    const allEntities = playerCount > 0 && player ? [...robots, player] : robots;
+    const sorted = allEntities.sort((a, b) => b.hits - a.hits);
+
+    leaderboard.innerHTML = '';
+
+    if (gameState === 'battle') {
+      const aliveCount = allEntities.filter(e => e.alive).length;
+      const statusColor = aliveCount <= 2 ? '#ff4757' : '#ffa500';
+      leaderboard.innerHTML += `<div style="color: ${statusColor}; font-weight: bold; margin-bottom: 8px;">🔥 SURVIVANTS: ${aliveCount}</div>`;
+
+      if (playerCount === 0) {
+        leaderboard.innerHTML += `<div style="color: #4ecdc4; font-size: 10px; margin-bottom: 5px;">🤖 Combat IA uniquement</div>`;
+      } else if (player && !player.alive && aliveCount > 1) {
+        leaderboard.innerHTML += `<div style="color: #ff6b6b; font-size: 10px; margin-bottom: 5px;">👻 Spectateur</div>`;
+      }
+    }
+
+    sorted.slice(0, 7).forEach((entity, i) => {
+      const status = entity.alive ? '🟢' : '💀';
+      const icon = entity.isPlayer ? '👤' : '🤖';
+      const name = entity.isPlayer ? 'VOUS' : entity.name.replace('ROBOT ', '');
+
+      leaderboard.innerHTML += `<div style="color:${entity.color}; margin: 3px 0; ${!entity.alive ? 'opacity: 0.6;' : ''}">
+      ${i + 1}. ${icon} ${name} ${status} ${entity.hits}
+    </div>`;
+    });
+  }
+
+  function showStatusMessage(message, duration = 3000) {
+    const statusEl = document.getElementById('statusMessage');
+    statusEl.textContent = message;
+    statusEl.style.display = 'block';
+    setTimeout(() => statusEl.style.display = 'none', duration);
+  }
+
+  // Contrôles joueur
+  function updatePlayer() {
+    if (!player || !player.alive || gameState !== 'battle') return;
+
+    let moveX = 0, moveZ = 0;
+    const speed = CONFIG.PLAYER_SPEED;
+
+    if (keys.up) moveZ -= speed;
+    if (keys.down) moveZ += speed;
+    if (keys.left) moveX -= speed;
+    if (keys.right) moveX += speed;
+
+    const newX = player.x + moveX;
+    const newZ = player.z + moveZ;
+
+    if (Math.abs(newX) < CONFIG.ARENA_SIZE - 2) player.x = newX;
+    if (Math.abs(newZ) < CONFIG.ARENA_SIZE - 2) player.z = newZ;
+
+    checkPlayerObstacleCollision();
+
+    if (playerMesh) {
+      playerMesh.position.set(player.x, player.y, player.z);
+      if (moveX !== 0 || moveZ !== 0) {
+        const angle = Math.atan2(moveX, moveZ);
+        playerMesh.rotation.y = angle;
+      }
+    }
+
+    handlePlayerShooting();
+  }
+
+  function checkPlayerObstacleCollision() {
+    for (let obstacle of obstacles) {
+      const dx = Math.abs(player.x - obstacle.x);
+      const dz = Math.abs(player.z - obstacle.z);
+      if (dx < obstacle.width / 2 + 1.5 && dz < obstacle.depth / 2 + 1.5) {
+        if (dx > dz) {
+          player.x = obstacle.x + (player.x > obstacle.x ? 1 : -1) * (obstacle.width / 2 + 1.5);
+        } else {
+          player.z = obstacle.z + (player.z > obstacle.z ? 1 : -1) * (obstacle.depth / 2 + 1.5);
+        }
+      }
+    }
+  }
+
+  function handlePlayerShooting() {
+    const now = Date.now();
+    if (keys.shoot && now - lastShot > CONFIG.SHOOT_COOLDOWN) {
+      const rotation = playerMesh ? playerMesh.rotation.y : 0;
+      const direction = new THREE.Vector3(Math.sin(rotation), 0, Math.cos(rotation));
+      createProjectile(
+              player.x + direction.x * 2,
+              player.y + 1,
+              player.z + direction.z * 2,
+              direction,
+              player.color,
+              'player'
+      );
+      player.shots++;
+      lastShot = now;
+    }
+  }
+
+  // Projectiles
+  function createProjectile(x, y, z, direction, color, owner) {
+    const projectile = { x, y, z, vx: direction.x * 0.8, vz: direction.z * 0.8, owner, color, life: 100 };
+    projectiles.push(projectile);
+
+    const geometry = new THREE.SphereGeometry(0.2);
+    const material = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color),
+      emissive: new THREE.Color(color),
+      emissiveIntensity: 0.3
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    projectileMeshes.push(mesh);
+    scene.add(mesh);
+  }
+
+  function updateProjectiles() {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const proj = projectiles[i];
+      const mesh = projectileMeshes[i];
+      if (!proj || !mesh) continue;
+
+      proj.x += proj.vx;
+      proj.z += proj.vz;
+      proj.life--;
+      mesh.position.set(proj.x, proj.y, proj.z);
+
+      if (Math.abs(proj.x) > CONFIG.ARENA_SIZE || Math.abs(proj.z) > CONFIG.ARENA_SIZE || proj.life <= 0) {
+        removeProjectile(i);
+        continue;
+      }
+      if (checkProjectileCollisions(proj, i)) continue;
+      if (checkObstacleCollisions(proj, i)) continue;
+    }
+  }
+
+  function removeProjectile(index) {
+    if (projectiles[index]) projectiles.splice(index, 1);
+    if (projectileMeshes[index]) {
+      scene.remove(projectileMeshes[index]);
+      projectileMeshes.splice(index, 1);
+    }
+  }
+
+  function checkProjectileCollisions(proj, projIndex) {
+    if (player && player.alive && proj.owner !== 'player') {
+      const distance = Math.sqrt((player.x - proj.x) ** 2 + (player.z - proj.z) ** 2);
+      if (distance < player.size + 0.3) {
+        player.health -= CONFIG.DAMAGE;
+        const shooter = robots.find(r => r.id === proj.owner);
+        if (shooter) shooter.hits++;
+        if (player.health <= 0) {
+          player.alive = false;
+          player.health = 0;
+          if (playerMesh) playerMesh.visible = false;
+          showStatusMessage("VOUS ÊTES MORT!", 2000);
+        }
+        removeProjectile(projIndex);
+        return true;
+      }
+    }
+
+    for (let robot of robots) {
+      if (!robot.alive || robot.id === proj.owner) continue;
+      const distance = Math.sqrt((robot.x - proj.x) ** 2 + (robot.z - proj.z) ** 2);
+      if (distance < robot.size + 0.3) {
+        robot.health -= CONFIG.DAMAGE;
+        if (proj.owner === 'player') {
+          player && player.hits++;
+        } else {
+          const shooter = robots.find(r => r.id === proj.owner);
+          if (shooter) shooter.hits++;
+        }
+        if (robot.health <= 0) {
+          robot.alive = false;
+          robot.health = 0;
+          const idx = robots.findIndex(r => r.id === robot.id);
+          if (idx >= 0 && robotMeshes[idx]) robotMeshes[idx].visible = false;
+        }
+        removeProjectile(projIndex);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function checkObstacleCollisions(proj, projIndex) {
+    for (let obstacle of obstacles) {
+      if (Math.abs(proj.x - obstacle.x) < obstacle.width / 2 &&
+              Math.abs(proj.z - obstacle.z) < obstacle.depth / 2 &&
+              proj.y < obstacle.height) {
+        removeProjectile(projIndex);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // IA des robots
+  function updateRobots() {
+    if (gameState !== 'battle') return;
+    robots.forEach((robot, index) => {
+      if (!robot.alive) return;
+      updateRobotAI(robot);
+      if (robotMeshes[index]) {
+        robotMeshes[index].position.set(robot.x, robot.y, robot.z);
+      }
+    });
+  }
+
+  function updateRobotAI(robot) {
+    let target = null;
+    const now = Date.now();
+
+    // Trouver une cible
+    if (now - robot.targetChangeTime > 3000) {
+      const targets = robots.filter(r => r.alive && r.id !== robot.id);
+      if (player && player.alive) targets.push(player);
+      if (targets.length > 0) target = targets[Math.floor(Math.random() * targets.length)];
+      robot.target = target;
+      robot.targetChangeTime = now;
+    } else {
+      target = robot.target;
+    }
+
+    if (!target || !target.alive) return;
+
+    const dx = target.x - robot.x;
+    const dz = target.z - robot.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+
+    if (distance > 0) {
+      // Mouvement
+      robot.x += (dx / distance) * robot.speed;
+      robot.z += (dz / distance) * robot.speed;
+
+      // Éviter obstacles
+      for (let obstacle of obstacles) {
+        const odx = robot.x - obstacle.x;
+        const odz = robot.z - obstacle.z;
+        const odist = Math.sqrt(odx * odx + odz * odz);
+        if (odist < obstacle.width / 2 + 3) {
+          robot.x += (odx / odist) * 0.1;
+          robot.z += (odz / odist) * 0.1;
+        }
+      }
+
+      // Rester dans l'arène
+      if (Math.abs(robot.x) > CONFIG.ARENA_SIZE - 3) robot.x *= 0.95;
+      // Rester dans l'arène
+      if (Math.abs(robot.x) > CONFIG.ARENA_SIZE - 3) robot.x *= 0.95;
+      if (Math.abs(robot.z) > CONFIG.ARENA_SIZE - 3) robot.z *= 0.95;
+
+      // Tir
+      if (distance < 35 && now - robot.lastShot > 600 + Math.random() * 800) {
+        if (Math.random() < robot.precision / 100) {
+          const direction = new THREE.Vector3(dx / distance, 0, dz / distance);
+          createProjectile(
+                  robot.x + direction.x * 1.5,
+                  robot.y + 0.5,
+                  robot.z + direction.z * 1.5,
+                  direction,
+                  robot.color,
+                  robot.id
+          );
+          robot.shots++;
+          robot.lastShot = now;
+        }
+      }
+
+      // Orientation
+      if (robotMeshes[robot.id]) {
+        const angle = Math.atan2(dx, dz);
+        robotMeshes[robot.id].rotation.y = angle;
+      }
+    }
+  }
+
+  // Caméra
+  function updateCamera() {
+    if (playerCount === 0 || (player && !player.alive && gameState === 'battle')) {
+      // Mode spectateur - suivre l'action
+      const aliveRobots = robots.filter(r => r.alive);
+      if (aliveRobots.length > 0) {
+        const topRobot = aliveRobots.reduce((best, current) =>
+                current.hits > best.hits ? current : best
+        );
+        camera.position.set(topRobot.x, topRobot.y + 30, topRobot.z + 25);
+        camera.lookAt(topRobot.x, topRobot.y, topRobot.z);
+        return;
+      }
+    }
+
+    // Caméra joueur ou vue d'ensemble
+    if (player) {
+      camera.position.set(player.x, player.y + 30, player.z + 25);
+      camera.lookAt(player.x, player.y, player.z);
+    } else {
+      camera.position.set(0, 40, 40);
+      camera.lookAt(0, 0, 0);
+    }
+  }
+
+  // Fonctions de jeu
+  function trainRobots() {
+    if (gameState !== 'idle') return;
+
+    gameState = 'training';
+    document.getElementById('trainBtn').disabled = true;
+    document.getElementById('battleBtn').disabled = false;
+
+    const modeText = playerCount === 0 ? "ENTRAÎNEMENT IA..." : "ENTRAÎNEMENT EN COURS...";
+    showStatusMessage(modeText, 2000);
+
+    robots.forEach(robot => {
+      robot.qi = Math.min(robot.qi + 150, 2000);
+      robot.precision = Math.min(robot.precision + 8, 75);
+      robot.speed = Math.min(robot.speed + 0.01, 0.12);
+    });
+
+    setTimeout(() => {
+      gameState = 'idle';
+      document.getElementById('trainBtn').disabled = false;
+      showStatusMessage("ROBOTS AMÉLIORÉS!", 2000);
+    }, 2000);
+  }
+
+  function startBattle() {
+    if (gameState !== 'idle') return;
+
+    gameState = 'battle';
+    battleStartTime = Date.now();
+
+    resetStats();
+    repositionEntities();
+
+    document.getElementById('timer').style.display = 'block';
+    if (playerCount > 0) {
+      document.getElementById('playerControls').style.display = 'block';
+    }
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('trainBtn').disabled = true;
+
+    const startMsg = playerCount === 0 ? "COMBAT IA COMMENCÉ!" : "BATAILLE COMMENCÉE!";
+    showStatusMessage(startMsg, 2000);
+    gameLoop();
+  }
+
+  function resetStats() {
+    if (player) {
+      player.health = player.maxHealth;
+      player.alive = true;
+      player.hits = 0;
+      player.shots = 0;
+      if (playerMesh) playerMesh.visible = true;
+    }
+
+    robots.forEach((robot, index) => {
+      robot.health = robot.maxHealth;
+      robot.alive = true;
+      robot.hits = 0;
+      robot.shots = 0;
+      robot.target = null;
+      if (robotMeshes[index]) robotMeshes[index].visible = true;
+    });
+
+    projectiles = [];
+    projectileMeshes.forEach(mesh => scene.remove(mesh));
+    projectileMeshes = [];
+  }
+
+  function repositionEntities() {
+    if (player) {
+      player.x = 0;
+      player.z = 0;
+      if (playerMesh) playerMesh.position.set(0, 2, 0);
+    }
+
+    robots.forEach((robot, index) => {
+      const angle = (index / robots.length) * Math.PI * 2;
+      const radius = 18 + Math.random() * 8;
+      robot.x = Math.cos(angle) * radius;
+      robot.z = Math.sin(angle) * radius;
+      if (robotMeshes[index]) {
+        robotMeshes[index].position.set(robot.x, robot.y, robot.z);
+      }
+    });
+  }
+
+  function endBattle() {
+    gameState = 'idle';
+
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('playerControls').style.display = 'none';
+    document.getElementById('battleBtn').disabled = false;
+    document.getElementById('trainBtn').disabled = false;
+
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+  }
+
+  function resetGame() {
+    gameState = 'idle';
+
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('playerControls').style.display = 'none';
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('trainBtn').disabled = false;
+
+    initGame();
+    showStatusMessage("JEU RÉINITIALISÉ!", 2000);
+  }
+
+  // Boucle de jeu
+  function gameLoop() {
+    if (gameState !== 'battle') return;
+
+    if (player && playerCount > 0) updatePlayer();
+    updateRobots();
+    updateProjectiles();
+    updateCamera();
+    updateUI();
+
+    // Vérifier fin de bataille
+    const aliveRobots = robots.filter(r => r.alive).length;
+    const playerAlive = player && player.alive;
+
+    if (aliveRobots === 1 && !playerAlive) {
+      setTimeout(() => {
+        const winner = robots.find(r => r.alive);
+        showStatusMessage(`VAINQUEUR: ${winner.name}!`, 4000);
+        endBattle();
+      }, 3000);
+      return;
+    }
+
+    if (aliveRobots === 0) {
+      setTimeout(() => {
+        if (playerAlive) {
+          showStatusMessage("VOUS AVEZ GAGNÉ!", 4000);
+        } else {
+          showStatusMessage("ÉGALITÉ - TOUS ÉLIMINÉS!", 4000);
+        }
+        endBattle();
+      }, 2000);
+      return;
+    }
+
+    // Messages de progression
+    if (playerCount === 0 && aliveRobots <= 2) {
+      if (Math.floor(Date.now() / 1000) % 3 === 0) {
+        setTimeout(() => showStatusMessage(`${aliveRobots} ROBOTS RESTANTS`, 1200), 100);
+      }
+    }
+
+    renderer.render(scene, camera);
+    animationId = requestAnimationFrame(gameLoop);
+  }
+
+  // Événements
+  document.getElementById('trainBtn').addEventListener('click', trainRobots);
+  document.getElementById('battleBtn').addEventListener('click', startBattle);
+  document.getElementById('resetBtn').addEventListener('click', resetGame);
+
+  document.getElementById('player0Btn').addEventListener('click', () => {
+    playerCount = 0;
+    document.getElementById('loading').style.display = 'none';
+    showStatusMessage("MODE IA UNIQUEMENT\nCombat entre robots!", 3000);
+    setTimeout(() => {
+      if (initThreeJS()) {
+        initGame();
+        gameState = 'idle';
+      }
+    }, 1000);
+  });
+
+  document.getElementById('player1Btn').addEventListener('click', () => {
+    playerCount = 1;
+    document.getElementById('loading').style.display = 'none';
+    showStatusMessage("MODE JOUEUR\nVous participez!", 3000);
+    setTimeout(() => {
+      if (initThreeJS()) {
+        initGame();
+        gameState = 'idle';
+      }
+    }, 1000);
+  });
+
+  // Rendu initial
+  function initialRender() {
+    if (renderer && scene && camera) {
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(initialRender);
+  }
+
+  // Démarrage
+  window.addEventListener('load', () => {
+    setTimeout(initialRender, 100);
+  });
+
+</script>
+</body>
+</html>

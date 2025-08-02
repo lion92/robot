@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arena Battle Royale 3D - Combat Spatial</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 35%, #0f0f23 100%);
+      color: #fff;
+      font-family: 'Orbitron', monospace;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #gameContainer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* HUD Interface */
+    .hud {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 12px;
+      border-radius: 8px;
+      border: 2px solid #4ecdc4;
+      backdrop-filter: blur(10px);
+    }
+
+    .hud h4 {
+      color: #00FF00;
+      margin-bottom: 5px;
+    }
+
+    .hud div {
+      font-size: 12px;
+      margin: 2px 0;
+    }
+
+    /* Timer */
+    .timer {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      font-weight: 900;
+      text-shadow: 0 0 20px #4ecdc4;
+      z-index: 200;
+      display: none;
+    }
+
+    /* Leaderboard */
+    .leaderboard {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 12px;
+      border-radius: 8px;
+      border: 2px solid #ffd700;
+      min-width: 200px;
+      backdrop-filter: blur(10px);
+    }
+
+    .leaderboard h4 {
+      color: #ffd700;
+      margin-bottom: 8px;
+    }
+
+    .leaderboard div {
+      font-size: 11px;
+      margin: 2px 0;
+    }
+
+    /* Controls */
+    .controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 150;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+      border: 2px solid #4ecdc4;
+      color: #4ecdc4;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 12px;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, #3a3a3a, #4a4a4a);
+      box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Ship Info */
+    .ship-info {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #ff6b6b;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      font-size: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    .ship-info h4 {
+      color: #ff6b6b;
+      margin-bottom: 8px;
+    }
+
+    /* Warning */
+    .warning {
+      position: fixed;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 0, 0, 0.2);
+      border: 2px solid #ff0000;
+      border-radius: 8px;
+      padding: 12px;
+      color: #ff6b6b;
+      font-size: 14px;
+      text-align: center;
+      animation: pulse 2s infinite;
+      display: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+<!-- Game Container -->
+<div id="gameContainer"></div>
+
+<!-- HUD Elements -->
+<div class="hud" id="hud">
+  <h4>🤖 SPECTATEUR</h4>
+  <div>Robots Vivants: <span id="aliveRobots">10</span></div>
+  <div>Tirs Vaisseau: <span id="shipShots">0</span></div>
+  <div>Victimes Vaisseau: <span id="shipKills">0</span></div>
+  <div>Combat Inter-Robots: <span id="robotFights">0</span></div>
+</div>
+
+<div class="ship-info" id="shipInfo">
+  <h4>🚀 VAISSEAU SPATIAL</h4>
+  <div>Status: <span id="shipStatus">PATROUILLE</span></div>
+  <div>Prochaine Salve: <span id="nextShot">--</span>s</div>
+</div>
+
+<div class="timer" id="timer">10:00</div>
+
+<div class="leaderboard" id="leaderboard">
+  <h4>🏆 SURVIVANTS</h4>
+  <div id="leaderboardContent"></div>
+</div>
+
+<div class="warning" id="warning">
+  ⚠️ ALERTE ROUGE - TIR DE VAISSEAU IMMINENT ⚠️
+</div>
+
+<!-- Game Controls -->
+<div class="controls">
+  <button class="btn" id="startBtn">🚀 DÉMARRER BATAILLE</button>
+  <button class="btn" id="resetBtn">🔄 RESET</button>
+  <button class="btn" id="shipBtn">🛸 VAISSEAU ON/OFF</button>
+</div>
+
+<!-- Three.js Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+  // ========================================
+  // CONFIGURATION DU JEU
+  // ========================================
+  const CONFIG = {
+    ROBOTS: 12,
+    BATTLE_TIME: 300,
+    OBSTACLES: 6,
+    ROBOT_HP: 80,
+    DAMAGE: 30,
+    SHIP_DAMAGE: 50,
+    ROBOT_SPEED: 0.15,
+    SHOOT_COOLDOWN: 1500,
+    SHIP_SHOOT_COOLDOWN: 3000,
+    RESPAWN_TIME: 8000,
+    ARENA_SIZE: 60,
+    SHIP_HEIGHT: 25,
+    DETECTION_RANGE: 40
+  };
+
+  const COLORS = [
+    '#4ecdc4', '#ff6b6b', '#ffd700', '#9b59b6', '#28a745',
+    '#ff8800', '#c0c0c0', '#00ffff', '#ff69b4', '#ffffff',
+    '#ff1493', '#32cd32'
+  ];
+
+  const ROBOT_NAMES = [
+    'Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon',
+    'Zeta', 'Eta', 'Theta', 'Iota', 'Kappa',
+    'Lambda', 'Mu'
+  ];
+
+  // ========================================
+  // VARIABLES GLOBALES
+  // ========================================
+  let gameState = 'idle';
+  let battleTimer = CONFIG.BATTLE_TIME;
+  let animationId = null;
+
+  // Objets du jeu
+  let robots = [];
+  let projectiles = [];
+  let obstacles = [];
+  let spaceship = null;
+
+  // Stats
+  let stats = {
+    shipShots: 0,
+    shipKills: 0,
+    robotFights: 0
+  };
+
+  // Objets THREE.js
+  let scene, camera, renderer;
+  let robotMeshes = [], obstacleMeshes = [], projectileMeshes = [];
+  let spaceshipMesh = null;
+
+  // ========================================
+  // INITIALISATION THREE.JS
+  // ========================================
+  function initThreeJS() {
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x000011, 30, 150);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 40, 50);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setClearColor(0x000011);
+    document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+    // Éclairage
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(50, 100, 50);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    scene.add(directionalLight);
+
+    // Sol de l'arène
+    const floorGeometry = new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 32);
+    const floorMaterial = new THREE.MeshLambertMaterial({
+      color: 0x001133,
+      transparent: true,
+      opacity: 0.6
+    });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Grille circulaire
+    const gridHelper = new THREE.PolarGridHelper(CONFIG.ARENA_SIZE, 16, 8, 64, 0x4ecdc4, 0x4ecdc4);
+    gridHelper.material.opacity = 0.3;
+    gridHelper.material.transparent = true;
+    scene.add(gridHelper);
+
+    // Contrôles caméra
+    setupCameraControls();
+
+    window.addEventListener('resize', onWindowResize);
+  }
+
+  function setupCameraControls() {
+    let mouseDown = false;
+    let mouseX = 0, mouseY = 0;
+    let cameraAngle = 0;
+    let cameraHeight = 40;
+
+    document.addEventListener('mousedown', () => mouseDown = true);
+    document.addEventListener('mouseup', () => mouseDown = false);
+    document.addEventListener('mousemove', (event) => {
+      if (mouseDown) {
+        cameraAngle += event.movementX * 0.01;
+        cameraHeight = Math.max(20, Math.min(80, cameraHeight - event.movementY * 0.5));
+        updateCameraPosition();
+      }
+    });
+
+    document.addEventListener('wheel', (event) => {
+      cameraHeight = Math.max(15, Math.min(100, cameraHeight + event.deltaY * 0.1));
+      updateCameraPosition();
+    });
+
+    function updateCameraPosition() {
+      const distance = 60;
+      camera.position.x = Math.sin(cameraAngle) * distance;
+      camera.position.y = cameraHeight;
+      camera.position.z = Math.cos(cameraAngle) * distance;
+      camera.lookAt(0, 0, 0);
+    }
+
+    // Position initiale
+    updateCameraPosition();
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // ========================================
+  // INITIALISATION DU JEU
+  // ========================================
+  function initGame() {
+    robots = [];
+    projectiles = [];
+    obstacles = [];
+    stats = { shipShots: 0, shipKills: 0, robotFights: 0 };
+
+    clearMeshes();
+    createRobots();
+    createObstacles();
+    createSpaceship();
+    updateUI();
+  }
+
+  function clearMeshes() {
+    robotMeshes.forEach(mesh => scene.remove(mesh));
+    obstacleMeshes.forEach(mesh => scene.remove(mesh));
+    projectileMeshes.forEach(mesh => scene.remove(mesh));
+    if (spaceshipMesh) scene.remove(spaceshipMesh);
+
+    robotMeshes = [];
+    obstacleMeshes = [];
+    projectileMeshes = [];
+    spaceshipMesh = null;
+  }
+
+  function createRobots() {
+    for (let i = 0; i < CONFIG.ROBOTS; i++) {
+      const angle = (i / CONFIG.ROBOTS) * Math.PI * 2;
+      const radius = 15 + Math.random() * 20;
+
+      const robot = {
+        id: i,
+        name: 'BOT-' + ROBOT_NAMES[i],
+        color: COLORS[i],
+        x: Math.cos(angle) * radius,
+        y: 1.5,
+        z: Math.sin(angle) * radius,
+        vx: 0, vz: 0,
+        aggression: 30 + Math.random() * 40,
+        precision: 20 + Math.random() * 30,
+        evasion: 40 + Math.random() * 30,
+        health: CONFIG.ROBOT_HP,
+        maxHealth: CONFIG.ROBOT_HP,
+        kills: 0,
+        shots: 0,
+        alive: true,
+        size: 1.5,
+        lastShot: 0,
+        respawnTime: 0,
+        target: null,
+        dodgeMode: false,
+        dodgeTimer: 0
+      };
+      robots.push(robot);
+
+      // Mesh du robot avec forme unique
+      const robotGroup = new THREE.Group();
+
+      // Corps principal
+      const bodyGeometry = new THREE.BoxGeometry(2, 2.5, 2);
+      const bodyMaterial = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(COLORS[i]),
+        emissive: new THREE.Color(COLORS[i]),
+        emissiveIntensity: 0.1
+      });
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      body.position.y = 1.25;
+      body.castShadow = true;
+      robotGroup.add(body);
+
+      // Antenne
+      const antennaGeometry = new THREE.CylinderGeometry(0.1, 0.1, 1);
+      const antennaMaterial = new THREE.MeshBasicMaterial({ color: COLORS[i] });
+      const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+      antenna.position.y = 3;
+      robotGroup.add(antenna);
+
+      robotGroup.position.set(robot.x, 0, robot.z);
+      robotMeshes.push(robotGroup);
+      scene.add(robotGroup);
+    }
+  }
+
+  function createObstacles() {
+    for (let i = 0; i < CONFIG.OBSTACLES; i++) {
+      const angle = (i / CONFIG.OBSTACLES) * Math.PI * 2;
+      const radius = 25 + Math.random() * 15;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const width = 4 + Math.random() * 3;
+      const height = 6 + Math.random() * 4;
+      const depth = 4 + Math.random() * 3;
+
+      obstacles.push({ x, y: height/2, z, width, height, depth });
+
+      const obstacleGeometry = new THREE.BoxGeometry(width, height, depth);
+      const obstacleMaterial = new THREE.MeshLambertMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0.7
+      });
+      const obstacleMesh = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+      obstacleMesh.position.set(x, height/2, z);
+      obstacleMesh.castShadow = true;
+      obstacleMesh.receiveShadow = true;
+      obstacleMeshes.push(obstacleMesh);
+      scene.add(obstacleMesh);
+    }
+  }
+
+  function createSpaceship() {
+    spaceship = {
+      x: 0,
+      y: CONFIG.SHIP_HEIGHT,
+      z: 0,
+      angle: 0,
+      speed: 0.02,
+      lastShot: 0,
+      active: true,
+      patrolRadius: 30
+    };
+
+    // Géométrie pyramidale
+    const shipGeometry = new THREE.ConeGeometry(4, 8, 4);
+    const shipMaterial = new THREE.MeshLambertMaterial({
+      color: 0xff6b6b,
+      emissive: 0xff1111,
+      emissiveIntensity: 0.3
+    });
+    spaceshipMesh = new THREE.Mesh(shipGeometry, shipMaterial);
+    spaceshipMesh.position.set(0, CONFIG.SHIP_HEIGHT, 0);
+    spaceshipMesh.rotation.y = Math.PI / 4; // Rotation pour aspect pyramidal
+    spaceshipMesh.castShadow = true;
+    scene.add(spaceshipMesh);
+
+    // Lumière du vaisseau
+    const shipLight = new THREE.PointLight(0xff6b6b, 1, 50);
+    shipLight.position.set(0, CONFIG.SHIP_HEIGHT - 2, 0);
+    shipLight.castShadow = true;
+    scene.add(shipLight);
+    spaceship.light = shipLight;
+  }
+
+  // ========================================
+  // MISE À JOUR DE L'INTERFACE
+  // ========================================
+  function updateUI() {
+    const aliveCount = robots.filter(r => r.alive).length;
+    document.getElementById('aliveRobots').textContent = aliveCount;
+    document.getElementById('shipShots').textContent = stats.shipShots;
+    document.getElementById('shipKills').textContent = stats.shipKills;
+    document.getElementById('robotFights').textContent = stats.robotFights;
+
+    // Status du vaisseau
+    if (spaceship) {
+      const nextShot = Math.max(0, (spaceship.lastShot + CONFIG.SHIP_SHOOT_COOLDOWN - Date.now()) / 1000);
+      document.getElementById('nextShot').textContent = nextShot.toFixed(1);
+      document.getElementById('shipStatus').textContent = spaceship.active ? 'ACTIF' : 'DÉSACTIVÉ';
+    }
+
+    updateLeaderboard();
+  }
+
+  function updateLeaderboard() {
+    const leaderboard = document.getElementById('leaderboardContent');
+    const sorted = [...robots].sort((a, b) => b.kills - a.kills);
+
+    leaderboard.innerHTML = '';
+    sorted.slice(0, 8).forEach((r, i) => {
+      const status = r.alive ? '💚' : '💀';
+      const respawnInfo = !r.alive && r.respawnTime > 0 ?
+              ` ⏱️${Math.ceil((r.respawnTime - Date.now()) / 1000)}` : '';
+
+      leaderboard.innerHTML +=
+              `<div style="color:${r.color}; font-size: 10px">
+                        ${i + 1}. 🤖 ${r.name} ${status} (${r.kills})${respawnInfo}
+                    </div>`;
+    });
+  }
+
+  // ========================================
+  // SYSTÈME DE PROJECTILES
+  // ========================================
+  function createProjectile(x, y, z, direction, color, owner, damage = CONFIG.DAMAGE) {
+    const projectile = {
+      x, y, z,
+      vx: direction.x * 1.2,
+      vy: direction.y * 1.2,
+      vz: direction.z * 1.2,
+      owner,
+      color,
+      damage,
+      life: 120
+    };
+    projectiles.push(projectile);
+
+    const geometry = new THREE.SphereGeometry(0.4);
+    const material = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color),
+      emissive: new THREE.Color(color),
+      emissiveIntensity: 0.8
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    projectileMeshes.push(mesh);
+    scene.add(mesh);
+  }
+
+  function updateProjectiles() {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const proj = projectiles[i];
+      const mesh = projectileMeshes[i];
+
+      if (!proj || !mesh) continue;
+
+      proj.x += proj.vx;
+      proj.y += proj.vy || 0;
+      proj.z += proj.vz;
+      proj.life--;
+
+      mesh.position.set(proj.x, proj.y, proj.z);
+
+      if (Math.abs(proj.x) > CONFIG.ARENA_SIZE * 1.5 ||
+              Math.abs(proj.z) > CONFIG.ARENA_SIZE * 1.5 ||
+              proj.y < 0 || proj.y > 50 ||
+              proj.life <= 0) {
+        removeProjectile(i);
+        continue;
+      }
+
+      if (checkProjectileCollisions(proj, i)) continue;
+      if (checkObstacleCollisions(proj, i)) continue;
+    }
+  }
+
+  function removeProjectile(index) {
+    projectiles.splice(index, 1);
+    scene.remove(projectileMeshes[index]);
+    projectileMeshes.splice(index, 1);
+  }
+
+  function checkProjectileCollisions(proj, projIndex) {
+    for (let robot of robots) {
+      if (!robot.alive || robot.id === proj.owner) continue;
+
+      const distance = Math.sqrt(
+              (robot.x - proj.x) ** 2 + (robot.z - proj.z) ** 2
+      );
+
+      if (distance < robot.size + 0.5) {
+        robot.health -= proj.damage;
+
+        if (proj.owner === 'ship') {
+          stats.shipKills++;
+        } else {
+          const shooter = robots.find(r => r.id === proj.owner);
+          if (shooter) {
+            shooter.kills++;
+            stats.robotFights++;
+          }
+        }
+
+        if (robot.health <= 0) {
+          robot.alive = false;
+          robot.health = 0;
+          robot.respawnTime = Date.now() + CONFIG.RESPAWN_TIME;
+
+          const robotIndex = robots.findIndex(r => r.id === robot.id);
+          if (robotIndex >= 0 && robotMeshes[robotIndex]) {
+            robotMeshes[robotIndex].visible = false;
+          }
+        }
+
+        removeProjectile(projIndex);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function checkObstacleCollisions(proj, projIndex) {
+    for (let obstacle of obstacles) {
+      if (Math.abs(proj.x - obstacle.x) < obstacle.width/2 &&
+              Math.abs(proj.z - obstacle.z) < obstacle.depth/2 &&
+              proj.y < obstacle.height) {
+        removeProjectile(projIndex);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ========================================
+  // VAISSEAU SPATIAL
+  // ========================================
+  function updateSpaceship() {
+    if (!spaceship || !spaceship.active || gameState !== 'battle') return;
+
+    // Mouvement de patrouille
+    spaceship.angle += spaceship.speed;
+    spaceship.x = Math.cos(spaceship.angle) * spaceship.patrolRadius;
+    spaceship.z = Math.sin(spaceship.angle) * spaceship.patrolRadius;
+
+    if (spaceshipMesh) {
+      spaceshipMesh.position.set(spaceship.x, spaceship.y, spaceship.z);
+      spaceshipMesh.rotation.y += 0.02;
+    }
+
+    if (spaceship.light) {
+      spaceship.light.position.set(spaceship.x, spaceship.y - 2, spaceship.z);
+    }
+
+    // Tir aléatoire
+    const now = Date.now();
+    if (now - spaceship.lastShot > CONFIG.SHIP_SHOOT_COOLDOWN) {
+      const targets = robots.filter(r => r.alive);
+      if (targets.length > 0) {
+        showWarning();
+
+        setTimeout(() => {
+          fireShipWeapon(targets);
+          spaceship.lastShot = now;
+          stats.shipShots++;
+        }, 1000); // Délai d'alerte
+      }
+    }
+  }
+
+  function showWarning() {
+    const warning = document.getElementById('warning');
+    warning.style.display = 'block';
+    setTimeout(() => {
+      warning.style.display = 'none';
+    }, 1000);
+  }
+
+  function fireShipWeapon(targets) {
+    // Tir multiple aléatoire
+    const shotCount = Math.min(3, targets.length);
+    const selectedTargets = [];
+
+    for (let i = 0; i < shotCount; i++) {
+      const target = targets[Math.floor(Math.random() * targets.length)];
+      if (!selectedTargets.includes(target)) {
+        selectedTargets.push(target);
+      }
+    }
+
+    selectedTargets.forEach(target => {
+      const direction = new THREE.Vector3(
+              target.x - spaceship.x,
+              target.y - spaceship.y,
+              target.z - spaceship.z
+      ).normalize();
+
+      createProjectile(
+              spaceship.x, spaceship.y - 2, spaceship.z,
+              direction, '#ff0000', 'ship', CONFIG.SHIP_DAMAGE
+      );
+    });
+  }
+
+  // ========================================
+  // IA DES ROBOTS
+  // ========================================
+  function updateRobots() {
+    if (gameState !== 'battle') return;
+
+    robots.forEach((robot, index) => {
+      checkRobotRespawn(robot, index);
+      if (!robot.alive) return;
+
+      updateRobotAI(robot, index);
+      updateRobotMesh(robot, index);
+    });
+  }
+
+  function checkRobotRespawn(robot, index) {
+    if (!robot.alive && robot.respawnTime > 0 && Date.now() >= robot.respawnTime) {
+      robot.alive = true;
+      robot.health = robot.maxHealth;
+      robot.respawnTime = 0;
+      robot.dodgeMode = false;
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 15 + Math.random() * 20;
+      robot.x = Math.cos(angle) * radius;
+      robot.z = Math.sin(angle) * radius;
+
+      if (robotMeshes[index]) {
+        robotMeshes[index].position.set(robot.x, 0, robot.z);
+        robotMeshes[index].visible = true;
+      }
+    }
+  }
+
+  function updateRobotAI(robot, index) {
+    const now = Date.now();
+
+    // Détection des menaces (projectiles et vaisseau)
+    detectThreats(robot);
+
+    if (robot.dodgeMode && now < robot.dodgeTimer) {
+      // Mode d'évitement actif
+      executeEvasion(robot);
+    } else {
+      robot.dodgeMode = false;
+      // Comportement normal: chercher un ennemi
+      engageEnemies(robot, now);
+    }
+
+    // Limites de l'arène
+    const distance = Math.sqrt(robot.x * robot.x + robot.z * robot.z);
+    if (distance > CONFIG.ARENA_SIZE - 5) {
+      robot.x *= 0.9;
+      robot.z *= 0.9;
+    }
+  }
+
+  function detectThreats(robot) {
+    // Détection des projectiles dangereux
+    projectiles.forEach(proj => {
+      if (proj.owner === robot.id) return;
+
+      const distance = Math.sqrt(
+              (proj.x - robot.x) ** 2 + (proj.z - robot.z) ** 2
+      );
+
+      if (distance < CONFIG.DETECTION_RANGE) {
+        // Calculer la trajectoire du projectile
+        const futureX = proj.x + proj.vx * 20;
+        const futureZ = proj.z + proj.vz * 20;
+        const futureDistance = Math.sqrt(
+                (futureX - robot.x) ** 2 + (futureZ - robot.z) ** 2
+        );
+
+        if (futureDistance < 8) {
+          robot.dodgeMode = true;
+          robot.dodgeTimer = Date.now() + 1000;
+
+          // Direction d'évitement perpendiculaire
+          robot.dodgeX = -proj.vz + (Math.random() - 0.5) * 0.5;
+          robot.dodgeZ = proj.vx + (Math.random() - 0.5) * 0.5;
+        }
+      }
+    });
+
+    // Détection du vaisseau spatial
+    if (spaceship && spaceship.active) {
+      const shipDistance = Math.sqrt(
+              (spaceship.x - robot.x) ** 2 + (spaceship.z - robot.z) ** 2
+      );
+
+      if (shipDistance < CONFIG.DETECTION_RANGE) {
+        const timeSinceLastShot = Date.now() - spaceship.lastShot;
+        const dangerLevel = CONFIG.SHIP_SHOOT_COOLDOWN - timeSinceLastShot;
+
+        if (dangerLevel < 2000) { // Vaisseau va tirer bientôt
+          robot.dodgeMode = true;
+          robot.dodgeTimer = Date.now() + 1500;
+
+          // Évitement du vaisseau
+          const escapeAngle = Math.atan2(robot.z - spaceship.z, robot.x - spaceship.x);
+          robot.dodgeX = Math.cos(escapeAngle) * robot.evasion / 50;
+          robot.dodgeZ = Math.sin(escapeAngle) * robot.evasion / 50;
+        }
+      }
+    }
+  }
+
+  function executeEvasion(robot) {
+    const evasionSpeed = CONFIG.ROBOT_SPEED * 2;
+    robot.vx = robot.dodgeX * evasionSpeed;
+    robot.vz = robot.dodgeZ * evasionSpeed;
+
+    robot.x += robot.vx;
+    robot.z += robot.vz;
+  }
+
+  function engageEnemies(robot, now) {
+    // Recherche d'ennemis
+    const enemies = robots.filter(r =>
+            r.alive && r.id !== robot.id &&
+            Math.sqrt((r.x - robot.x) ** 2 + (r.z - robot.z) ** 2) < CONFIG.DETECTION_RANGE
+    );
+
+    if (enemies.length > 0) {
+      // Choisir la cible la plus proche ou continuer avec la cible actuelle
+      if (!robot.target || !robot.target.alive || Math.random() < 0.1) {
+        robot.target = enemies.reduce((closest, enemy) => {
+          const distEnemy = Math.sqrt((enemy.x - robot.x) ** 2 + (enemy.z - robot.z) ** 2);
+          const distClosest = Math.sqrt((closest.x - robot.x) ** 2 + (closest.z - robot.z) ** 2);
+          return distEnemy < distClosest ? enemy : closest;
+        });
+      }
+
+      if (robot.target && robot.target.alive) {
+        const dx = robot.target.x - robot.x;
+        const dz = robot.target.z - robot.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+
+        if (distance > 0) {
+          // Mouvement tactique
+          const optimalDistance = 15 + Math.random() * 10;
+          let moveIntensity = 1;
+
+          if (distance < optimalDistance) {
+            moveIntensity = -0.5; // Reculer
+          } else if (distance > optimalDistance * 2) {
+            moveIntensity = 1.5; // Avancer rapidement
+          }
+
+          // Mouvement avec composante aléatoire
+          const randomOffset = robot.evasion / 100;
+          robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED * moveIntensity +
+                  (Math.random() - 0.5) * randomOffset;
+          robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED * moveIntensity +
+                  (Math.random() - 0.5) * randomOffset;
+
+          robot.x += robot.vx;
+          robot.z += robot.vz;
+
+          // Évitement d'obstacles
+          avoidObstacles(robot);
+
+          // Tir si en ligne de mire
+          if (distance < 35 && now - robot.lastShot > CONFIG.SHOOT_COOLDOWN) {
+            if (Math.random() * 100 < robot.precision) {
+              const direction = new THREE.Vector3(dx, 0, dz).normalize();
+              createProjectile(
+                      robot.x, robot.y + 1, robot.z,
+                      direction, robot.color, robot.id
+              );
+              robot.shots++;
+              robot.lastShot = now;
+            }
+          }
+        }
+      }
+    } else {
+      // Patrouille aléatoire
+      robot.vx = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED;
+      robot.vz = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED;
+      robot.x += robot.vx;
+      robot.z += robot.vz;
+      robot.target = null;
+    }
+  }
+
+  function avoidObstacles(robot) {
+    obstacles.forEach(obstacle => {
+      const dx = robot.x - obstacle.x;
+      const dz = robot.z - obstacle.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+
+      if (distance < obstacle.width + 3) {
+        const pushX = (dx / distance) * 0.2;
+        const pushZ = (dz / distance) * 0.2;
+        robot.x += pushX;
+        robot.z += pushZ;
+      }
+    });
+  }
+
+  function updateRobotMesh(robot, index) {
+    if (robotMeshes[index]) {
+      robotMeshes[index].position.set(robot.x, 0, robot.z);
+
+      // Rotation vers la cible
+      if (robot.target) {
+        const angle = Math.atan2(robot.target.z - robot.z, robot.target.x - robot.x);
+        robotMeshes[index].rotation.y = angle - Math.PI / 2;
+      }
+
+      // Effet de santé
+      const healthRatio = robot.health / robot.maxHealth;
+      robotMeshes[index].children[0].material.emissiveIntensity =
+              0.1 + (1 - healthRatio) * 0.3;
+    }
+  }
+
+  // ========================================
+  // BOUCLE PRINCIPALE
+  // ========================================
+  function gameLoop() {
+    if (gameState === 'battle') {
+      updateRobots();
+      updateSpaceship();
+      updateProjectiles();
+      updateTimer();
+      checkWinConditions();
+    }
+
+    updateUI();
+    renderer.render(scene, camera);
+    animationId = requestAnimationFrame(gameLoop);
+  }
+
+  function updateTimer() {
+    battleTimer--;
+    if (battleTimer <= 0) {
+      endBattle();
+    }
+
+    const minutes = Math.floor(battleTimer / 60);
+    const seconds = battleTimer % 60;
+    document.getElementById('timer').textContent =
+            `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  function checkWinConditions() {
+    const aliveRobots = robots.filter(r => r.alive);
+
+    if (aliveRobots.length <= 1) {
+      endBattle();
+    }
+  }
+
+  function endBattle() {
+    gameState = 'ended';
+    document.getElementById('timer').style.display = 'none';
+
+    const winner = robots.filter(r => r.alive)[0];
+    if (winner) {
+      alert(`🏆 VICTOIRE DE ${winner.name}!\n\nStats finales:\n- Éliminations: ${winner.kills}\n- Tirs: ${winner.shots}\n- Survivant après ${CONFIG.BATTLE_TIME - battleTimer} secondes`);
+    } else {
+      alert(`💥 BATAILLE TERMINÉE!\n\nAucun survivant!\nLe vaisseau spatial a dominé l'arène.`);
+    }
+  }
+
+  // ========================================
+  // CONTRÔLES
+  // ========================================
+  document.getElementById('startBtn').addEventListener('click', () => {
+    if (gameState === 'idle' || gameState === 'ended') {
+      gameState = 'battle';
+      battleTimer = CONFIG.BATTLE_TIME;
+      document.getElementById('timer').style.display = 'block';
+      document.getElementById('startBtn').textContent = '⏸️ EN COURS';
+      document.getElementById('startBtn').disabled = true;
+
+      // Réinitialiser les stats
+      robots.forEach(robot => {
+        robot.alive = true;
+        robot.health = robot.maxHealth;
+        robot.kills = 0;
+        robot.shots = 0;
+        robot.target = null;
+        robot.dodgeMode = false;
+      });
+
+      robotMeshes.forEach(mesh => mesh.visible = true);
+      stats = { shipShots: 0, shipKills: 0, robotFights: 0 };
+    }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    gameState = 'idle';
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('startBtn').textContent = '🚀 DÉMARRER BATAILLE';
+    document.getElementById('startBtn').disabled = false;
+    initGame();
+  });
+
+  document.getElementById('shipBtn').addEventListener('click', () => {
+    if (spaceship) {
+      spaceship.active = !spaceship.active;
+      if (spaceshipMesh) {
+        spaceshipMesh.visible = spaceship.active;
+      }
+      if (spaceship.light) {
+        spaceship.light.visible = spaceship.active;
+      }
+    }
+  });
+
+  // ========================================
+  // INITIALISATION
+  // ========================================
+  initThreeJS();
+  initGame();
+  gameLoop();
+</script>
+</body>
+</html>

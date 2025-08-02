@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combat IA - 10 Robots Arena</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    body {margin:0;padding:0;background:#0f0f23;color:#fff;font-family:'Orbitron';overflow:hidden;}
+    .hud-overlay{position:fixed;top:0;left:0;right:0;z-index:10;pointer-events:none;}
+    .battle-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:5px;padding:5px;background:rgba(0,0,0,0.6);}
+    .ia-panel{border:2px solid;padding:5px;border-radius:5px;font-size:10px;}
+    canvas{display:block;margin:60px auto;background:#000;border:2px solid #4ecdc4;}
+    .controls{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px;}
+    button{padding:5px 10px;font-family:'Orbitron';font-weight:bold;cursor:pointer;}
+    .timer{position:fixed;top:40px;left:50%;transform:translateX(-50%);font-size:20px;}
+  </style>
+</head>
+<body>
+<div class="hud-overlay"><div class="battle-info" id="battleInfo"></div></div>
+<div class="timer" id="timer">10:00</div>
+<canvas id="canvas" width="1200" height="700"></canvas>
+<div class="controls">
+  <button id="trainBtn">🚀 ENTRAÎNER</button>
+  <button id="battleBtn" disabled>⚔️ BATAILLE</button>
+  <button id="resetBtn">🔄 RESET</button>
+</div>
+<script>
+  const cfg={mapWidth:1200,mapHeight:700,groundY:650,battleDuration:600000,bulletSpeed:8,moveSpeed:3,gravity:0.8};
+  const colors=['#4ecdc4','#ff6b6b','#ffd700','#9b59b6','#28a745','#ff8800','#00ffff','#ff69b4','#c0c0c0','#ffffff'];
+  const names=['BLEU','ROUGE','OR','VIOLET','VERT','ORANGE','CYAN','ROSE','ARGENT','BLANC'];
+  const robots=Array.from({length:10},(_,i)=>({id:`ia${i+1}`,name:names[i],x:100+i*100,y:cfg.groundY-50,w:20,h:40,dx:0,dy:0,onGround:true,color:colors[i],health:100,trained:false,shots:0,hits:0,alive:true}));
+  const battleInfo=document.getElementById('battleInfo');
+  robots.forEach(r=>{let div=document.createElement('div');div.className='ia-panel';div.style.borderColor=r.color;div.style.color=r.color;div.innerHTML=`<b>${r.name}</b><div>PV:<span id="${r.id}-pv">100</span></div>`;battleInfo.appendChild(div);});
+  let battle=false,startTime=0,timeLeft=600;const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
+  function train(){robots.forEach(r=>r.trained=true);document.getElementById('battleBtn').disabled=false;}
+  function startBattle(){if(!robots.every(r=>r.trained))return;robots.forEach((r,i)=>{r.x=100+i*100;r.y=cfg.groundY-50;r.health=100;r.alive=true;});battle=true;startTime=Date.now();}
+  function reset(){battle=false;robots.forEach(r=>{r.trained=false;r.health=100;r.alive=true;});document.getElementById('battleBtn').disabled=true;}
+  function update(){if(battle){timeLeft=Math.max(0,Math.ceil((cfg.battleDuration-(Date.now()-startTime))/1000));if(timeLeft<=0||robots.filter(r=>r.alive).length<=1)battle=false;robots.forEach(r=>{if(!r.alive)return;r.x+=Math.random()*2-1;r.x=Math.max(0,Math.min(cfg.mapWidth-r.w,r.x));if(Math.random()<0.01){let target=robots[Math.floor(Math.random()*robots.length)];if(target!==r&&target.alive){target.health-=10;if(target.health<=0){target.alive=false;target.health=0;}}}});}}
+  function draw(){ctx.clearRect(0,0,cfg.mapWidth,cfg.mapHeight);robots.forEach(r=>{ctx.fillStyle=r.color;ctx.globalAlpha=r.alive?1:0.3;ctx.fillRect(r.x,r.y,r.w,r.h);document.getElementById(`${r.id}-pv`).textContent=r.health;});document.getElementById('timer').textContent=`${String(Math.floor(timeLeft/60)).padStart(2,'0')}:${String(timeLeft%60).padStart(2,'0')}`;}
+  function loop(){update();draw();requestAnimationFrame(loop);}loop();
+  trainBtn.onclick=train;battleBtn.onclick=startBattle;resetBtn.onclick=reset;
+</script>
+</body>
+</html>

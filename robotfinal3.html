@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Battle Royale 3D - Robots IA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 35%, #0f0f23 100%);
+      color: #fff;
+      font-family: 'Orbitron', monospace;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #gameContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+    .hud, .leaderboard {
+      position: fixed;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 12px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+
+    .hud {
+      top: 10px;
+      left: 10px;
+      border: 2px solid #4ecdc4;
+    }
+
+    .hud h4 { color: #00FF00; margin-bottom: 5px; }
+    .hud div { font-size: 12px; margin: 2px 0; }
+
+    .leaderboard {
+      top: 10px;
+      right: 10px;
+      border: 2px solid #ffd700;
+      min-width: 200px;
+    }
+
+    .leaderboard h4 { color: #ffd700; margin-bottom: 8px; }
+    .leaderboard div { font-size: 11px; margin: 2px 0; }
+
+    .timer {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      font-weight: 900;
+      text-shadow: 0 0 20px #4ecdc4;
+      z-index: 200;
+      display: none;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 150;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+      border: 2px solid #4ecdc4;
+      color: #4ecdc4;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 12px;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, #3a3a3a, #4a4a4a);
+      box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  </style>
+</head>
+<body>
+<div id="gameContainer"></div>
+
+<div class="hud">
+  <h4>⚔️ BATTLE ROYALE</h4>
+  <div>Bataille #<span id="battleNumber">1</span></div>
+  <div>Survivants: <span id="aliveRobots">16</span></div>
+  <div>Zone: <span id="zoneSize">100</span>%</div>
+  <div>Total Kills: <span id="totalKills">0</span></div>
+  <div>Record: <span id="recordKills">0</span> (<span id="recordHolder">Aucun</span>)</div>
+</div>
+
+<div class="timer" id="timer">3:00</div>
+
+<div class="leaderboard">
+  <h4>🏆 CLASSEMENT LIVE</h4>
+  <div id="leaderboardContent"></div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="startBtn">🚀 DÉMARRER BATTLE ROYALE</button>
+  <button class="btn" id="resetBtn">🔄 RESET</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  'use strict';
+
+  // Configuration du jeu
+  const CONFIG = {
+    ROBOTS: 16, BATTLE_TIME: 180, OBSTACLES: 8, ROBOT_HP: 100, DAMAGE: 35,
+    ROBOT_SPEED: 0.18, SHOOT_COOLDOWN: 600, ARENA_SIZE: 50, DETECTION_RANGE: 45,
+    ZONE_SHRINK_RATE: 0.02, AUTO_RESTART: true, RESTART_DELAY: 8000
+  };
+
+  const COLORS = ['#4ecdc4', '#ff6b6b', '#ffd700', '#9b59b6', '#28a745', '#ff8800', '#c0c0c0', '#00ffff', '#ff69b4', '#ffffff', '#ff1493', '#32cd32', '#ff4500', '#8a2be2', '#dc143c', '#00ced1'];
+  const ROBOT_NAMES = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota', 'Kappa', 'Lambda', 'Mu', 'Nu', 'Xi', 'Omicron', 'Pi'];
+
+  // Variables globales
+  let gameState = 'idle', battleTimer = CONFIG.BATTLE_TIME, battleNumber = 1, currentArenaSize = CONFIG.ARENA_SIZE, zoneWarning = false;
+  let robots = [], projectiles = [], obstacles = [];
+  let overallStats = { totalBattles: 0, champions: [], recordKills: 0, recordHolder: null };
+  let stats = { robotFights: 0, totalShots: 0, totalKills: 0, startTime: 0, endTime: 0 };
+  let scene, camera, renderer, robotMeshes = [], obstacleMeshes = [], projectileMeshes = [];
+
+  // Initialisation Three.js
+  function initThreeJS() {
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x000011, 30, 150);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 40, 50);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setClearColor(0x000011);
+    document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(50, 100, 50);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    scene.add(directionalLight);
+
+    const floor = new THREE.Mesh(
+            new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 32),
+            new THREE.MeshLambertMaterial({ color: 0x001133, transparent: true, opacity: 0.6 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    setupCameraControls();
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  }
+
+  function setupCameraControls() {
+    let mouseDown = false, cameraAngle = 0, cameraHeight = 40;
+
+    document.addEventListener('mousedown', () => mouseDown = true);
+    document.addEventListener('mouseup', () => mouseDown = false);
+    document.addEventListener('mousemove', (e) => {
+      if (mouseDown) {
+        cameraAngle += e.movementX * 0.01;
+        cameraHeight = Math.max(20, Math.min(80, cameraHeight - e.movementY * 0.5));
+        updateCamera();
+      }
+    });
+    document.addEventListener('wheel', (e) => {
+      cameraHeight = Math.max(15, Math.min(100, cameraHeight + e.deltaY * 0.1));
+      updateCamera();
+    });
+
+    function updateCamera() {
+      const distance = 60;
+      camera.position.set(Math.sin(cameraAngle) * distance, cameraHeight, Math.cos(cameraAngle) * distance);
+      camera.lookAt(0, 0, 0);
+    }
+    updateCamera();
+  }
+
+  // Initialisation du jeu
+  function initGame() {
+    robots = []; projectiles = []; obstacles = [];
+    currentArenaSize = CONFIG.ARENA_SIZE; zoneWarning = false;
+    stats = { robotFights: 0, totalShots: 0, totalKills: 0, startTime: Date.now(), endTime: 0 };
+    clearMeshes(); createRobots(); createObstacles(); updateArenaVisuals(); updateUI();
+  }
+
+  function clearMeshes() {
+    [...robotMeshes, ...obstacleMeshes, ...projectileMeshes].forEach(mesh => scene.remove(mesh));
+    robotMeshes = []; obstacleMeshes = []; projectileMeshes = [];
+  }
+
+  function createRobots() {
+    for (let i = 0; i < CONFIG.ROBOTS; i++) {
+      const angle = (i / CONFIG.ROBOTS) * Math.PI * 2;
+      const radius = (CONFIG.ARENA_SIZE * 0.7) + Math.random() * (CONFIG.ARENA_SIZE * 0.2);
+
+      const robot = {
+        id: i, name: 'CYBER-' + ROBOT_NAMES[i], color: COLORS[i],
+        x: Math.cos(angle) * radius, y: 1.5, z: Math.sin(angle) * radius, vx: 0, vz: 0,
+        aggression: 50 + Math.random() * 40, precision: 40 + Math.random() * 35,
+        evasion: 60 + Math.random() * 30, intelligence: 70 + Math.random() * 30,
+        reflexes: 50 + Math.random() * 25, survival: 60 + Math.random() * 40,
+        health: CONFIG.ROBOT_HP, maxHealth: CONFIG.ROBOT_HP, kills: 0, shots: 0, hits: 0,
+        accuracy: 0, alive: true, size: 1.5, placement: 0, lastShot: 0, target: null, enemies: [],
+        dodgeMode: false, dodgeTimer: 0, huntMode: false, defendMode: false, flankMode: false, survivalMode: false,
+        fear: 0, confidence: 60, rage: 0, focus: 100, panic: 0,
+        weapon: { type: ['assault', 'sniper', 'heavy'][Math.floor(Math.random() * 3)], ammo: 150, overheated: false, cooldown: 0 },
+        experience: 0, level: 1, battlesSurvived: 0, memory: { lastPositions: [], enemyPatterns: new Map() }
+      };
+      robots.push(robot);
+      createRobotMesh(robot, i);
+    }
+  }
+
+  function createRobotMesh(robot, index) {
+    const group = new THREE.Group();
+    const color = new THREE.Color(robot.color);
+    const metalColor = color.clone().multiplyScalar(0.8);
+
+    // Corps principal
+    const body = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 2.2, 0.8),
+            new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.15 })
+    );
+    body.position.y = 2; body.castShadow = true; group.add(body);
+
+    // Tête
+    const head = new THREE.Mesh(
+            new THREE.BoxGeometry(0.9, 0.9, 0.9),
+            new THREE.MeshLambertMaterial({ color: color.clone().multiplyScalar(1.3) })
+    );
+    head.position.y = 3.5; head.castShadow = true; group.add(head);
+
+    // Visière
+    const visor = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 0.3, 0.95),
+            new THREE.MeshBasicMaterial({ color: 0x001122, transparent: true, opacity: 0.8 })
+    );
+    visor.position.set(0, 3.6, 0.05); group.add(visor);
+
+    // Yeux
+    const eyeColor = robot.weapon.type === 'sniper' ? 0xff0000 : robot.weapon.type === 'heavy' ? 0xffaa00 : 0x00ffff;
+    const eyeMaterial = new THREE.MeshBasicMaterial({ color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.0 });
+    [-0.25, 0.25].forEach(x => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12), eyeMaterial);
+      eye.position.set(x, 3.6, 0.45); group.add(eye);
+    });
+
+    // Membres
+    createLimbs(group, color, metalColor);
+    createWeapon(group, robot.weapon.type);
+
+    group.position.set(robot.x, 0, robot.z);
+    robotMeshes.push(group); scene.add(group);
+  }
+
+  function createLimbs(group, color, metalColor) {
+    // Épaules et bras
+    [-0.9, 0.9].forEach(x => {
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshLambertMaterial({ color: metalColor }));
+      shoulder.position.set(x, 2.8, 0); group.add(shoulder);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.6, 0.5), new THREE.MeshLambertMaterial({ color: color }));
+      arm.position.set(x, 2, 0); arm.castShadow = true; group.add(arm);
+    });
+
+    // Hanches et jambes
+    [-0.35, 0.35].forEach(x => {
+      const hip = new THREE.Mesh(new THREE.SphereGeometry(0.25), new THREE.MeshLambertMaterial({ color: metalColor }));
+      hip.position.set(x, 0.9, 0); group.add(hip);
+      const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.2, 0.5), new THREE.MeshLambertMaterial({ color: color }));
+      thigh.position.set(x, 1.5, 0); thigh.castShadow = true; group.add(thigh);
+      const shin = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.0, 0.4), new THREE.MeshLambertMaterial({ color: color }));
+      shin.position.set(x, 0.5, 0); shin.castShadow = true; group.add(shin);
+    });
+  }
+
+  function createWeapon(group, type) {
+    const geometries = { sniper: new THREE.CylinderGeometry(0.08, 0.12, 1.5), heavy: new THREE.CylinderGeometry(0.15, 0.2, 1.0), assault: new THREE.CylinderGeometry(0.1, 0.15, 1.2) };
+    const weapon = new THREE.Mesh(geometries[type] || geometries.assault, new THREE.MeshLambertMaterial({ color: 0x333333 }));
+    weapon.position.set(0.9, 2.2, 0.4); weapon.rotation.x = Math.PI / 2; group.add(weapon);
+  }
+
+  function createObstacles() {
+    for (let i = 0; i < CONFIG.OBSTACLES; i++) {
+      const angle = (i / CONFIG.OBSTACLES) * Math.PI * 2;
+      const radius = 25 + Math.random() * 15;
+      const [x, z] = [Math.cos(angle) * radius, Math.sin(angle) * radius];
+      const [width, height, depth] = [4 + Math.random() * 3, 6 + Math.random() * 4, 4 + Math.random() * 3];
+
+      obstacles.push({ x, y: height/2, z, width, height, depth });
+
+      const obstacle = new THREE.Mesh(
+              new THREE.BoxGeometry(width, height, depth),
+              new THREE.MeshLambertMaterial({ color: 0x444444, transparent: true, opacity: 0.7 })
+      );
+      obstacle.position.set(x, height/2, z);
+      obstacle.castShadow = true; obstacle.receiveShadow = true;
+      obstacleMeshes.push(obstacle); scene.add(obstacle);
+    }
+  }
+
+  function updateArenaVisuals() {
+    scene.children = scene.children.filter(child => !['GridHelper', 'PolarGridHelper'].includes(child.type));
+
+    const grid = new THREE.PolarGridHelper(currentArenaSize, 16, 8, 64, 0x4ecdc4, 0x4ecdc4);
+    grid.material.opacity = 0.3; grid.material.transparent = true; scene.add(grid);
+
+    if (currentArenaSize < CONFIG.ARENA_SIZE * 0.8) {
+      const danger = new THREE.Mesh(
+              new THREE.RingGeometry(currentArenaSize, CONFIG.ARENA_SIZE * 1.2, 32),
+              new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0.2, side: THREE.DoubleSide })
+      );
+      danger.rotation.x = -Math.PI / 2; danger.position.y = 0.1; scene.add(danger);
+    }
+  }
+
+  // IA des robots
+  function updateRobots() {
+    if (gameState !== 'battle') return;
+    robots.forEach((robot, index) => {
+      if (!robot.alive) return;
+      updateRobotAI(robot); updateRobotMesh(robot, index);
+    });
+  }
+
+  function updateRobotAI(robot) {
+    updateMentalState(robot); analyzeEnvironment(robot); selectTacticalMode(robot);
+    const now = Date.now();
+
+    if (robot.dodgeMode && now < robot.dodgeTimer) executeEvasion(robot);
+    else if (robot.survivalMode) executeSurvivalMode(robot, now);
+    else if (robot.huntMode) executeHuntBehavior(robot, now);
+    else if (robot.defendMode) executeDefenseBehavior(robot, now);
+    else if (robot.flankMode) executeFlankBehavior(robot, now);
+    else executeStandardCombat(robot, now);
+
+    enforceArenaBounds(robot);
+  }
+
+  function updateMentalState(robot) {
+    const healthRatio = robot.health / robot.maxHealth;
+    const distanceFromCenter = Math.sqrt(robot.x * robot.x + robot.z * robot.z);
+    const zoneRatio = distanceFromCenter / currentArenaSize;
+
+    robot.fear = Math.max(0, (1 - healthRatio) * 80 + zoneRatio * 50);
+    robot.confidence = Math.min(100, 20 + robot.kills * 20);
+    robot.rage = healthRatio < 0.5 ? Math.min(100, robot.rage + 5) : Math.max(0, robot.rage - 1);
+    robot.panic = zoneRatio > 0.9 ? Math.min(100, robot.panic + 8) : zoneRatio < 0.5 ? Math.max(0, robot.panic - 2) : robot.panic;
+    robot.focus = Math.max(20, 100 - robot.fear * 0.3 + robot.confidence * 0.2 - robot.panic * 0.2);
+  }
+
+  function analyzeEnvironment(robot) {
+    robot.enemies = robots.filter(r => r.alive && r.id !== robot.id && getDistance(robot, r) < CONFIG.DETECTION_RANGE)
+            .sort((a, b) => getDistance(robot, a) - getDistance(robot, b));
+
+    const dangerousProjectiles = projectiles.filter(proj =>
+            proj.owner !== robot.id && getDistance(robot, proj) < 20 && willProjectileHit(proj, robot)
+    );
+
+    if (dangerousProjectiles.length > 0) {
+      robot.dodgeMode = true; robot.dodgeTimer = Date.now() + 1000;
+      calculateOptimalDodge(robot, dangerousProjectiles);
+    }
+  }
+
+  function selectTacticalMode(robot) {
+    const enemyCount = robot.enemies.length;
+    const healthRatio = robot.health / robot.maxHealth;
+    const zoneRatio = Math.sqrt(robot.x * robot.x + robot.z * robot.z) / currentArenaSize;
+
+    robot.huntMode = robot.defendMode = robot.flankMode = robot.survivalMode = false;
+
+    if (zoneRatio > 0.8 || robot.panic > 60) robot.survivalMode = true;
+    else if (robot.fear > 70 || healthRatio < 0.3) robot.defendMode = true;
+    else if (robot.rage > 60 && robot.confidence > 70) robot.huntMode = true;
+    else if (enemyCount >= 2 && robot.intelligence > 70) robot.flankMode = true;
+  }
+
+  // Comportements tactiques
+  function executeEvasion(robot) {
+    const multiplier = 1 + (robot.evasion / 100);
+    robot.vx = robot.dodgeX * CONFIG.ROBOT_SPEED * multiplier;
+    robot.vz = robot.dodgeZ * CONFIG.ROBOT_SPEED * multiplier;
+    robot.x += robot.vx; robot.z += robot.vz;
+  }
+
+  function executeSurvivalMode(robot, now) {
+    const [dx, dz] = [-robot.x, -robot.z];
+    const distance = Math.sqrt(dx * dx + dz * dz);
+
+    if (distance > 2) {
+      const speed = CONFIG.ROBOT_SPEED * (1 + robot.survival / 100);
+      robot.vx = (dx / distance) * speed; robot.vz = (dz / distance) * speed;
+      robot.x += robot.vx; robot.z += robot.vz;
+    }
+
+    if (robot.enemies.length > 0 && canShoot(robot, now)) {
+      const threat = robot.enemies[0];
+      if (getDistance(robot, threat) < 20) executeAdvancedShooting(robot, threat, now);
+    }
+  }
+
+  function executeHuntBehavior(robot, now) {
+    if (!robot.target?.alive) robot.target = robot.enemies[0] || null;
+
+    if (robot.target) {
+      const distance = getDistance(robot, robot.target);
+      const speed = CONFIG.ROBOT_SPEED * (1 + robot.aggression / 100);
+      const [dx, dz] = [robot.target.x - robot.x, robot.target.z - robot.z];
+
+      if (distance > 0) {
+        robot.vx = (dx / distance) * speed; robot.vz = (dz / distance) * speed;
+        robot.x += robot.vx; robot.z += robot.vz;
+
+        if (distance < 25 && canShoot(robot, now)) executeAdvancedShooting(robot, robot.target, now);
+      }
+    }
+  }
+
+  function executeDefenseBehavior(robot, now) {
+    const cover = findNearestCover(robot);
+    if (cover) moveToPosition(robot, cover);
+
+    if (robot.enemies.length > 0 && canShoot(robot, now)) {
+      executeAdvancedShooting(robot, robot.enemies[0], now);
+    }
+  }
+
+  function executeFlankBehavior(robot, now) {
+    if (!robot.target?.alive) robot.target = robot.enemies[0] || null;
+
+    if (robot.target) {
+      const angle = Math.atan2(robot.target.z - robot.z, robot.target.x - robot.x);
+      const flankAngle = angle + Math.PI / 2;
+      const [flankX, flankZ] = [robot.target.x + Math.cos(flankAngle) * 15, robot.target.z + Math.sin(flankAngle) * 15];
+
+      moveToPosition(robot, { x: flankX, z: flankZ });
+
+      if (getDistance(robot, robot.target) < 30 && canShoot(robot, now)) {
+        executeAdvancedShooting(robot, robot.target, now);
+      }
+    }
+  }
+
+  function executeStandardCombat(robot, now) {
+    if (robot.enemies.length > 0) {
+      if (!robot.target?.alive || Math.random() < 0.05) robot.target = selectBestTarget(robot);
+
+      if (robot.target?.alive) {
+        const distance = getDistance(robot, robot.target);
+        executeTacticalMovement(robot, robot.target, distance);
+        avoidObstacles(robot);
+
+        if (distance < getOptimalRange(robot) && canShoot(robot, now)) {
+          executeAdvancedShooting(robot, robot.target, now);
+        }
+      }
+    } else {
+      executePatrol(robot);
+    }
+  }
+
+  // Fonctions utilitaires
+  const getDistance = (obj1, obj2) => Math.sqrt((obj1.x - obj2.x) ** 2 + (obj1.z - obj2.z) ** 2);
+
+  const willProjectileHit = (proj, robot) => {
+    const timeToImpact = 20;
+    const [futureX, futureZ] = [proj.x + proj.vx * timeToImpact, proj.z + proj.vz * timeToImpact];
+    return Math.sqrt((futureX - robot.x) ** 2 + (futureZ - robot.z) ** 2) < 5;
+  };
+
+  function calculateOptimalDodge(robot, projectiles) {
+    let [dodgeX, dodgeZ] = [0, 0];
+
+    projectiles.forEach(proj => {
+      const [perpX, perpZ] = [-proj.vz, proj.vx];
+      const magnitude = Math.sqrt(perpX * perpX + perpZ * perpZ);
+
+      if (magnitude > 0) {
+        dodgeX += (perpX / magnitude) * robot.evasion / 50;
+        dodgeZ += (perpZ / magnitude) * robot.evasion / 50;
+      }
+    });
+
+    robot.dodgeX = dodgeX + (Math.random() - 0.5) * 0.5;
+    robot.dodgeZ = dodgeZ + (Math.random() - 0.5) * 0.5;
+  }
+
+  function selectBestTarget(robot) {
+    return robot.enemies.length === 0 ? null : robot.enemies.reduce((best, enemy) => {
+      const calcScore = (r) => {
+        const distance = getDistance(robot, r);
+        const healthRatio = r.health / r.maxHealth;
+        const threat = r.kills + r.aggression / 100;
+        return (1 / distance) * 10 + (1 - healthRatio) * 5 - threat * 2;
+      };
+      return calcScore(enemy) > calcScore(best) ? enemy : best;
+    });
+  }
+
+  const canShoot = (robot, now) => {
+    const cooldowns = { sniper: CONFIG.SHOOT_COOLDOWN * 2, heavy: CONFIG.SHOOT_COOLDOWN * 1.5, assault: CONFIG.SHOOT_COOLDOWN };
+    return now - robot.lastShot > (cooldowns[robot.weapon.type] || cooldowns.assault) && !robot.weapon.overheated;
+  };
+
+  const getOptimalRange = (robot) => ({ sniper: 40, heavy: 20, assault: 30 }[robot.weapon.type] || 30);
+
+  function executeAdvancedShooting(robot, target, now) {
+    const distance = getDistance(robot, target);
+    let accuracy = robot.precision + robot.focus * 0.3 - robot.fear * 0.2 - distance * 0.5;
+
+    const bonuses = { sniper: distance > 25 ? 20 : -10, heavy: distance < 15 ? 15 : -20, assault: 0 };
+    accuracy += bonuses[robot.weapon.type] || 0;
+    accuracy = Math.max(5, Math.min(95, accuracy));
+
+    if (Math.random() * 100 < accuracy) {
+      const [predictedX, predictedZ] = [target.x + target.vx * (distance / 2), target.z + target.vz * (distance / 2)];
+      const direction = new THREE.Vector3(predictedX - robot.x, 0, predictedZ - robot.z).normalize();
+
+      createProjectile(robot, direction);
+      robot.shots++; robot.lastShot = now; stats.totalShots++;
+
+      setTimeout(() => { robot.weapon.overheated = false; robot.weapon.ammo = 150; }, 3000);
+    }
+  }
+
+  function createProjectile(robot, direction) {
+    const configs = {
+      sniper: { color: '#ff0000', damage: CONFIG.DAMAGE * 1.8, speed: 1.8, geometry: new THREE.CylinderGeometry(0.1, 0.1, 0.8) },
+      heavy: { color: '#ffaa00', damage: CONFIG.DAMAGE * 1.3, speed: 0.96, geometry: new THREE.SphereGeometry(0.5) },
+      assault: { color: robot.color, damage: CONFIG.DAMAGE, speed: 1.2, geometry: new THREE.SphereGeometry(0.3) }
+    };
+    const config = configs[robot.weapon.type] || configs.assault;
+
+    const projectile = {
+      x: robot.x, y: robot.y + 1, z: robot.z,
+      vx: direction.x * config.speed, vy: 0, vz: direction.z * config.speed,
+      owner: robot.id, color: config.color, damage: config.damage, life: 150
+    };
+    projectiles.push(projectile);
+
+    const mesh = new THREE.Mesh(config.geometry, new THREE.MeshBasicMaterial({
+      color: new THREE.Color(config.color), emissive: new THREE.Color(config.color), emissiveIntensity: 0.8
+    }));
+    mesh.position.set(robot.x, robot.y + 1, robot.z);
+    projectileMeshes.push(mesh); scene.add(mesh);
+  }
+
+  function executeTacticalMovement(robot, target, distance) {
+    const optimalRange = getOptimalRange(robot);
+    let moveIntensity = distance < optimalRange * 0.7 ? -0.7 : distance > optimalRange * 1.5 ? 1.5 : 0.3;
+
+    const [dx, dz] = [target.x - robot.x, target.z - robot.z];
+
+    if (distance > 0) {
+      robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED * moveIntensity;
+      robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED * moveIntensity;
+
+      const strafeAngle = Math.atan2(dz, dx) + Math.PI / 2;
+      const strafeIntensity = robot.intelligence / 200;
+      robot.vx += Math.cos(strafeAngle) * CONFIG.ROBOT_SPEED * strafeIntensity;
+      robot.vz += Math.sin(strafeAngle) * CONFIG.ROBOT_SPEED * strafeIntensity;
+
+      const randomFactor = robot.evasion / 500;
+      robot.vx += (Math.random() - 0.5) * randomFactor;
+      robot.vz += (Math.random() - 0.5) * randomFactor;
+
+      robot.x += robot.vx; robot.z += robot.vz;
+    }
+  }
+
+  const executePatrol = (robot) => {
+    robot.vx = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED * 0.5;
+    robot.vz = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED * 0.5;
+    robot.x += robot.vx; robot.z += robot.vz;
+    robot.target = null;
+  };
+
+  const moveToPosition = (robot, position) => {
+    const [dx, dz] = [position.x - robot.x, position.z - robot.z];
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    if (distance > 1) {
+      robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED;
+      robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED;
+      robot.x += robot.vx; robot.z += robot.vz;
+    }
+  };
+
+  const findNearestCover = (robot) => obstacles.reduce((nearest, obstacle) => {
+    const distance = getDistance(robot, obstacle);
+    const nearestDistance = nearest ? getDistance(robot, nearest) : Infinity;
+    return distance < nearestDistance ? obstacle : nearest;
+  }, null);
+
+  function avoidObstacles(robot) {
+    obstacles.forEach(obstacle => {
+      const [dx, dz] = [robot.x - obstacle.x, robot.z - obstacle.z];
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      if (distance < obstacle.width + 3) {
+        robot.x += (dx / distance) * 0.2;
+        robot.z += (dz / distance) * 0.2;
+      }
+    });
+  }
+
+  function enforceArenaBounds(robot) {
+    const distance = Math.sqrt(robot.x * robot.x + robot.z * robot.z);
+    if (distance > currentArenaSize - 5) {
+      robot.x *= 0.9; robot.z *= 0.9;
+      robot.fear = Math.min(100, robot.fear + 8);
+      robot.panic = Math.min(100, robot.panic + 10);
+      robot.survivalMode = true;
+    }
+    if (distance > currentArenaSize) {
+      robot.health -= 1;
+      if (robot.health <= 0) eliminateRobot(robot, null);
+    }
+  }
+
+  function updateRobotMesh(robot, index) {
+    const mesh = robotMeshes[index];
+    if (!mesh) return;
+
+    mesh.position.set(robot.x, 0, robot.z);
+
+    if (robot.target) {
+      const angle = Math.atan2(robot.target.z - robot.z, robot.target.x - robot.x);
+      mesh.rotation.y = angle - Math.PI / 2;
+    }
+
+    const healthRatio = robot.health / robot.maxHealth;
+    if (mesh.children[0]?.material) {
+      mesh.children[0].material.emissiveIntensity = 0.15 + (1 - healthRatio) * 0.5 + robot.rage * 0.003;
+    }
+
+    const isMoving = Math.abs(robot.vx) > 0.01 || Math.abs(robot.vz) > 0.01;
+    if (isMoving) {
+      const walkCycle = Date.now() * 0.015;
+      const speedMultiplier = Math.sqrt(robot.vx * robot.vx + robot.vz * robot.vz) * 10;
+
+      // Animation des bras
+      if (mesh.children[6]) mesh.children[6].rotation.x = Math.sin(walkCycle) * 0.4 * speedMultiplier;
+      if (mesh.children[7]) mesh.children[7].rotation.x = Math.sin(walkCycle + Math.PI) * 0.4 * speedMultiplier;
+
+      // Animation des jambes
+      if (mesh.children[10]) mesh.children[10].rotation.x = Math.sin(walkCycle + Math.PI) * 0.3 * speedMultiplier;
+      if (mesh.children[11]) mesh.children[11].rotation.x = Math.sin(walkCycle) * 0.3 * speedMultiplier;
+      if (mesh.children[12]) mesh.children[12].rotation.x = Math.sin(walkCycle + Math.PI) * 0.2 * speedMultiplier;
+      if (mesh.children[13]) mesh.children[13].rotation.x = Math.sin(walkCycle) * 0.2 * speedMultiplier;
+    }
+
+    if (robot.survivalMode && mesh.children[0]?.material?.color) {
+      const baseColor = new THREE.Color(robot.color);
+      mesh.children[0].material.color.setRGB(baseColor.r * 1.3, baseColor.g * 1.0, baseColor.b * 0.6);
+    }
+  }
+
+  // Système de projectiles
+  function updateProjectiles() {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const proj = projectiles[i];
+      const mesh = projectileMeshes[i];
+      if (!proj || !mesh) continue;
+
+      proj.x += proj.vx; proj.y += proj.vy || 0; proj.z += proj.vz; proj.life--;
+      mesh.position.set(proj.x, proj.y, proj.z);
+
+      if (Math.abs(proj.x) > CONFIG.ARENA_SIZE * 1.5 || Math.abs(proj.z) > CONFIG.ARENA_SIZE * 1.5 ||
+              proj.y < 0 || proj.y > 50 || proj.life <= 0) {
+        removeProjectile(i); continue;
+      }
+
+      if (checkProjectileCollisions(proj, i) || checkObstacleCollisions(proj, i)) continue;
+    }
+  }
+
+  const removeProjectile = (index) => {
+    projectiles.splice(index, 1);
+    scene.remove(projectileMeshes[index]);
+    projectileMeshes.splice(index, 1);
+  };
+
+  function checkProjectileCollisions(proj, projIndex) {
+    for (const robot of robots) {
+      if (!robot.alive || robot.id === proj.owner) continue;
+
+      if (getDistance(robot, proj) < robot.size + 0.5) {
+        robot.health -= proj.damage;
+
+        const shooter = robots.find(r => r.id === proj.owner);
+        if (shooter) {
+          shooter.kills++; shooter.hits++;
+          shooter.accuracy = shooter.shots > 0 ? (shooter.hits / shooter.shots) * 100 : 0;
+          stats.robotFights++; stats.totalKills++;
+        }
+
+        if (robot.health <= 0) eliminateRobot(robot, shooter);
+        removeProjectile(projIndex);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const checkObstacleCollisions = (proj, projIndex) => {
+    for (const obstacle of obstacles) {
+      if (Math.abs(proj.x - obstacle.x) < obstacle.width/2 &&
+              Math.abs(proj.z - obstacle.z) < obstacle.depth/2 && proj.y < obstacle.height) {
+        removeProjectile(projIndex);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Gestion de la Battle Royale
+  function updateBattleRoyaleZone() {
+    const timeElapsed = Date.now() - stats.startTime;
+    if (timeElapsed > 30000) {
+      currentArenaSize = Math.max(15, currentArenaSize - CONFIG.ZONE_SHRINK_RATE);
+
+      if (currentArenaSize < CONFIG.ARENA_SIZE * 0.6 && !zoneWarning) {
+        zoneWarning = true;
+        showZoneWarning();
+      }
+
+      robots.forEach(robot => {
+        if (robot.alive && Math.sqrt(robot.x * robot.x + robot.z * robot.z) > currentArenaSize) {
+          robot.health -= 2; robot.panic = Math.min(100, robot.panic + 5);
+          if (robot.health <= 0) eliminateRobot(robot, null);
+        }
+      });
+
+      if (Math.floor(timeElapsed / 1000) % 5 === 0) updateArenaVisuals();
+    }
+  }
+
+  function showZoneWarning() {
+    const warning = document.createElement('div');
+    warning.style.cssText = `position: fixed; top: 30%; left: 50%; transform: translateX(-50%);
+                background: rgba(255,0,0,0.8); color: white; padding: 20px; border-radius: 10px;
+                font-size: 24px; font-weight: bold; z-index: 300; animation: pulse 2s infinite;`;
+    warning.textContent = '⚠️ ZONE MORTELLE - LA CARTE RÉTRÉCIT ! ⚠️';
+    document.body.appendChild(warning);
+    setTimeout(() => document.body.removeChild(warning), 4000);
+  }
+
+  function eliminateRobot(robot, killer) {
+    if (!robot.alive) return;
+
+    robot.alive = false; robot.health = 0;
+    robot.placement = robots.filter(r => r.alive).length + 1;
+
+    if (killer) { killer.experience += 50; stats.robotFights++; stats.totalKills++; }
+
+    const robotIndex = robots.findIndex(r => r.id === robot.id);
+    if (robotIndex >= 0 && robotMeshes[robotIndex]) robotMeshes[robotIndex].visible = false;
+
+    showEliminationMessage(robot, killer);
+  }
+
+  function showEliminationMessage(eliminated, killer) {
+    const msg = document.createElement('div');
+    msg.style.cssText = `position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+                background: rgba(0,0,0,0.8); color: ${eliminated.color}; padding: 10px 20px;
+                border: 2px solid ${eliminated.color}; border-radius: 8px;
+                font-size: 16px; font-weight: bold; z-index: 250;`;
+
+    const killerText = killer ? `éliminé par ${killer.name}` : 'éliminé par la zone';
+    msg.innerHTML = `💀 ${eliminated.name} ${killerText}<br>Position finale: #${eliminated.placement}`;
+
+    document.body.appendChild(msg);
+    setTimeout(() => { if (document.body.contains(msg)) document.body.removeChild(msg); }, 3000);
+  }
+
+  // Gestion des batailles
+  function gameLoop() {
+    if (gameState === 'battle') {
+      updateRobots(); updateProjectiles(); updateBattleRoyaleZone();
+      updateTimer(); checkWinConditions();
+    }
+    updateUI(); renderer.render(scene, camera);
+    requestAnimationFrame(gameLoop);
+  }
+
+  function updateTimer() {
+    battleTimer--;
+    if (battleTimer <= 0) endBattle(null);
+    const minutes = Math.floor(battleTimer / 60);
+    const seconds = battleTimer % 60;
+    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  const checkWinConditions = () => {
+    const aliveRobots = robots.filter(r => r.alive);
+    if (aliveRobots.length <= 1 || battleTimer <= 0) endBattle(aliveRobots[0] || null);
+  };
+
+  function endBattle(winner) {
+    stats.endTime = Date.now();
+    const battleDuration = (stats.endTime - stats.startTime) / 1000;
+
+    gameState = 'ended';
+    document.getElementById('timer').style.display = 'none';
+
+    overallStats.totalBattles++;
+    if (winner) {
+      overallStats.champions.push({
+        name: winner.name, kills: winner.kills, accuracy: winner.accuracy,
+        battleNumber: battleNumber, duration: battleDuration
+      });
+
+      if (winner.kills > overallStats.recordKills) {
+        overallStats.recordKills = winner.kills;
+        overallStats.recordHolder = winner.name;
+      }
+      winner.battlesSurvived++;
+    }
+
+    showBattleResults(winner, battleDuration);
+    if (CONFIG.AUTO_RESTART) setTimeout(() => startNewBattle(), CONFIG.RESTART_DELAY);
+  }
+
+  function showBattleResults(winner, duration) {
+    const results = document.createElement('div');
+    results.style.cssText = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: linear-gradient(145deg, #1a1a2e, #16213e); border: 3px solid ${winner ? winner.color : '#ff6b6b'};
+                border-radius: 15px; padding: 30px; color: white; text-align: center; font-size: 18px;
+                z-index: 400; max-width: 500px; backdrop-filter: blur(10px);`;
+
+    const winnerText = winner ?
+            `🏆 CHAMPION: ${winner.name}!<br>💀 Éliminations: ${winner.kills}<br>🎯 Précision: ${Math.round(winner.accuracy)}%<br>⭐ Niveau: ${winner.level}` :
+            `💥 AUCUN SURVIVANT!<br>Bataille #${battleNumber} terminée`;
+
+    results.innerHTML = `
+                <h2 style="color: ${winner ? winner.color : '#ff6b6b'}; margin-bottom: 20px;">BATAILLE ROYALE #${battleNumber}</h2>
+                ${winnerText}<br><br>
+                <div style="font-size: 14px; color: #aaa;">
+                    ⏱️ Durée: ${Math.round(duration)}s<br>🔫 Total tirs: ${stats.totalShots}<br>⚔️ Total combats: ${stats.robotFights}<br>
+                    🏆 Batailles totales: ${overallStats.totalBattles}<br>📈 Record kills: ${overallStats.recordKills} (${overallStats.recordHolder || 'N/A'})
+                </div><br>
+                <div style="color: #4ecdc4;">Prochaine bataille dans ${CONFIG.RESTART_DELAY/1000} secondes...</div>`;
+
+    document.body.appendChild(results);
+    setTimeout(() => { if (document.body.contains(results)) document.body.removeChild(results); }, CONFIG.RESTART_DELAY - 1000);
+  }
+
+  function startNewBattle() {
+    battleNumber++; gameState = 'battle'; battleTimer = CONFIG.BATTLE_TIME;
+
+    document.getElementById('timer').style.display = 'block';
+    document.getElementById('startBtn').textContent = `⚔️ BATAILLE #${battleNumber}`;
+    document.getElementById('startBtn').disabled = true;
+
+    initGame();
+
+    robots.forEach(robot => {
+      Object.assign(robot, {
+        alive: true, health: robot.maxHealth, kills: 0, shots: 0, hits: 0, accuracy: 0, placement: 0,
+        target: null, dodgeMode: false, huntMode: false, defendMode: false, flankMode: false, survivalMode: false,
+        fear: 0, confidence: 60, rage: 0, focus: 100, panic: 0
+      });
+      robot.weapon.overheated = false; robot.weapon.ammo = 150;
+      robot.memory.lastPositions = []; robot.memory.enemyPatterns.clear();
+    });
+
+    robotMeshes.forEach(mesh => mesh.visible = true);
+  }
+
+  // Interface utilisateur
+  function updateUI() {
+    const aliveCount = robots.filter(r => r.alive).length;
+    const zonePercentage = Math.round((currentArenaSize / CONFIG.ARENA_SIZE) * 100);
+
+    document.getElementById('battleNumber').textContent = battleNumber;
+    document.getElementById('aliveRobots').textContent = aliveCount;
+    document.getElementById('zoneSize').textContent = zonePercentage;
+    document.getElementById('totalKills').textContent = stats.totalKills;
+    document.getElementById('recordKills').textContent = overallStats.recordKills;
+    document.getElementById('recordHolder').textContent = overallStats.recordHolder || 'Aucun';
+
+    updateLeaderboard();
+  }
+
+  function updateLeaderboard() {
+    const leaderboard = document.getElementById('leaderboardContent');
+    const aliveRobots = robots.filter(r => r.alive);
+    const deadRobots = robots.filter(r => !r.alive);
+
+    const sorted = [
+      ...aliveRobots.sort((a, b) => (b.kills * 10 + b.accuracy + b.level * 5) - (a.kills * 10 + a.accuracy + a.level * 5)),
+      ...deadRobots.sort((a, b) => a.placement - b.placement)
+    ];
+
+    leaderboard.innerHTML = '';
+    sorted.slice(0, 12).forEach((r, i) => {
+      const status = r.alive ? '💚' : '💀';
+      const levelIcon = '⭐'.repeat(Math.min(r.level, 3));
+      const modeIcons = { huntMode: '⚔️', defendMode: '🛡️', flankMode: '🎯', survivalMode: '🏃' };
+      const modeIcon = Object.keys(modeIcons).find(mode => r[mode]) ? modeIcons[Object.keys(modeIcons).find(mode => r[mode])] : '🤖';
+      const weaponIcon = { sniper: '🎯', heavy: '💥', assault: '🔫' }[r.weapon.type] || '🔫';
+
+      const placementText = r.alive ? '' : ` (#${r.placement})`;
+      const panicIndicator = r.panic > 50 ? '😰' : '';
+
+      leaderboard.innerHTML +=
+              `<div style="color:${r.color}; font-size: 9px; margin: 1px 0; ${!r.alive ? 'opacity: 0.6;' : ''}">
+                        ${i + 1}. ${modeIcon}${weaponIcon} ${r.name} ${status}${panicIndicator}
+                        <br>&nbsp;&nbsp;&nbsp;K:${r.kills} HP:${Math.round(r.health)} ${levelIcon}${placementText}
+                    </div>`;
+    });
+  }
+
+  // Contrôles
+  document.getElementById('startBtn').addEventListener('click', () => {
+    if (['idle', 'ended'].includes(gameState)) startNewBattle();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    gameState = 'idle'; battleNumber = 1;
+    overallStats = { totalBattles: 0, champions: [], recordKills: 0, recordHolder: null };
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('startBtn').textContent = '🚀 DÉMARRER BATTLE ROYALE';
+    document.getElementById('startBtn').disabled = false;
+    initGame();
+  });
+
+  // Initialisation
+  initThreeJS(); initGame(); gameLoop();
+</script>
+</body>
+</html>

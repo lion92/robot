@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arena Battle Royale - Combat IA</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 35%, #0f0f23 100%);
+      color: #fff;
+      font-family: 'Orbitron', monospace;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* Particles */
+    .particles { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+    .particle {
+      position: absolute; width: 2px; height: 2px; background: rgba(78, 205, 196, 0.3);
+      border-radius: 50%; animation: float 20s infinite linear;
+    }
+    @keyframes float {
+      0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+      10%, 90% { opacity: 1; }
+      100% { transform: translateY(-100px) translateX(100px); opacity: 0; }
+    }
+
+    /* HUD */
+    .hud-toggle {
+      position: fixed; top: 20px; left: 20px; z-index: 200;
+      background: rgba(0, 0, 0, 0.8); border: 2px solid #4ecdc4; color: #4ecdc4;
+      padding: 10px 15px; border-radius: 8px; cursor: pointer;
+      font-family: inherit; font-weight: 700; transition: all 0.3s;
+    }
+    .hud-toggle:hover { background: rgba(78, 205, 196, 0.2); box-shadow: 0 0 15px rgba(78, 205, 196, 0.5); }
+
+    .hud { position: fixed; top: 0; left: 0; right: 0; z-index: 100; pointer-events: none; transition: all 0.5s; }
+    .hud.hidden { transform: translateY(-100%); opacity: 0; }
+
+    .battle-info {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 10px;
+      background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(26, 26, 46, 0.6) 100%);
+      backdrop-filter: blur(15px); border-bottom: 2px solid;
+      border-image: linear-gradient(90deg, #4ecdc4, #ff6b6b, #ffd700, #9b59b6) 1;
+    }
+
+    .panel {
+      background: linear-gradient(145deg, rgba(68, 68, 68, 0.9), rgba(85, 85, 85, 0.7));
+      border: 2px solid; border-radius: 8px; padding: 6px; font-size: 9px; text-align: center;
+    }
+
+    /* Game UI */
+    .timer {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 48px; font-weight: 900; text-shadow: 0 0 20px #4ecdc4; z-index: 200; display: none;
+    }
+
+    .leaderboard {
+      position: fixed; top: 20px; right: 20px; z-index: 150;
+      background: rgba(0, 0, 0, 0.8); padding: 15px; border-radius: 10px;
+      border: 2px solid #ffd700; min-width: 200px; transition: all 0.5s;
+    }
+    .leaderboard.hidden { transform: translateX(100%); opacity: 0; }
+
+    .scores {
+      position: fixed; bottom: 200px; left: 20px; right: 20px; z-index: 100;
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;
+      pointer-events: none; transition: all 0.5s;
+    }
+    .scores.hidden { transform: translateY(100%); opacity: 0; }
+    .score { background: rgba(0, 0, 0, 0.7); padding: 8px; border-radius: 8px; font-size: 10px; }
+
+    /* Canvas */
+    canvas {
+      border: 3px solid; border-radius: 15px; margin: 20px auto; display: block;
+      border-image: linear-gradient(45deg, #4ecdc4, #ff6b6b, #ffd700, #9b59b6) 1;
+      background:
+              radial-gradient(circle at 20% 20%, rgba(78, 205, 196, 0.1) 0%, transparent 30%),
+              radial-gradient(circle at 80% 30%, rgba(255, 107, 107, 0.1) 0%, transparent 30%),
+              radial-gradient(circle at 30% 80%, rgba(255, 215, 0, 0.1) 0%, transparent 30%),
+              radial-gradient(circle at 70% 70%, rgba(155, 89, 182, 0.1) 0%, transparent 30%),
+              linear-gradient(180deg, #001133 0%, #000022 70%, #000000 100%);
+    }
+
+    /* Controls */
+    .controls {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 12px; z-index: 150;
+    }
+    .btn {
+      padding: 12px 24px; background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+      border: 2px solid #4ecdc4; color: #4ecdc4; font-family: inherit; font-weight: 700;
+      border-radius: 8px; cursor: pointer; transition: all 0.3s; font-size: 12px;
+    }
+    .btn:hover { background: linear-gradient(145deg, #3a3a3a, #4a4a4a); box-shadow: 0 0 20px rgba(78, 205, 196, 0.5); transform: translateY(-2px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .player-controls {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 160;
+      background: rgba(0, 0, 0, 0.8); border: 2px solid #00FF00; border-radius: 8px;
+      padding: 12px; text-align: center; font-size: 11px; display: none;
+    }
+
+    /* Popups */
+    .popup {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 300;
+      background: linear-gradient(145deg, rgba(0, 0, 0, 0.95), rgba(26, 26, 46, 0.9));
+      padding: 30px; border-radius: 15px; border: 3px solid #ffd700; text-align: center;
+      box-shadow: 0 0 50px rgba(255, 215, 0, 0.5); display: none;
+    }
+    .stats-popup { max-width: 800px; max-height: 80vh; overflow-y: auto; font-size: 14px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 15px; }
+    .stat-item { background: rgba(50, 50, 50, 0.8); padding: 12px; border-radius: 8px; border-left: 4px solid; text-align: left; }
+
+    .prediction {
+      position: fixed; top: 50%; right: 20px; transform: translateY(-50%); z-index: 180;
+      background: rgba(0, 0, 0, 0.9); border: 2px solid #9b59b6; border-radius: 8px;
+      padding: 12px; min-width: 220px; display: none;
+    }
+    .pred-item { border-left: 3px solid; padding: 5px; margin: 5px 0; background: rgba(0,0,0,0.3); border-radius: 3px; }
+
+    @keyframes explode { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
+    .explosion {
+      position: absolute; width: 30px; height: 30px; border-radius: 50%;
+      background: radial-gradient(circle, #ff6b6b 0%, transparent 70%); animation: explode 0.5s ease-out;
+    }
+  </style>
+</head>
+<body>
+<div class="particles" id="particles"></div>
+
+<button class="hud-toggle" id="hudToggle">👁️ MASQUER HUD</button>
+<div class="hud" id="hud"><div class="battle-info" id="battleInfo"></div></div>
+<div class="timer" id="timer">10:00</div>
+<div class="leaderboard" id="leaderboard"><h4>🏆 CLASSEMENT</h4><div id="leaderContent"></div></div>
+<div class="prediction" id="prediction"></div>
+
+<canvas id="canvas" width="1200" height="700"></canvas>
+
+<div class="scores" id="scores"></div>
+
+<div class="popup" id="winner"></div>
+<div class="popup stats-popup" id="stats">
+  <button onclick="closeStats()" style="position:absolute;top:10px;right:15px;background:none;border:none;color:#fff;font-size:20px;cursor:pointer;">×</button>
+  <h2 style="color:#ffd700;">📊 STATISTIQUES FINALES</h2>
+  <div id="statsContent"></div>
+</div>
+
+<div class="player-controls" id="playerControls">
+  <h4 style="color:#00FF00;margin:0 0 8px 0;">🎮 CONTRÔLES</h4>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:150px;">
+    <div></div><div style="color:#00FF00;">↑ W</div><div></div>
+    <div style="color:#00FF00;">← A</div><div style="color:#00FF00;">↓ S</div><div style="color:#00FF00;">→ D</div>
+  </div>
+  <div style="margin-top:6px;color:#FFFF00;font-size:10px;">ESPACE = TIR AUTO</div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="trainBtn">🚀 ENTRAÎNER</button>
+  <button class="btn" id="predictBtn">🔮 PRÉDIRE</button>
+  <button class="btn" id="battleBtn" disabled>⚔️ BATAILLE</button>
+  <button class="btn" id="resetBtn">🔄 RESET</button>
+</div>
+
+<script>
+  const CONFIG = {
+    ROBOTS: 10, BATTLE_TIME: 600, OBSTACLES: 8, PLAYER_HP: 120, ROBOT_HP: 100,
+    DAMAGE: 25, PLAYER_SPEED: 4, SHOOT_COOLDOWN: 200
+  };
+
+  const COLORS = ['#4ecdc4', '#ff6b6b', '#ffd700', '#9b59b6', '#28a745', '#ff8800', '#c0c0c0', '#00ffff', '#ff69b4', '#ffffff'];
+  const NAMES = ['Bleu', 'Rouge', 'Or', 'Violet', 'Vert', 'Orange', 'Argent', 'Cyan', 'Rose', 'Blanc'];
+
+  let state = 'idle', timer = CONFIG.BATTLE_TIME, startTime = 0, animId = null, hudVisible = true;
+  let robots = [], projectiles = [], obstacles = [], player = null, stats = {};
+  let keys = { up: false, down: false, left: false, right: false, shoot: false }, lastShot = 0;
+
+  const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+
+  // Init
+  function init() {
+    robots = []; projectiles = [];
+    player = { id: 'player', name: 'JOUEUR', color: '#00FF00', x: canvas.width/2, y: canvas.height/2,
+      vx: 0, vy: 0, qi: 2000, precision: 80, evasion: 70, trained: true, health: CONFIG.PLAYER_HP,
+      maxHealth: CONFIG.PLAYER_HP, hits: 0, shots: 0, damage: 0, damageTaken: 0, distanceTraveled: 0,
+      survivalTime: 0, lastShot: 0, target: null, alive: true, size: 22, deathTime: 0, isPlayer: true };
+
+    for (let i = 0; i < CONFIG.ROBOTS; i++) {
+      robots.push({ id: i, name: 'CYBORG ' + NAMES[i].toUpperCase(), color: COLORS[i],
+        x: Math.random() * (canvas.width - 60) + 30, y: Math.random() * (canvas.height - 60) + 30,
+        vx: 0, vy: 0, qi: 1500 + Math.random() * 500, precision: 40 + Math.random() * 20,
+        evasion: 50 + Math.random() * 20, trained: false, health: CONFIG.ROBOT_HP, maxHealth: CONFIG.ROBOT_HP,
+        hits: 0, shots: 0, damage: 0, damageTaken: 0, distanceTraveled: 0, survivalTime: 0,
+        lastShot: 0, target: null, alive: true, size: 20, deathTime: 0, isPlayer: false });
+    }
+    robots.push(player);
+
+    obstacles = [];
+    for (let i = 0; i < CONFIG.OBSTACLES; i++) {
+      const w = 60 + Math.random() * 80, h = 60 + Math.random() * 80;
+      obstacles.push({ x: Math.random() * (canvas.width - w - 100) + 50, y: Math.random() * (canvas.height - h - 100) + 50, width: w, height: h });
+    }
+    updateUI();
+  }
+
+  // UI
+  function updateUI() {
+    const info = document.getElementById('battleInfo'), scores = document.getElementById('scores'), leader = document.getElementById('leaderContent');
+    info.innerHTML = scores.innerHTML = leader.innerHTML = '';
+
+    // Player
+    info.innerHTML += `<div class="panel" style="border-color:${player.color};color:${player.color};border-width:3px;"><h4>🎮 JOUEUR</h4><div>QI: ${Math.round(player.qi)}</div><div>Précision: ${Math.round(player.precision)}%</div><div>Évasion: ${Math.round(player.evasion)}%</div><div>Status: 🎯 ACTIF</div></div>`;
+    const acc = player.shots > 0 ? Math.round((player.hits / player.shots) * 100) : 0;
+    scores.innerHTML += `<div class="score" style="border:3px solid ${player.color};background:rgba(0,255,0,0.1);"><h4>🎮 JOUEUR</h4><div>Vie: ${Math.round(player.health)}/${player.maxHealth}</div><div>Kills: ${player.hits}</div><div>Tirs: ${player.shots}</div><div>Précision: ${acc}%</div></div>`;
+
+    // Robots
+    for (let i = 0; i < CONFIG.ROBOTS; i++) {
+      const r = robots[i];
+      info.innerHTML += `<div class="panel" style="border-color:${r.color};color:${r.color}"><h4>🤖 ${r.name}</h4><div>QI: ${Math.round(r.qi)}</div><div>Précision: ${Math.round(r.precision)}%</div><div>Évasion: ${Math.round(r.evasion)}%</div><div>Entrainé: ${r.trained ? '✅' : '❌'}</div></div>`;
+      const racc = r.shots > 0 ? Math.round((r.hits / r.shots) * 100) : 0;
+      scores.innerHTML += `<div class="score" style="border:1px solid ${r.color}"><h4>📊 ${NAMES[i]}</h4><div>Vie: ${Math.round(r.health)}/${r.maxHealth}</div><div>Kills: ${r.hits}</div><div>Tirs: ${r.shots}</div><div>Précision: ${racc}%</div></div>`;
+    }
+
+    // Leaderboard
+    const sorted = [...robots].sort((a, b) => (!a.alive && !b.alive) ? b.hits - a.hits : !a.alive ? 1 : !b.alive ? -1 : b.hits - a.hits);
+    sorted.forEach((r, i) => {
+      const status = r.alive ? '💚' : '💀', icon = r.isPlayer ? '🎮' : '🤖', name = r.isPlayer ? 'JOUEUR' : r.name;
+      leader.innerHTML += `<div style="color:${r.color};font-weight:${r.isPlayer ? 'bold' : 'normal'}">${i + 1}. ${icon} ${name} ${status} (${r.hits})</div>`;
+    });
+  }
+
+  function toggleHUD() {
+    hudVisible = !hudVisible;
+    ['hud', 'leaderboard', 'scores'].forEach(id => document.getElementById(id).classList.toggle('hidden', !hudVisible));
+    document.getElementById('hudToggle').textContent = hudVisible ? '👁️ MASQUER HUD' : '👁️ AFFICHER HUD';
+  }
+
+  // Training
+  function train() {
+    state = 'training'; document.getElementById('trainBtn').disabled = true;
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 10;
+      robots.filter(r => !r.isPlayer).forEach(r => {
+        r.qi += Math.random() * 100; r.precision = Math.min(r.precision + Math.random() * 5, 95);
+        r.evasion = Math.min(r.evasion + Math.random() * 5, 95);
+      });
+      updateUI();
+      if (progress >= 100) {
+        clearInterval(interval); robots.filter(r => !r.isPlayer).forEach(r => r.trained = true);
+        state = 'idle'; document.getElementById('battleBtn').disabled = false; updateUI();
+      }
+    }, 100);
+  }
+
+  // Battle
+  function startBattle() {
+    state = 'battle'; timer = CONFIG.BATTLE_TIME; startTime = Date.now();
+    document.getElementById('battleBtn').disabled = true; document.getElementById('trainBtn').disabled = true;
+    document.getElementById('timer').style.display = 'block'; document.getElementById('playerControls').style.display = 'block';
+
+    robots.forEach(r => {
+      r.health = r.isPlayer ? CONFIG.PLAYER_HP : CONFIG.ROBOT_HP; r.alive = true;
+      r.hits = r.shots = r.damage = r.damageTaken = r.distanceTraveled = r.survivalTime = r.deathTime = 0;
+      placeRandom(r);
+    });
+    keys = { up: false, down: false, left: false, right: false, shoot: false }; lastShot = 0;
+    animate(); battleLoop();
+  }
+
+  function placeRandom(r) {
+    let valid = false, attempts = 0;
+    while (!valid && attempts < 50) {
+      r.x = Math.random() * (canvas.width - 60) + 30; r.y = Math.random() * (canvas.height - 60) + 30;
+      valid = true;
+      for (let obs of obstacles) {
+        if (r.x < obs.x + obs.width + 30 && r.x + 30 > obs.x && r.y < obs.y + obs.height + 30 && r.y + 30 > obs.y) {
+          valid = false; break;
+        }
+      }
+      attempts++;
+    }
+  }
+
+  function battleLoop() {
+    if (state !== 'battle') return;
+    timer--;
+    const m = Math.floor(timer / 60), s = timer % 60;
+    document.getElementById('timer').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    const alive = robots.filter(r => r.alive);
+    if (alive.length <= 1 || timer <= 0) { endBattle(); return; }
+    setTimeout(battleLoop, 1000);
+  }
+
+  function endBattle() {
+    state = 'idle';
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('playerControls').style.display = 'none';
+
+    const endTime = Date.now();
+    robots.forEach(r => r.survivalTime = r.alive ? endTime - startTime : r.deathTime > 0 ? r.deathTime - startTime : 0);
+
+    const alive = robots.filter(r => r.alive);
+    const winner = alive.length > 0 ? alive[0] : robots.reduce((a, b) => a.hits > b.hits ? a : b);
+
+    prepareStats(); showWinner(winner);
+    document.getElementById('trainBtn').disabled = false; document.getElementById('battleBtn').disabled = false;
+  }
+
+  function showWinner(w) {
+    const type = w.isPlayer ? 'JOUEUR' : w.name, icon = w.isPlayer ? '🎮' : '🏆';
+    document.getElementById('winner').innerHTML = `<div style="color:${w.color}">${icon} VICTOIRE ${icon}</div><div>${type}</div>
+        <div style="font-size:16px;margin-top:10px">Éliminations: ${w.hits}<br>QI: ${Math.round(w.qi)}<br>Survie: ${formatTime(w.survivalTime)}</div>
+        <button onclick="closeWinner()" style="margin-top:12px;padding:8px 16px;background:#333;color:#fff;border:1px solid #4ecdc4;border-radius:5px;cursor:pointer;">FERMER</button>
+        <button onclick="showStats()" style="margin-top:8px;padding:8px 16px;background:#333;color:#ffd700;border:1px solid #ffd700;border-radius:5px;cursor:pointer;">📊 STATS</button>`;
+    document.getElementById('winner').style.display = 'block';
+  }
+
+  function reset() {
+    state = 'idle'; if (animId) cancelAnimationFrame(animId);
+    ['timer', 'winner', 'stats', 'playerControls'].forEach(id => document.getElementById(id).style.display = 'none');
+    document.getElementById('trainBtn').disabled = false; document.getElementById('battleBtn').disabled = true;
+    keys = { up: false, down: false, left: false, right: false, shoot: false }; lastShot = 0;
+    init(); render();
+  }
+
+  // Player
+  function updatePlayer() {
+    if (!player || !player.alive || state !== 'battle') return;
+    const lastX = player.x, lastY = player.y;
+    let moveX = 0, moveY = 0;
+
+    if (keys.up) moveY -= CONFIG.PLAYER_SPEED; if (keys.down) moveY += CONFIG.PLAYER_SPEED;
+    if (keys.left) moveX -= CONFIG.PLAYER_SPEED; if (keys.right) moveX += CONFIG.PLAYER_SPEED;
+
+    if (moveX !== 0 && moveY !== 0) {
+      const d = Math.sqrt(moveX * moveX + moveY * moveY);
+      moveX = (moveX / d) * CONFIG.PLAYER_SPEED; moveY = (moveY / d) * CONFIG.PLAYER_SPEED;
+    }
+
+    const newX = player.x + moveX, newY = player.y + moveY;
+    let canX = true, canY = true;
+    obstacles.forEach(obs => {
+      if (newX - player.size < obs.x + obs.width && newX + player.size > obs.x && player.y - player.size < obs.y + obs.height && player.y + player.size > obs.y) canX = false;
+      if (player.x - player.size < obs.x + obs.width && player.x + player.size > obs.x && newY - player.size < obs.y + obs.height && newY + player.size > obs.y) canY = false;
+    });
+
+    if (canX) player.x = newX; if (canY) player.y = newY;
+    player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
+    player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+    player.distanceTraveled += Math.sqrt((player.x - lastX) ** 2 + (player.y - lastY) ** 2);
+
+    const now = Date.now();
+    if (keys.shoot && now - lastShot > CONFIG.SHOOT_COOLDOWN) {
+      let nearest = null, minDist = Infinity;
+      robots.forEach(r => {
+        if (r.alive && !r.isPlayer) {
+          const d = Math.sqrt((r.x - player.x) ** 2 + (r.y - player.y) ** 2);
+          if (d < minDist) { minDist = d; nearest = r; }
+        }
+      });
+      if (nearest && minDist < 500) {
+        const predTime = minDist / 10, predX = nearest.x + nearest.vx * predTime, predY = nearest.y + nearest.vy * predTime;
+        const angle = Math.atan2(predY - player.y, predX - player.x);
+        projectiles.push({ x: player.x + Math.cos(angle) * player.size, y: player.y + Math.sin(angle) * player.size,
+          vx: Math.cos(angle) * 10, vy: Math.sin(angle) * 10, owner: 'player', color: player.color });
+        player.shots++; lastShot = now;
+      }
+    }
+  }
+
+  // AI
+  function updateRobots() {
+    if (state !== 'battle') return;
+    robots.forEach(r => {
+      if (!r.alive || r.isPlayer) return;
+      const lastX = r.x, lastY = r.y;
+
+      // Evasion
+      let evade = { x: 0, y: 0 }, danger = 0;
+      projectiles.forEach(p => {
+        if (p.owner !== r.id) {
+          const dist = Math.sqrt((p.x - r.x) ** 2 + (p.y - r.y) ** 2);
+          if (dist < 120) {
+            danger += 3;
+            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            if (speed > 0) { evade.x += (-p.vy / speed) * 4; evade.y += (p.vx / speed) * 4; }
+          }
+        }
+      });
+
+      // Target
+      let target = null, bestScore = -1;
+      robots.forEach(other => {
+        if (other.id !== r.id && other.alive) {
+          const dx = other.x - r.x, dy = other.y - r.y, dist = Math.sqrt(dx * dx + dy * dy);
+          let score = 400 - dist + (100 - other.health) * 2;
+          if (other.isPlayer) score += 200;
+          if (hasLOS(r.x, r.y, other.x, other.y)) score += 80;
+          if (score > bestScore) { bestScore = score; target = other; }
+        }
+      });
+      r.target = target;
+
+      // Movement
+      const agility = (r.evasion + r.qi) / 200;
+      let move = { x: 0, y: 0 };
+      if (target) {
+        const dx = target.x - r.x, dy = target.y - r.y, dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+
+        if (danger > 0) {
+          move.x += evade.x * (1 + agility); move.y += evade.y * (1 + agility);
+        } else if (dist > 180) {
+          move.x += Math.cos(angle) * 0.8; move.y += Math.sin(angle) * 0.8;
+        } else if (dist < 120) {
+          const orbital = angle + Math.PI * 0.5;
+          move.x += Math.cos(orbital) * agility * 2; move.y += Math.sin(orbital) * agility * 2;
+        } else {
+          const orbital = angle + Math.PI * 0.5;
+          move.x += Math.cos(orbital) * agility * 1.5; move.y += Math.sin(orbital) * agility * 1.5;
+        }
+      }
+
+      // Apply movement
+      r.vx += move.x; r.vy += move.y;
+      const maxSpeed = 3.5 + agility * 1.5, speed = Math.sqrt(r.vx * r.vx + r.vy * r.vy);
+      if (speed > maxSpeed) { r.vx = (r.vx / speed) * maxSpeed; r.vy = (r.vy / speed) * maxSpeed; }
+      r.vx *= 0.92; r.vy *= 0.92;
+      r.x += r.vx; r.y += r.vy;
+      r.x = Math.max(r.size, Math.min(canvas.width - r.size, r.x));
+      r.y = Math.max(r.size, Math.min(canvas.height - r.size, r.y));
+      r.distanceTraveled += Math.sqrt((r.x - lastX) ** 2 + (r.y - lastY) ** 2);
+
+      // Shooting
+      if (target) {
+        const now = Date.now(), cooldown = Math.max(300, 800 - (r.qi / 2000) * 400);
+        if (now - r.lastShot > cooldown) {
+          const dx = target.x - r.x, dy = target.y - r.y, dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 400 && hasLOS(r.x, r.y, target.x, target.y)) {
+            const acc = r.precision / 100, error = (1 - acc) * 35;
+            const predTime = dist / 8, predX = target.x + target.vx * predTime, predY = target.y + target.vy * predTime;
+            const targX = predX + (Math.random() - 0.5) * error, targY = predY + (Math.random() - 0.5) * error;
+            const angle = Math.atan2(targY - r.y, targX - r.x);
+            projectiles.push({ x: r.x + Math.cos(angle) * r.size, y: r.y + Math.sin(angle) * r.size,
+              vx: Math.cos(angle) * 9, vy: Math.sin(angle) * 9, owner: r.id, color: r.color });
+            r.shots++; r.lastShot = now;
+          }
+        }
+      }
+    });
+  }
+
+  function hasLOS(x1, y1, x2, y2) {
+    const steps = 20, dx = (x2 - x1) / steps, dy = (y2 - y1) / steps;
+    for (let i = 1; i < steps; i++) {
+      const x = x1 + dx * i, y = y1 + dy * i;
+      for (let obs of obstacles) {
+        if (x > obs.x && x < obs.x + obs.width && y > obs.y && y < obs.y + obs.height) return false;
+      }
+    }
+    return true;
+  }
+
+  // Projectiles
+  function updateProjectiles() {
+    projectiles = projectiles.filter(p => {
+      p.x += p.vx; p.y += p.vy;
+
+      // Obstacle collision
+      for (let obs of obstacles) {
+        if (p.x > obs.x && p.x < obs.x + obs.width && p.y > obs.y && p.y < obs.y + obs.height) {
+          explode(p.x, p.y); return false;
+        }
+      }
+
+      // Robot collision
+      for (let r of robots) {
+        if (!r.alive || r.id === p.owner) continue;
+        const dist = Math.sqrt((r.x - p.x) ** 2 + (r.y - p.y) ** 2);
+        if (dist < r.size) {
+          r.health -= CONFIG.DAMAGE; r.damageTaken += CONFIG.DAMAGE;
+          const shooter = robots.find(s => s.id === p.owner || (s.isPlayer && p.owner === 'player'));
+          if (shooter) { shooter.hits++; shooter.damage += CONFIG.DAMAGE; }
+          explode(p.x, p.y);
+          if (r.health <= 0) { r.alive = false; r.health = 0; r.deathTime = Date.now(); }
+          return false;
+        }
+      }
+      return p.x > 0 && p.x < canvas.width && p.y > 0 && p.y < canvas.height;
+    });
+  }
+
+  function explode(x, y) {
+    const exp = document.createElement('div');
+    exp.className = 'explosion';
+    exp.style.left = x + 'px'; exp.style.top = y + 'px'; exp.style.pointerEvents = 'none';
+    document.body.appendChild(exp);
+    setTimeout(() => document.body.contains(exp) && document.body.removeChild(exp), 500);
+  }
+
+  // Render
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(78, 205, 196, 0.1)'; ctx.lineWidth = 1;
+    for (let x = 0; x <= canvas.width; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+    for (let y = 0; y <= canvas.height; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+
+    // Obstacles
+    obstacles.forEach(obs => {
+      ctx.fillStyle = 'rgba(100, 100, 100, 0.4)'; ctx.strokeStyle = 'rgba(78, 205, 196, 0.6)'; ctx.lineWidth = 2;
+      ctx.fillRect(obs.x, obs.y, obs.width, obs.height); ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+    });
+
+    // Robots
+    robots.forEach(r => {
+      if (!r.alive) return;
+      ctx.save(); ctx.translate(r.x, r.y);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.beginPath(); ctx.arc(2, 2, r.size, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = r.color; ctx.beginPath(); ctx.arc(0, 0, r.size, 0, Math.PI * 2); ctx.fill();
+
+      if (r.isPlayer) {
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke();
+      } else {
+        ctx.strokeStyle = r.color; ctx.lineWidth = 2; ctx.stroke();
+      }
+
+      // Health bar
+      const barW = r.isPlayer ? 35 : 30, barH = 4, healthPct = r.health / r.maxHealth;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(-barW/2, -r.size - 12, barW, barH);
+      ctx.fillStyle = healthPct > 0.5 ? '#4CAF50' : healthPct > 0.25 ? '#FF9800' : '#F44336';
+      ctx.fillRect(-barW/2, -r.size - 12, barW * healthPct, barH);
+
+      // Target line (AI only)
+      if (r.target && !r.isPlayer) {
+        const dx = r.target.x - r.x, dy = r.target.y - r.y, angle = Math.atan2(dy, dx);
+        ctx.strokeStyle = r.color; ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(Math.cos(angle) * r.size, Math.sin(angle) * r.size); ctx.stroke();
+      }
+      ctx.restore();
+    });
+
+    // Projectiles
+    projectiles.forEach(p => {
+      ctx.strokeStyle = p.color; ctx.lineWidth = 3; ctx.globalAlpha = 0.3; ctx.beginPath();
+      ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 5, p.y - p.vy * 5); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  function animate() {
+    if (state === 'battle') { updatePlayer(); updateRobots(); updateProjectiles(); updateUI(); }
+    render();
+    if (state === 'battle') animId = requestAnimationFrame(animate);
+  }
+
+  // Prediction
+  function predict() {
+    const preds = robots.filter(r => !r.isPlayer).map(r => {
+      const off = (r.qi / 2000) * 0.3 + (r.precision / 100) * 0.4;
+      const def = (r.evasion / 100) * 0.3 + (r.health / 100) * 0.2;
+      const bonus = r.trained ? 0.2 : 0; const rand = Math.random() * 0.1;
+      return { robot: r, score: (off + def + bonus + rand) * 100, chance: 0 };
+    });
+    const total = preds.reduce((sum, p) => sum + p.score, 0);
+    preds.forEach(p => p.chance = (p.score / total) * 100);
+    return preds.sort((a, b) => b.chance - a.chance);
+  }
+
+  function showPrediction() {
+    const panel = document.getElementById('prediction');
+    if (panel.style.display === 'none') {
+      const preds = predict();
+      panel.innerHTML = `<h4>🔮 PRÉDICTIONS IA</h4>` + preds.slice(0, 5).map((p, i) =>
+              `<div class="pred-item" style="border-left-color:${p.robot.color}"><div style="font-size:11px;">
+                <strong>${i + 1}. ${p.robot.name}</strong>
+                <div style="color:${p.chance > 15 ? '#4CAF50' : p.chance > 10 ? '#FF9800' : '#F44336'}">${p.chance.toFixed(1)}% chance</div>
+                <div style="font-size:9px;opacity:0.8;">QI:${Math.round(p.robot.qi)} | P:${Math.round(p.robot.precision)}% | E:${Math.round(p.robot.evasion)}%</div>
+            </div></div>`).join('');
+      panel.style.display = 'block';
+    } else panel.style.display = 'none';
+  }
+
+  // Stats
+  function prepareStats() {
+    const duration = Date.now() - startTime;
+    stats = {
+      duration, totalShots: robots.reduce((s, r) => s + r.shots, 0), totalKills: robots.reduce((s, r) => s + r.hits, 0),
+      byKills: [...robots].sort((a, b) => b.hits - a.hits),
+      byAccuracy: [...robots].filter(r => r.shots > 0).sort((a, b) => (b.hits/b.shots) - (a.hits/a.shots)),
+      bySurvival: [...robots].sort((a, b) => b.survivalTime - a.survivalTime),
+      byDamage: [...robots].sort((a, b) => b.damage - a.damage)
+    };
+  }
+
+  function showStats() {
+    const content = document.getElementById('statsContent');
+    content.innerHTML = `<div style="text-align:center;margin-bottom:15px;">
+        <div style="font-size:16px;color:#4ecdc4;">⏱️ Durée: ${formatTime(stats.duration)}</div>
+        <div style="color:#ff6b6b;">🎯 Total tirs: ${stats.totalShots}</div>
+        <div style="color:#ffd700;">💀 Total kills: ${stats.totalKills}</div></div>
+        <div class="stats-grid">
+            ${generateSection('🔥 MEILLEURS TUEURS', stats.byKills, 'kills')}
+            ${generateSection('🎯 MEILLEURE PRÉCISION', stats.byAccuracy, 'accuracy')}
+            ${generateSection('⏰ MEILLEURE SURVIE', stats.bySurvival, 'survival')}
+            ${generateSection('💥 PLUS DESTRUCTEURS', stats.byDamage, 'damage')}
+        </div>`;
+    document.getElementById('stats').style.display = 'block';
+  }
+
+  function generateSection(title, data, type) {
+    const items = data.slice(0, 5).map((r, i) => {
+      const name = r.isPlayer ? 'JOUEUR' : r.name;
+      let content = '';
+      if (type === 'kills') content = `Kills: ${r.hits}<br>Dégâts: ${Math.round(r.damage)}<br>Précision: ${r.shots > 0 ? Math.round((r.hits/r.shots)*100) : 0}%`;
+      else if (type === 'accuracy') content = `Précision: ${Math.round((r.hits/r.shots)*100)}%<br>Tirs: ${r.shots} | Touchés: ${r.hits}<br>QI: ${Math.round(r.qi)}`;
+      else if (type === 'survival') content = `Survie: ${formatTime(r.survivalTime)}<br>Statut: ${r.alive ? '🟢 Vivant' : '💀 Éliminé'}<br>Évasion: ${Math.round(r.evasion)}%`;
+      else content = `Dégâts: ${Math.round(r.damage)}<br>Reçus: ${Math.round(r.damageTaken)}<br>Ratio: ${r.damageTaken > 0 ? (r.damage/r.damageTaken).toFixed(2) : '∞'}`;
+      return `<div class="stat-item" style="border-left-color:${r.color}"><strong>${i + 1}. ${name}</strong><br>${content}</div>`;
+    }).join('');
+    return `<div><h3 style="color:#ff6b6b;text-align:center;">${title}</h3>${items}</div>`;
+  }
+
+  function formatTime(ms) {
+    const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
+    return `${m}:${(s % 60).toString().padStart(2, '0')}`;
+  }
+
+  // Events
+  function keyDown(e) {
+    switch(e.code) {
+      case 'KeyW': case 'ArrowUp': keys.up = true; break;
+      case 'KeyS': case 'ArrowDown': keys.down = true; break;
+      case 'KeyA': case 'ArrowLeft': keys.left = true; break;
+      case 'KeyD': case 'ArrowRight': keys.right = true; break;
+      case 'Space': keys.shoot = true; e.preventDefault(); break;
+    }
+  }
+
+  function keyUp(e) {
+    switch(e.code) {
+      case 'KeyW': case 'ArrowUp': keys.up = false; break;
+      case 'KeyS': case 'ArrowDown': keys.down = false; break;
+      case 'KeyA': case 'ArrowLeft': keys.left = false; break;
+      case 'KeyD': case 'ArrowRight': keys.right = false; break;
+      case 'Space': keys.shoot = false; break;
+    }
+  }
+
+  function closeWinner() { document.getElementById('winner').style.display = 'none'; }
+  function closeStats() { document.getElementById('stats').style.display = 'none'; }
+
+  // Particles
+  function createParticles() {
+    const particles = document.getElementById('particles');
+    for (let i = 0; i < 50; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDelay = Math.random() * 20 + 's';
+      p.style.animationDuration = (15 + Math.random() * 10) + 's';
+      particles.appendChild(p);
+    }
+  }
+
+  // Init
+  document.addEventListener('keydown', keyDown);
+  document.addEventListener('keyup', keyUp);
+  document.getElementById('trainBtn').addEventListener('click', train);
+  document.getElementById('predictBtn').addEventListener('click', showPrediction);
+  document.getElementById('battleBtn').addEventListener('click', startBattle);
+  document.getElementById('resetBtn').addEventListener('click', reset);
+  document.getElementById('hudToggle').addEventListener('click', toggleHUD);
+
+  init();
+  createParticles();
+  render();
+  console.log('🎮 Arena Battle Royale ready! Controls: WASD + Space');
+</script>
+</body>
+</html>

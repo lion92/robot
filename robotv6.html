@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Combat IA - 10 Robots Arena</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 35%, #0f0f23 100%);
+      color: #fff;
+      font-family: 'Orbitron', monospace;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bg-particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: rgba(78, 205, 196, 0.3);
+      border-radius: 50%;
+      animation: float 20s infinite linear;
+    }
+
+    @keyframes float {
+      0% {
+        transform: translateY(100vh) translateX(0);
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      90% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-100px) translateX(100px);
+        opacity: 0;
+      }
+    }
+
+    .hud-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .battle-info {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      padding: 10px;
+      background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(26, 26, 46, 0.6) 100%);
+      backdrop-filter: blur(15px);
+      border-bottom: 2px solid;
+      border-image: linear-gradient(90deg, #4ecdc4, #ff6b6b, #ffd700, #9b59b6) 1;
+    }
+
+    .ia-panel {
+      background: linear-gradient(145deg, rgba(68, 68, 68, 0.9), rgba(85, 85, 85, 0.7));
+      border: 2px solid;
+      border-radius: 10px;
+      padding: 8px;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    .timer {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 48px;
+      font-weight: 900;
+      text-shadow: 0 0 20px #4ecdc4;
+      z-index: 200;
+      display: none;
+    }
+
+    .leaderboard {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      border: 2px solid #ffd700;
+      min-width: 200px;
+      z-index: 150;
+    }
+
+    .score-panel {
+      position: fixed;
+      bottom: 120px;
+      left: 20px;
+      right: 20px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .score-info {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 11px;
+    }
+
+    canvas {
+      border: 3px solid;
+      border-image: linear-gradient(45deg, #4ecdc4, #ff6b6b, #ffd700, #9b59b6) 1;
+      background: linear-gradient(180deg, #001133 0%, #000022 70%, #000000 100%);
+      margin: 20px auto;
+      display: block;
+      border-radius: 15px;
+    }
+
+    .controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 150;
+    }
+
+    .controls button {
+      padding: 15px 30px;
+      background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+      border: 2px solid #4ecdc4;
+      color: #4ecdc4;
+      font-family: 'Orbitron', monospace;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .controls button:hover {
+      background: linear-gradient(145deg, #3a3a3a, #4a4a4a);
+      box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .controls button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .winner {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(145deg, rgba(0, 0, 0, 0.9), rgba(26, 26, 46, 0.8));
+      padding: 40px;
+      border-radius: 20px;
+      border: 3px solid #ffd700;
+      text-align: center;
+      font-size: 32px;
+      font-weight: 900;
+      z-index: 300;
+      box-shadow: 0 0 50px rgba(255, 215, 0, 0.5);
+    }
+
+    .projectile {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #ff6b6b;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ff6b6b;
+    }
+
+    .explosion {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ff6b6b 0%, transparent 70%);
+      animation: explode 0.5s ease-out;
+    }
+
+    @keyframes explode {
+      0% {
+        transform: scale(0);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(3);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="bg-particles" id="bgParticles"></div>
+<div class="hud-overlay">
+  <div class="battle-info" id="battleInfo"></div>
+</div>
+<div class="timer" id="timer">10:00</div>
+<div class="leaderboard">
+  <h4>🏆 CLASSEMENT</h4>
+  <div id="leaderboard-content"></div>
+</div>
+<canvas id="canvas" width="1200" height="700"></canvas>
+<div class="score-panel" id="scorePanel"></div>
+<div id="winner-display" class="winner" style="display: none;"></div>
+<div class="controls">
+  <button id="trainBtn">🚀 ENTRAÎNER LES ROBOTS</button>
+  <button id="battleBtn" disabled>⚔️ BATAILLE ROYALE</button>
+  <button id="resetBtn">🔄 SYSTEM RESET</button>
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const colors = ['#4ecdc4', '#ff6b6b', '#ffd700', '#9b59b6', '#28a745', '#ff8800', '#c0c0c0', '#00ffff', '#ff69b4', '#ffffff'];
+  const robotNames = ['Bleu', 'Rouge', 'Or', 'Violet', 'Vert', 'Orange', 'Argent', 'Cyan', 'Rose', 'Blanc'];
+
+  let robots = [];
+  let projectiles = [];
+  let gameState = 'idle'; // idle, training, battle
+  let battleTimer = 600; // 10 minutes
+  let animationId;
+
+  // Initialisation des robots
+  function initRobots() {
+    robots = [];
+    for (let i = 0; i < 10; i++) {
+      robots.push({
+        id: i,
+        name: 'CYBORG ' + robotNames[i].toUpperCase(),
+        color: colors[i],
+        x: Math.random() * (canvas.width - 60) + 30,
+        y: Math.random() * (canvas.height - 60) + 30,
+        vx: 0,
+        vy: 0,
+        qi: 1500 + Math.random() * 500,
+        precision: 40 + Math.random() * 20,
+        evasion: 50 + Math.random() * 20,
+        trained: false,
+        health: 100,
+        maxHealth: 100,
+        hits: 0,
+        shots: 0,
+        lastShot: 0,
+        target: null,
+        alive: true,
+        size: 20
+      });
+    }
+    updateUI();
+  }
+
+  // Mise à jour de l'interface
+  function updateUI() {
+    const battleInfo = document.getElementById('battleInfo');
+    const scorePanel = document.getElementById('scorePanel');
+    const leaderboard = document.getElementById('leaderboard-content');
+
+    battleInfo.innerHTML = '';
+    scorePanel.innerHTML = '';
+    leaderboard.innerHTML = '';
+
+    for (let i = 0; i < 10; i++) {
+      const robot = robots[i];
+
+      // HUD Info
+      battleInfo.innerHTML += `<div class="ia-panel" style="border-color:${robot.color};color:${robot.color}">
+                <h4>🤖 ${robot.name}</h4>
+                <div>QI: ${Math.round(robot.qi)}</div>
+                <div>Précision: ${Math.round(robot.precision)}%</div>
+                <div>Évasion: ${Math.round(robot.evasion)}%</div>
+                <div>Entrainé: ${robot.trained ? '✅' : '❌'}</div>
+            </div>`;
+
+      // Score panel
+      const accuracy = robot.shots > 0 ? Math.round((robot.hits / robot.shots) * 100) : 0;
+      scorePanel.innerHTML += `<div class="score-info" style="border:1px solid ${robot.color}">
+                <h4>📊 ${robotNames[i]}</h4>
+                <div>Vie: ${Math.round(robot.health)}/100</div>
+                <div>Éliminations: ${robot.hits}</div>
+                <div>Tirs: ${robot.shots}</div>
+                <div>Précision: ${accuracy}%</div>
+            </div>`;
+    }
+
+    // Leaderboard
+    const sortedRobots = [...robots].sort((a, b) => {
+      if (!a.alive && !b.alive) return b.hits - a.hits;
+      if (!a.alive) return 1;
+      if (!b.alive) return -1;
+      return b.hits - a.hits;
+    });
+
+    sortedRobots.forEach((robot, index) => {
+      const status = robot.alive ? '💚' : '💀';
+      leaderboard.innerHTML += `<div style="color:${robot.color}">${index + 1}. ${robot.name} ${status} (${robot.hits})</div>`;
+    });
+  }
+
+  // Entraînement des robots
+  function trainRobots() {
+    gameState = 'training';
+    document.getElementById('trainBtn').disabled = true;
+
+    let trainingProgress = 0;
+    const trainingInterval = setInterval(() => {
+      trainingProgress += 10;
+
+      robots.forEach(robot => {
+        robot.qi += Math.random() * 100;
+        robot.precision += Math.random() * 5;
+        robot.evasion += Math.random() * 5;
+        robot.precision = Math.min(robot.precision, 95);
+        robot.evasion = Math.min(robot.evasion, 95);
+      });
+
+      updateUI();
+
+      if (trainingProgress >= 100) {
+        clearInterval(trainingInterval);
+        robots.forEach(robot => robot.trained = true);
+        gameState = 'idle';
+        document.getElementById('battleBtn').disabled = false;
+        updateUI();
+      }
+    }, 100);
+  }
+
+  // Démarrer la bataille
+  function startBattle() {
+    gameState = 'battle';
+    battleTimer = 600;
+    document.getElementById('battleBtn').disabled = true;
+    document.getElementById('trainBtn').disabled = true;
+    document.getElementById('timer').style.display = 'block';
+
+    // Réinitialiser les positions et stats de bataille
+    robots.forEach(robot => {
+      robot.health = 100;
+      robot.alive = true;
+      robot.x = Math.random() * (canvas.width - 60) + 30;
+      robot.y = Math.random() * (canvas.height - 60) + 30;
+      robot.hits = 0;
+      robot.shots = 0;
+    });
+
+    animate();
+    battleLoop();
+  }
+
+  // Boucle de bataille
+  function battleLoop() {
+    if (gameState !== 'battle') return;
+
+    battleTimer--;
+    const minutes = Math.floor(battleTimer / 60);
+    const seconds = battleTimer % 60;
+    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    // Vérifier fin de bataille
+    const aliveRobots = robots.filter(r => r.alive);
+    if (aliveRobots.length <= 1 || battleTimer <= 0) {
+      endBattle();
+      return;
+    }
+
+    setTimeout(battleLoop, 1000);
+  }
+
+  // Fin de bataille
+  function endBattle() {
+    gameState = 'idle';
+    document.getElementById('timer').style.display = 'none';
+
+    const aliveRobots = robots.filter(r => r.alive);
+    const winner = aliveRobots.length > 0 ? aliveRobots[0] : robots.reduce((a, b) => a.hits > b.hits ? a : b);
+
+    document.getElementById('winner-display').innerHTML = `
+            <div style="color:${winner.color}">🏆 VICTOIRE 🏆</div>
+            <div>${winner.name}</div>
+            <div style="font-size:18px; margin-top:10px">
+                Éliminations: ${winner.hits}<br>
+                QI Final: ${Math.round(winner.qi)}
+            </div>
+            <button onclick="closeWinner()" style="margin-top:20px; padding:10px 20px; background:#333; color:#fff; border:1px solid #4ecdc4; border-radius:5px; cursor:pointer;">FERMER</button>
+        `;
+    document.getElementById('winner-display').style.display = 'block';
+
+    document.getElementById('trainBtn').disabled = false;
+    document.getElementById('battleBtn').disabled = false;
+  }
+
+  // IA des robots
+  function updateRobots() {
+    if (gameState !== 'battle') return;
+
+    robots.forEach(robot => {
+      if (!robot.alive) return;
+
+      // Trouver la cible la plus proche
+      let closestEnemy = null;
+      let closestDistance = Infinity;
+
+      robots.forEach(other => {
+        if (other.id !== robot.id && other.alive) {
+          const dx = other.x - robot.x;
+          const dy = other.y - robot.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestEnemy = other;
+          }
+        }
+      });
+
+      robot.target = closestEnemy;
+
+      if (closestEnemy) {
+        const dx = closestEnemy.x - robot.x;
+        const dy = closestEnemy.y - robot.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Mouvement (évasion et approche)
+        const evasionFactor = robot.evasion / 100;
+        const randomAngle = Math.random() * Math.PI * 2;
+
+        if (distance > 150) {
+          // Approcher
+          robot.vx += (dx / distance) * 0.5;
+          robot.vy += (dy / distance) * 0.5;
+        } else {
+          // Évasion
+          robot.vx += Math.cos(randomAngle) * evasionFactor;
+          robot.vy += Math.sin(randomAngle) * evasionFactor;
+        }
+
+        // Limiter la vitesse
+        const maxSpeed = 3;
+        const speed = Math.sqrt(robot.vx * robot.vx + robot.vy * robot.vy);
+        if (speed > maxSpeed) {
+          robot.vx = (robot.vx / speed) * maxSpeed;
+          robot.vy = (robot.vy / speed) * maxSpeed;
+        }
+
+        // Mise à jour position
+        robot.x += robot.vx;
+        robot.y += robot.vy;
+
+        // Friction
+        robot.vx *= 0.9;
+        robot.vy *= 0.9;
+
+        // Limites de l'écran
+        robot.x = Math.max(robot.size, Math.min(canvas.width - robot.size, robot.x));
+        robot.y = Math.max(robot.size, Math.min(canvas.height - robot.size, robot.y));
+
+        // Tir
+        const now = Date.now();
+        if (now - robot.lastShot > 1000 && distance < 300) {
+          const accuracy = robot.precision / 100;
+          const aimError = (1 - accuracy) * 50;
+
+          const targetX = closestEnemy.x + (Math.random() - 0.5) * aimError;
+          const targetY = closestEnemy.y + (Math.random() - 0.5) * aimError;
+
+          const angle = Math.atan2(targetY - robot.y, targetX - robot.x);
+
+          projectiles.push({
+            x: robot.x,
+            y: robot.y,
+            vx: Math.cos(angle) * 8,
+            vy: Math.sin(angle) * 8,
+            owner: robot.id,
+            color: robot.color
+          });
+
+          robot.shots++;
+          robot.lastShot = now;
+        }
+      }
+    });
+  }
+
+  // Mise à jour des projectiles
+  function updateProjectiles() {
+    projectiles = projectiles.filter(proj => {
+      proj.x += proj.vx;
+      proj.y += proj.vy;
+
+      // Vérifier les collisions avec les robots
+      for (let robot of robots) {
+        if (!robot.alive || robot.id === proj.owner) continue;
+
+        const dx = robot.x - proj.x;
+        const dy = robot.y - proj.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < robot.size) {
+          robot.health -= 25;
+          robots[proj.owner].hits++;
+
+          // Créer explosion
+          createExplosion(proj.x, proj.y);
+
+          if (robot.health <= 0) {
+            robot.alive = false;
+            robot.health = 0;
+          }
+
+          return false; // Supprimer le projectile
+        }
+      }
+
+      // Supprimer si hors écran
+      return proj.x > 0 && proj.x < canvas.width && proj.y > 0 && proj.y < canvas.height;
+    });
+  }
+
+  // Créer explosion
+  function createExplosion(x, y) {
+    const explosion = document.createElement('div');
+    explosion.className = 'explosion';
+    explosion.style.left = x + 'px';
+    explosion.style.top = y + 'px';
+    document.body.appendChild(explosion);
+
+    setTimeout(() => {
+      document.body.removeChild(explosion);
+    }, 500);
+  }
+
+  // Rendu
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dessiner les robots
+    robots.forEach(robot => {
+      if (!robot.alive) return;
+
+      ctx.save();
+      ctx.translate(robot.x, robot.y);
+
+      // Corps du robot
+      ctx.fillStyle = robot.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, robot.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Barre de vie
+      const barWidth = 30;
+      const barHeight = 4;
+      const healthPercent = robot.health / robot.maxHealth;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(-barWidth/2, -robot.size - 10, barWidth, barHeight);
+
+      ctx.fillStyle = healthPercent > 0.5 ? '#4CAF50' : healthPercent > 0.25 ? '#FF9800' : '#F44336';
+      ctx.fillRect(-barWidth/2, -robot.size - 10, barWidth * healthPercent, barHeight);
+
+      // Direction vers la cible
+      if (robot.target) {
+        const dx = robot.target.x - robot.x;
+        const dy = robot.target.y - robot.y;
+        const angle = Math.atan2(dy, dx);
+
+        ctx.strokeStyle = robot.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(angle) * robot.size, Math.sin(angle) * robot.size);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    });
+
+    // Dessiner les projectiles
+    projectiles.forEach(proj => {
+      ctx.fillStyle = proj.color;
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Traînée
+      ctx.strokeStyle = proj.color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(proj.x, proj.y);
+      ctx.lineTo(proj.x - proj.vx * 3, proj.y - proj.vy * 3);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  // Animation principale
+  function animate() {
+    if (gameState === 'battle') {
+      updateRobots();
+      updateProjectiles();
+      updateUI();
+    }
+
+    render();
+
+    if (gameState === 'battle') {
+      animationId = requestAnimationFrame(animate);
+    }
+  }
+
+  // Particules de fond
+  function createParticles() {
+    const bgParticles = document.getElementById('bgParticles');
+    for (let i = 0; i < 50; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.animationDelay = Math.random() * 20 + 's';
+      particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+      bgParticles.appendChild(particle);
+    }
+  }
+
+  // Fermer popup gagnant
+  function closeWinner() {
+    document.getElementById('winner-display').style.display = 'none';
+  }
+
+  // Réinitialiser le système
+  function resetSystem() {
+    gameState = 'idle';
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+    }
+    document.getElementById('timer').style.display = 'none';
+    document.getElementById('winner-display').style.display = 'none';
+    document.getElementById('trainBtn').disabled = false;
+    document.getElementById('battleBtn').disabled = true;
+
+    initRobots();
+    render();
+  }
+
+  // Event listeners
+  document.getElementById('trainBtn').addEventListener('click', trainRobots);
+  document.getElementById('battleBtn').addEventListener('click', startBattle);
+  document.getElementById('resetBtn').addEventListener('click', resetSystem);
+
+  // Initialisation
+  initRobots();
+  createParticles();
+  render();
+</script>
+</body>
+</html>
