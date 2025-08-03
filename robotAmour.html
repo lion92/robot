@@ -1,35 +1,4 @@
-function createFlowers(x, z) {
-const flowers = new THREE.Group();
-const flowerColors = [0xff69b4, 0xff1493, 0xffb6c1, 0xffc0cb, 0xff6347];
-
-for (let i = 0; i < 5; i++) {
-const flower = new THREE.Mesh(
-new THREE.SphereGeometry(0.1, 6, 4),
-new THREE.MeshBasicMaterial({
-color: flowerColors[Math.floor(Math.random() * flowerColors.length)],
-emissive: flowerColors[Math.floor(Math.random() * flowerColors.length)],
-emissiveIntensity: 0.3
-})
-);
-flower.position.set(
-(Math.random() - 0.5) * 2,
-0.1 + Math.random() * 0.2,
-(Math.random() - 0.5) * 2
-);
-flowers.add(flower);
-
-// Tige
-const stem = new THREE.Mesh(
-new THREE.CylinderGeometry(0.02, 0.02, 0.3),
-new THREE.MeshLambertMaterial({ color: 0x228b22 })
-);
-stem.position.set(flower.position.x, 0.15, flower.position.z);
-flowers.add(stem);
-}
-
-flowers.position.set(x, 0, z);
-scene.add(flowers);
-}<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -124,7 +93,7 @@ scene.add(flowers);
 <div class="hud">
     <h4>🌳 BATAILLE AU PARC</h4>
     <div>Bataille #<span id="battleNumber">1</span></div>
-    <div>Participants: <span id="aliveRobots">2</span></div>
+    <div>Participants: <span id="aliveRobots">12</span></div>
     <div>Zone: <span id="zoneSize">100</span>%</div>
     <div>Total Cœurs: <span id="totalKills">0</span></div>
     <div>Naissances: <span id="totalBirths">0</span></div>
@@ -147,10 +116,10 @@ scene.add(flowers);
 <script>
     // Configuration
     const CONFIG = {
-        ROBOTS: 2, BATTLE_TIME: 180, OBSTACLES: 6, ROBOT_HP: 100, LOVE: 15,
-        ROBOT_SPEED: 0.2, LOVE_COOLDOWN: 800, ARENA_SIZE: 80, DETECTION_RANGE: 35,
-        ZONE_SHRINK_RATE: 0.05, AUTO_RESTART: true, RESTART_DELAY: 5000,
-        REPRODUCTION_THRESHOLD: 10, MAX_ROBOTS: 50
+        ROBOTS: 12, BATTLE_TIME: 180, OBSTACLES: 6, ROBOT_HP: 100, LOVE: 15,
+        ROBOT_SPEED: 0.2, LOVE_COOLDOWN: 800, ARENA_SIZE: 40, DETECTION_RANGE: 30,
+        ZONE_SHRINK_RATE: 0.03, AUTO_RESTART: true, RESTART_DELAY: 5000,
+        REPRODUCTION_THRESHOLD: 10, MAX_ROBOTS: 30
     };
 
     const COLORS = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84', '#ee5a24'];
@@ -163,16 +132,15 @@ scene.add(flowers);
     let stats = { totalShots: 0, totalKills: 0, totalBirths: 0, startTime: 0 };
     let overallStats = { totalBattles: 0, recordKills: 0, recordHolder: null };
     let scene, camera, renderer, robotMeshes = [], obstacleMeshes = [], projectileMeshes = [];
-    let cats = [], birds = [], catMeshes = [], birdMeshes = [];
     let nextRobotId = 0;
 
     // Initialisation Three.js
     function initThreeJS() {
         scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(0x87ceeb, 80, 200); // Brouillard adapté à la grande map
+        scene.fog = new THREE.Fog(0x87ceeb, 50, 150); // Bleu ciel pour le parc
 
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 60, 80); // Caméra plus haute pour voir le grand parc
+        camera.position.set(0, 35, 45);
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -205,44 +173,32 @@ scene.add(flowers);
 
         // Sol - Herbe du parc
         const floor = new THREE.Mesh(
-            new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 64),
+            new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 32),
             new THREE.MeshLambertMaterial({ color: 0x4a7c59, transparent: true, opacity: 0.9 })
         );
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // Chemin central en pierre (plus grand)
+        // Chemin central en pierre
         const path = new THREE.Mesh(
-            new THREE.RingGeometry(15, 20, 64),
+            new THREE.RingGeometry(8, 12, 32),
             new THREE.MeshLambertMaterial({ color: 0x8d8d8d, transparent: true, opacity: 0.8 })
         );
         path.rotation.x = -Math.PI / 2;
         path.position.y = 0.01;
         scene.add(path);
 
-        // Petits chemins (plus longs)
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
+        // Petits chemins
+        for (let i = 0; i < 4; i++) {
+            const angle = (i / 4) * Math.PI * 2;
             const smallPath = new THREE.Mesh(
-                new THREE.BoxGeometry(3, 0.1, 25),
+                new THREE.BoxGeometry(2, 0.1, 15),
                 new THREE.MeshLambertMaterial({ color: 0x8d8d8d })
             );
-            smallPath.position.set(Math.cos(angle) * 30, 0.05, Math.sin(angle) * 30);
+            smallPath.position.set(Math.cos(angle) * 15, 0.05, Math.sin(angle) * 15);
             smallPath.rotation.y = angle;
             scene.add(smallPath);
-        }
-
-        // Chemins secondaires en croix
-        for (let i = 0; i < 4; i++) {
-            const angle = (i / 4) * Math.PI * 2 + Math.PI / 4;
-            const secondaryPath = new THREE.Mesh(
-                new THREE.BoxGeometry(2, 0.1, 35),
-                new THREE.MeshLambertMaterial({ color: 0x9d9d9d })
-            );
-            secondaryPath.position.set(Math.cos(angle) * 45, 0.05, Math.sin(angle) * 45);
-            secondaryPath.rotation.y = angle;
-            scene.add(secondaryPath);
         }
 
         setupControls();
@@ -250,24 +206,24 @@ scene.add(flowers);
     }
 
     function setupControls() {
-        let mouseDown = false, angle = 0, height = 60; // Hauteur initiale plus élevée
+        let mouseDown = false, angle = 0, height = 35;
 
         document.addEventListener('mousedown', () => mouseDown = true);
         document.addEventListener('mouseup', () => mouseDown = false);
         document.addEventListener('mousemove', (e) => {
             if (mouseDown) {
                 angle += e.movementX * 0.01;
-                height = Math.max(30, Math.min(120, height - e.movementY * 0.5)); // Range plus large
+                height = Math.max(20, Math.min(60, height - e.movementY * 0.3));
                 updateCamera();
             }
         });
         document.addEventListener('wheel', (e) => {
-            height = Math.max(25, Math.min(150, height + e.deltaY * 0.1)); // Range encore plus large
+            height = Math.max(15, Math.min(80, height + e.deltaY * 0.05));
             updateCamera();
         });
 
         function updateCamera() {
-            const distance = 100; // Distance plus grande pour la grande map
+            const distance = 50;
             camera.position.set(Math.sin(angle) * distance, height, Math.cos(angle) * distance);
             camera.lookAt(0, 0, 0);
         }
@@ -282,26 +238,19 @@ scene.add(flowers);
     // Initialisation du jeu
     function initGame() {
         robots = []; projectiles = []; obstacles = [];
-        cats = []; birds = [];
         currentArenaSize = CONFIG.ARENA_SIZE;
         stats = { totalShots: 0, totalKills: 0, totalBirths: 0, startTime: Date.now() };
         nextRobotId = 0;
         clearMeshes();
         createRobots();
         createObstacles();
-        // Les fonctions createCats et createBirds seront appelées après leur définition
         updateArenaVisuals();
         updateUI();
-        // Appel des fonctions après leur définition
-        setTimeout(() => {
-            createCats();
-            createBirds();
-        }, 100);
     }
 
     function clearMeshes() {
-        [...robotMeshes, ...obstacleMeshes, ...projectileMeshes, ...catMeshes, ...birdMeshes].forEach(mesh => scene.remove(mesh));
-        robotMeshes = []; obstacleMeshes = []; projectileMeshes = []; catMeshes = []; birdMeshes = [];
+        [...robotMeshes, ...obstacleMeshes, ...projectileMeshes].forEach(mesh => scene.remove(mesh));
+        robotMeshes = []; obstacleMeshes = []; projectileMeshes = [];
     }
 
     function createRobots() {
@@ -434,76 +383,37 @@ scene.add(flowers);
         // Fontaine centrale
         createFountain(0, 0);
 
-        // Créer des arbres à chats spéciaux
-        const catTreePositions = [
-            {x: 30, z: 30}, {x: -30, z: 30}, {x: 30, z: -30}, {x: -30, z: -30},
-            {x: 50, z: 0}, {x: -50, z: 0}, {x: 0, z: 50}, {x: 0, z: -50},
-            {x: 40, z: 20}, {x: -40, z: -20}
-        ];
-        catTreePositions.forEach(pos => createCatTree(pos.x, pos.z));
-
-        // Arbres en cercles concentriques pour remplir le grand parc
-        const treeRings = [
-            // Premier cercle - proche du centre
-            { radius: 35, count: 16, positions: [] },
-            // Deuxième cercle - milieu
-            { radius: 55, count: 20, positions: [] },
-            // Troisième cercle - extérieur
-            { radius: 70, count: 24, positions: [] }
+        // Arbres autour du parc
+        const treePositions = [
+            {x: 25, z: 10}, {x: -25, z: 10}, {x: 10, z: 25}, {x: -10, z: 25},
+            {x: 25, z: -10}, {x: -25, z: -10}, {x: 10, z: -25}, {x: -10, z: -25},
+            {x: 20, z: 20}, {x: -20, z: 20}, {x: 20, z: -20}, {x: -20, z: -20}
         ];
 
-        treeRings.forEach(ring => {
-            for (let i = 0; i < ring.count; i++) {
-                const angle = (i / ring.count) * Math.PI * 2;
-                const x = Math.cos(angle) * ring.radius + (Math.random() - 0.5) * 8;
-                const z = Math.sin(angle) * ring.radius + (Math.random() - 0.5) * 8;
-                createTree(x, z);
-            }
-        });
+        treePositions.forEach(pos => createTree(pos.x, pos.z));
 
-        // Bosquet central d'arbres spéciaux
-        const specialTrees = [
-            {x: 25, z: 0}, {x: -25, z: 0}, {x: 0, z: 25}, {x: 0, z: -25},
-            {x: 18, z: 18}, {x: -18, z: 18}, {x: 18, z: -18}, {x: -18, z: -18}
-        ];
-        specialTrees.forEach(pos => createSpecialTree(pos.x, pos.z));
-
-        // Plus de bancs répartis dans le grand parc
+        // Bancs dans le parc
         const benchPositions = [
-            // Bancs autour de la fontaine
-            {x: 30, z: 0, rotation: 0}, {x: -30, z: 0, rotation: Math.PI},
-            {x: 0, z: 30, rotation: -Math.PI/2}, {x: 0, z: -30, rotation: Math.PI/2},
-            // Bancs dans les allées
-            {x: 40, z: 40, rotation: -Math.PI/4}, {x: -40, z: -40, rotation: Math.PI/4},
-            {x: 40, z: -40, rotation: Math.PI/4}, {x: -40, z: 40, rotation: -Math.PI/4},
-            // Bancs près des chemins secondaires
-            {x: 50, z: 0, rotation: 0}, {x: -50, z: 0, rotation: Math.PI},
-            {x: 0, z: 50, rotation: -Math.PI/2}, {x: 0, z: -50, rotation: Math.PI/2},
-            // Bancs dans les zones tranquilles
-            {x: 35, z: 20, rotation: Math.PI/6}, {x: -35, z: -20, rotation: -Math.PI/6}
+            {x: 15, z: 0, rotation: 0}, {x: -15, z: 0, rotation: Math.PI},
+            {x: 0, z: 15, rotation: -Math.PI/2}, {x: 0, z: -15, rotation: Math.PI/2},
+            {x: 18, z: 18, rotation: -Math.PI/4}, {x: -18, z: -18, rotation: Math.PI/4}
         ];
 
         benchPositions.forEach(pos => createBench(pos.x, pos.z, pos.rotation));
 
-        // Buissons décoratifs répartis dans tout le parc
-        for (let i = 0; i < 25; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 20 + Math.random() * 50;
+        // Buissons décoratifs
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 30 + Math.random() * 5;
             createBush(Math.cos(angle) * radius, Math.sin(angle) * radius);
         }
 
-        // Aires de fleurs multiples
-        for (let i = 0; i < 30; i++) {
+        // Fleurs
+        for (let i = 0; i < 15; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const radius = 10 + Math.random() * 60;
+            const radius = 5 + Math.random() * 20;
             createFlowers(Math.cos(angle) * radius, Math.sin(angle) * radius);
         }
-
-        // Grands parterres de fleurs
-        createFlowerGarden(45, 25);
-        createFlowerGarden(-45, -25);
-        createFlowerGarden(25, -45);
-        createFlowerGarden(-25, 45);
     }
 
     function createFountain(x, z) {
@@ -660,138 +570,6 @@ scene.add(flowers);
         flowers.position.set(x, 0, z);
         scene.add(flowers);
     }
-
-    function createSpecialTree(x, z) {
-        const tree = new THREE.Group();
-
-        // Tronc plus large pour les arbres spéciaux
-        const trunk = new THREE.Mesh(
-            new THREE.CylinderGeometry(1.2, 1.8, 8, 8),
-            new THREE.MeshLambertMaterial({ color: 0x8b4513 })
-        );
-        trunk.position.y = 4;
-        trunk.castShadow = true;
-        tree.add(trunk);
-
-        // Feuillage plus dense et coloré
-        const foliageColors = [0x228b22, 0x32cd32, 0x90ee90, 0x98fb98];
-        for (let i = 0; i < 4; i++) {
-            const foliage = new THREE.Mesh(
-                new THREE.SphereGeometry(4 - i * 0.3, 12, 8),
-                new THREE.MeshLambertMaterial({ color: foliageColors[i] })
-            );
-            foliage.position.y = 7 + i * 1.2;
-            foliage.position.x = (Math.random() - 0.5) * 1;
-            foliage.position.z = (Math.random() - 0.5) * 1;
-            foliage.castShadow = true;
-            tree.add(foliage);
-        }
-
-        tree.position.set(x, 0, z);
-        scene.add(tree);
-
-        obstacles.push({ x, y: 5, z, width: 8, height: 10, depth: 8 });
-    }
-
-    function createFlowerGarden(x, z) {
-        const garden = new THREE.Group();
-        const flowerColors = [0xff69b4, 0xff1493, 0xffb6c1, 0xffc0cb, 0xff6347, 0xffd700, 0xff4500];
-
-        // Créer un parterre circulaire de fleurs
-        for (let ring = 0; ring < 3; ring++) {
-            const radius = (ring + 1) * 2;
-            const flowerCount = (ring + 1) * 8;
-
-            for (let i = 0; i < flowerCount; i++) {
-                const angle = (i / flowerCount) * Math.PI * 2;
-                const flowerX = Math.cos(angle) * radius + (Math.random() - 0.5) * 0.5;
-                const flowerZ = Math.sin(angle) * radius + (Math.random() - 0.5) * 0.5;
-
-                const flower = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.15, 8, 6),
-                    new THREE.MeshBasicMaterial({
-                        color: flowerColors[Math.floor(Math.random() * flowerColors.length)],
-                        emissive: flowerColors[Math.floor(Math.random() * flowerColors.length)],
-                        emissiveIntensity: 0.4
-                    })
-                );
-                flower.position.set(flowerX, 0.15, flowerZ);
-                garden.add(flower);
-
-                // Tige
-                const stem = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.03, 0.03, 0.4),
-                    new THREE.MeshLambertMaterial({ color: 0x228b22 })
-                );
-                stem.position.set(flowerX, 0.2, flowerZ);
-                garden.add(stem);
-            }
-        }
-
-        garden.position.set(x, 0, z);
-        scene.add(garden);
-    }
-
-    function createCatTree(x, z) {
-        const catTree = new THREE.Group();
-
-        // Tronc principal plus large
-        const trunk = new THREE.Mesh(
-            new THREE.CylinderGeometry(1, 1.2, 3, 8),
-            new THREE.MeshLambertMaterial({ color: 0x8b4513 })
-        );
-        trunk.position.y = 1.5;
-        trunk.castShadow = true;
-        catTree.add(trunk);
-
-        // Plateformes pour chats à différentes hauteurs
-        const platforms = [
-            { y: 2.5, radius: 1.5 },
-            { y: 4, radius: 1.2 },
-            { y: 5.5, radius: 1 }
-        ];
-
-        platforms.forEach((platform, i) => {
-            const platformMesh = new THREE.Mesh(
-                new THREE.CylinderGeometry(platform.radius, platform.radius, 0.3, 16),
-                new THREE.MeshLambertMaterial({ color: 0x8b4513 })
-            );
-            platformMesh.position.y = platform.y;
-            platformMesh.castShadow = true;
-            catTree.add(platformMesh);
-
-            // Tapis moelleux sur les plateformes
-            const carpet = new THREE.Mesh(
-                new THREE.CylinderGeometry(platform.radius - 0.1, platform.radius - 0.1, 0.1, 16),
-                new THREE.MeshLambertMaterial({ color: 0x654321 })
-            );
-            carpet.position.y = platform.y + 0.2;
-            catTree.add(carpet);
-        });
-
-        // Poteaux à griffer
-        for (let i = 0; i < 3; i++) {
-            const angle = (i / 3) * Math.PI * 2;
-            const scratchPost = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.15, 0.15, 2, 8),
-                new THREE.MeshLambertMaterial({ color: 0x8b7355 })
-            );
-            scratchPost.position.set(
-                Math.cos(angle) * 2,
-                1,
-                Math.sin(angle) * 2
-            );
-            scratchPost.castShadow = true;
-            catTree.add(scratchPost);
-        }
-
-        catTree.position.set(x, 0, z);
-        scene.add(catTree);
-
-        obstacles.push({ x, y: 3, z, width: 4, height: 6, depth: 4 });
-    }
-
-
 
     function updateArenaVisuals() {
         scene.children.forEach(child => {
@@ -1030,8 +808,6 @@ scene.add(flowers);
             updateTimer();
             checkWinConditions();
         }
-        updateCats();
-        updateBirds();
         updateUI();
         renderer.render(scene, camera);
         requestAnimationFrame(gameLoop);
@@ -1123,147 +899,6 @@ scene.add(flowers);
         updateLeaderboard();
     }
 
-    function updateCats() {
-        const now = Date.now();
-
-        cats.forEach((cat, index) => {
-            const mesh = catMeshes[index];
-            if (!mesh) return;
-
-            // Changement d'humeur aléatoire
-            if (now - cat.lastMoodChange > 5000 + Math.random() * 10000) {
-                const moods = ['exploring', 'sleeping', 'playing'];
-                cat.mood = moods[Math.floor(Math.random() * moods.length)];
-                cat.lastMoodChange = now;
-            }
-
-            // Comportement selon l'humeur
-            switch (cat.mood) {
-                case 'exploring':
-                    // Mouvement vers un nouveau point
-                    if (Math.random() < 0.02) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const radius = Math.random() * 60;
-                        cat.targetX = Math.cos(angle) * radius;
-                        cat.targetZ = Math.sin(angle) * radius;
-                    }
-
-                    const dx = cat.targetX - cat.x;
-                    const dz = cat.targetZ - cat.z;
-                    const distance = Math.sqrt(dx * dx + dz * dz);
-
-                    if (distance > 1) {
-                        cat.vx = (dx / distance) * cat.speed;
-                        cat.vz = (dz / distance) * cat.speed;
-                        cat.x += cat.vx;
-                        cat.z += cat.vz;
-
-                        // Rotation vers la direction
-                        mesh.rotation.y = Math.atan2(cat.vz, cat.vx) + Math.PI / 2;
-
-                        // Animation de marche
-                        const walkCycle = now * 0.01;
-                        mesh.position.y = Math.abs(Math.sin(walkCycle)) * 0.1;
-                    }
-                    break;
-
-                case 'sleeping':
-                    // Le chat se couche
-                    mesh.rotation.z = Math.PI / 2;
-                    cat.vx = 0;
-                    cat.vz = 0;
-                    break;
-
-                case 'playing':
-                    // Mouvement erratique et sautillant
-                    if (Math.random() < 0.1) {
-                        cat.vx = (Math.random() - 0.5) * cat.speed * 2;
-                        cat.vz = (Math.random() - 0.5) * cat.speed * 2;
-                    }
-                    cat.x += cat.vx;
-                    cat.z += cat.vz;
-
-                    // Sautillements
-                    const playCycle = now * 0.02;
-                    mesh.position.y = Math.abs(Math.sin(playCycle)) * 0.3;
-                    mesh.rotation.z = Math.sin(playCycle) * 0.2;
-                    break;
-            }
-
-            // Limites du parc
-            const distanceFromCenter = Math.sqrt(cat.x * cat.x + cat.z * cat.z);
-            if (distanceFromCenter > 75) {
-                cat.x *= 0.95;
-                cat.z *= 0.95;
-            }
-
-            mesh.position.x = cat.x;
-            mesh.position.z = cat.z;
-
-            // Queue qui bouge
-            if (mesh.children[5]) { // Queue
-                mesh.children[5].rotation.z = Math.sin(now * 0.005) * 0.3;
-            }
-        });
-    }
-
-    function updateBirds() {
-        const now = Date.now();
-
-        birds.forEach((bird, index) => {
-            const mesh = birdMeshes[index];
-            if (!mesh) return;
-
-            // Patterns de vol
-            if (bird.flightPattern === 'circle') {
-                const angle = now * 0.001;
-                bird.x = bird.circleCenter.x + Math.cos(angle) * bird.circleRadius;
-                bird.z = bird.circleCenter.z + Math.sin(angle) * bird.circleRadius;
-                bird.y = 8 + Math.sin(angle * 2) * 3;
-            } else {
-                // Vol erratique
-                if (Math.random() < 0.05) {
-                    bird.vx = (Math.random() - 0.5) * 0.4;
-                    bird.vy = (Math.random() - 0.5) * 0.2;
-                    bird.vz = (Math.random() - 0.5) * 0.4;
-                }
-
-                bird.x += bird.vx;
-                bird.y += bird.vy;
-                bird.z += bird.vz;
-
-                // Limites verticales
-                if (bird.y < 5) bird.vy = Math.abs(bird.vy);
-                if (bird.y > 25) bird.vy = -Math.abs(bird.vy);
-            }
-
-            // Limites horizontales
-            const distanceFromCenter = Math.sqrt(bird.x * bird.x + bird.z * bird.z);
-            if (distanceFromCenter > 80) {
-                bird.vx = -bird.vx * 0.5;
-                bird.vz = -bird.vz * 0.5;
-            }
-
-            // Animation des ailes
-            bird.wingPhase += 0.3;
-            const wingFlap = Math.sin(bird.wingPhase);
-
-            if (mesh.children[2]) { // Aile gauche
-                mesh.children[2].rotation.z = wingFlap * 0.8;
-            }
-            if (mesh.children[3]) { // Aile droite
-                mesh.children[3].rotation.z = -wingFlap * 0.8;
-            }
-
-            // Orientation selon la direction de vol
-            if (bird.vx !== 0 || bird.vz !== 0) {
-                mesh.rotation.y = Math.atan2(bird.vz, bird.vx);
-            }
-
-            mesh.position.set(bird.x, bird.y, bird.z);
-        });
-    }
-
     function updateLeaderboard() {
         const leaderboard = document.getElementById('leaderboardContent');
         const sorted = [...robots].sort((a, b) => b.hearts - a.hearts);
@@ -1301,190 +936,6 @@ scene.add(flowers);
     initThreeJS();
     initGame();
     gameLoop();
-
-    // Fonctions pour les animaux (définies après l'initialisation)
-    function createCats() {
-        const catColors = [0x8b4513, 0x000000, 0xffffff, 0xff8c00, 0x808080, 0xffd700];
-
-        for (let i = 0; i < 8; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 20 + Math.random() * 40;
-
-            const cat = {
-                id: i,
-                x: Math.cos(angle) * radius,
-                y: 0.5,
-                z: Math.sin(angle) * radius,
-                vx: 0, vz: 0,
-                color: catColors[Math.floor(Math.random() * catColors.length)],
-                targetX: 0, targetZ: 0,
-                mood: 'exploring', // exploring, sleeping, playing
-                lastMoodChange: Date.now(),
-                speed: 0.1 + Math.random() * 0.1
-            };
-
-            cats.push(cat);
-            createCatMesh(cat);
-        }
-    }
-
-    function createCatMesh(cat) {
-        const catGroup = new THREE.Group();
-        const color = new THREE.Color(cat.color);
-
-        // Corps du chat
-        const body = new THREE.Mesh(
-            new THREE.SphereGeometry(0.4, 12, 8),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        body.scale.set(1.2, 0.8, 1);
-        body.position.y = 0.3;
-        body.castShadow = true;
-        catGroup.add(body);
-
-        // Tête
-        const head = new THREE.Mesh(
-            new THREE.SphereGeometry(0.25, 12, 8),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        head.position.set(0, 0.5, 0.4);
-        head.castShadow = true;
-        catGroup.add(head);
-
-        // Oreilles
-        [-0.15, 0.15].forEach(x => {
-            const ear = new THREE.Mesh(
-                new THREE.ConeGeometry(0.08, 0.15, 6),
-                new THREE.MeshLambertMaterial({ color: color })
-            );
-            ear.position.set(x, 0.65, 0.35);
-            catGroup.add(ear);
-        });
-
-        // Yeux
-        [-0.08, 0.08].forEach(x => {
-            const eye = new THREE.Mesh(
-                new THREE.SphereGeometry(0.03, 8, 8),
-                new THREE.MeshBasicMaterial({ color: 0x00ff00, emissive: 0x004400, emissiveIntensity: 0.5 })
-            );
-            eye.position.set(x, 0.52, 0.52);
-            catGroup.add(eye);
-        });
-
-        // Queue
-        const tail = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.05, 0.08, 0.8, 8),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        tail.position.set(0, 0.4, -0.5);
-        tail.rotation.x = Math.PI / 4;
-        tail.castShadow = true;
-        catGroup.add(tail);
-
-        // Pattes
-        for (let i = 0; i < 4; i++) {
-            const leg = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.04, 0.04, 0.3, 6),
-                new THREE.MeshLambertMaterial({ color: color })
-            );
-            const x = (i % 2) * 0.3 - 0.15;
-            const z = i < 2 ? 0.2 : -0.2;
-            leg.position.set(x, 0.15, z);
-            leg.castShadow = true;
-            catGroup.add(leg);
-        }
-
-        catGroup.position.set(cat.x, 0, cat.z);
-        catMeshes.push(catGroup);
-        scene.add(catGroup);
-    }
-
-    function createBirds() {
-        const birdColors = [0xff0000, 0x0000ff, 0xffff00, 0x00ff00, 0xff8c00, 0x8a2be2];
-
-        for (let i = 0; i < 6; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = 10 + Math.random() * 60;
-
-            const bird = {
-                id: i,
-                x: Math.cos(angle) * radius,
-                y: 8 + Math.random() * 15,
-                z: Math.sin(angle) * radius,
-                vx: (Math.random() - 0.5) * 0.3,
-                vy: (Math.random() - 0.5) * 0.1,
-                vz: (Math.random() - 0.5) * 0.3,
-                color: birdColors[Math.floor(Math.random() * birdColors.length)],
-                wingPhase: Math.random() * Math.PI * 2,
-                circleCenter: { x: Math.cos(angle) * radius, z: Math.sin(angle) * radius },
-                circleRadius: 15 + Math.random() * 10,
-                flightPattern: Math.random() < 0.5 ? 'circle' : 'wander'
-            };
-
-            birds.push(bird);
-            createBirdMesh(bird);
-        }
-    }
-
-    function createBirdMesh(bird) {
-        const birdGroup = new THREE.Group();
-        const color = new THREE.Color(bird.color);
-
-        // Corps de l'oiseau
-        const body = new THREE.Mesh(
-            new THREE.SphereGeometry(0.15, 8, 6),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        body.scale.set(1.5, 1, 1);
-        birdGroup.add(body);
-
-        // Tête
-        const head = new THREE.Mesh(
-            new THREE.SphereGeometry(0.1, 8, 6),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        head.position.set(0, 0.05, 0.2);
-        birdGroup.add(head);
-
-        // Bec
-        const beak = new THREE.Mesh(
-            new THREE.ConeGeometry(0.02, 0.08, 6),
-            new THREE.MeshLambertMaterial({ color: 0xffa500 })
-        );
-        beak.position.set(0, 0.05, 0.28);
-        beak.rotation.x = Math.PI / 2;
-        birdGroup.add(beak);
-
-        // Ailes (animées)
-        const leftWing = new THREE.Mesh(
-            new THREE.SphereGeometry(0.12, 6, 4),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        leftWing.scale.set(0.3, 1, 2);
-        leftWing.position.set(-0.15, 0, 0);
-        birdGroup.add(leftWing);
-
-        const rightWing = new THREE.Mesh(
-            new THREE.SphereGeometry(0.12, 6, 4),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        rightWing.scale.set(0.3, 1, 2);
-        rightWing.position.set(0.15, 0, 0);
-        birdGroup.add(rightWing);
-
-        // Queue
-        const tail = new THREE.Mesh(
-            new THREE.SphereGeometry(0.08, 6, 4),
-            new THREE.MeshLambertMaterial({ color: color })
-        );
-        tail.scale.set(0.5, 1, 1.5);
-        tail.position.set(0, 0, -0.2);
-        birdGroup.add(tail);
-
-        birdGroup.position.set(bird.x, bird.y, bird.z);
-        birdMeshes.push(birdGroup);
-        scene.add(birdGroup);
-    }
 </script>
 </body>
 </html>

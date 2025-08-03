@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bataille d'Amour 3D - Robots IA</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: radial-gradient(ellipse at center, #2a1a2e 0%, #3e1634 35%, #1a0f23 100%);
+            color: #fff;
+            font-family: 'Orbitron', monospace;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #gameContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        .hud, .leaderboard {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .hud {
+            top: 10px;
+            left: 10px;
+            border: 2px solid #ff69b4;
+        }
+
+        .hud h4 { color: #ff69b4; margin-bottom: 5px; }
+        .hud div { font-size: 12px; margin: 2px 0; }
+
+        .leaderboard {
+            top: 10px;
+            right: 10px;
+            border: 2px solid #ffb6c1;
+            min-width: 200px;
+        }
+
+        .leaderboard h4 { color: #ffb6c1; margin-bottom: 8px; }
+        .leaderboard div { font-size: 11px; margin: 2px 0; }
+
+        .timer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: 900;
+            text-shadow: 0 0 20px #ff69b4;
+            z-index: 200;
+            display: none;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 150;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+            border: 2px solid #ff69b4;
+            color: #ff69b4;
+            font-family: inherit;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 12px;
+        }
+
+        .btn:hover {
+            background: linear-gradient(145deg, #3a3a3a, #4a4a4a);
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    </style>
+</head>
+<body>
+<div id="gameContainer"></div>
+
+<div class="hud">
+    <h4>💕 BATAILLE D'AMOUR</h4>
+    <div>Bataille #<span id="battleNumber">1</span></div>
+    <div>Participants: <span id="aliveRobots">16</span></div>
+    <div>Zone: <span id="zoneSize">100</span>%</div>
+    <div>Total Cœurs: <span id="totalKills">0</span></div>
+    <div>Record: <span id="recordKills">0</span> (<span id="recordHolder">Aucun</span>)</div>
+</div>
+
+<div class="timer" id="timer">3:00</div>
+
+<div class="leaderboard">
+    <h4>💖 CLASSEMENT AMOUR</h4>
+    <div id="leaderboardContent"></div>
+</div>
+
+<div class="controls">
+    <button class="btn" id="startBtn">💕 DÉMARRER BATAILLE D'AMOUR</button>
+    <button class="btn" id="resetBtn">🔄 RESET</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    'use strict';
+
+    // Configuration
+    const CONFIG = {
+        ROBOTS: 16, BATTLE_TIME: 180, OBSTACLES: 8, ROBOT_HP: 100, LOVE: 10,
+        ROBOT_SPEED: 0.18, LOVE_COOLDOWN: 600, ARENA_SIZE: 50, DETECTION_RANGE: 45,
+        ZONE_SHRINK_RATE: 0.02, AUTO_RESTART: true, RESTART_DELAY: 8000
+    };
+
+    const COLORS = ['#ff69b4', '#ffb6c1', '#ffc0cb', '#ff1493', '#ff6347', '#ff8c00', '#ffd700', '#98fb98', '#87ceeb', '#dda0dd', '#f0e68c', '#e6e6fa', '#ffe4e1', '#ffefd5', '#ffe4b5', '#fff8dc'];
+    const ROBOT_NAMES = ['Amour', 'Tendresse', 'Douceur', 'Câlin', 'Bisou', 'Sourire', 'Joie', 'Bonheur', 'Rire', 'Espoir', 'Rêve', 'Magie', 'Charme', 'Grâce', 'Beauté', 'Harmonie'];
+
+    // Variables globales
+    let gameState = 'idle', battleTimer = CONFIG.BATTLE_TIME, battleNumber = 1, currentArenaSize = CONFIG.ARENA_SIZE, zoneWarning = false;
+    let robots = [], projectiles = [], obstacles = [];
+    let overallStats = { totalBattles: 0, champions: [], recordKills: 0, recordHolder: null };
+    let stats = { robotFights: 0, totalShots: 0, totalKills: 0, startTime: 0, endTime: 0 };
+    let scene, camera, renderer, robotMeshes = [], obstacleMeshes = [], projectileMeshes = [];
+
+    // Initialisation Three.js
+    function initThreeJS() {
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x221122, 30, 150);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 40, 50);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setClearColor(0x221122);
+        document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0x554455, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffaadd, 0.8);
+        directionalLight.position.set(50, 100, 50);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        const floor = new THREE.Mesh(
+            new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 32),
+            new THREE.MeshLambertMaterial({ color: 0x331133, transparent: true, opacity: 0.6 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        setupCameraControls();
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    }
+
+    function setupCameraControls() {
+        let mouseDown = false, cameraAngle = 0, cameraHeight = 40;
+
+        document.addEventListener('mousedown', () => mouseDown = true);
+        document.addEventListener('mouseup', () => mouseDown = false);
+        document.addEventListener('mousemove', (e) => {
+            if (mouseDown) {
+                cameraAngle += e.movementX * 0.01;
+                cameraHeight = Math.max(20, Math.min(80, cameraHeight - e.movementY * 0.5));
+                updateCamera();
+            }
+        });
+        document.addEventListener('wheel', (e) => {
+            cameraHeight = Math.max(15, Math.min(100, cameraHeight + e.deltaY * 0.1));
+            updateCamera();
+        });
+
+        function updateCamera() {
+            const distance = 60;
+            camera.position.set(Math.sin(cameraAngle) * distance, cameraHeight, Math.cos(cameraAngle) * distance);
+            camera.lookAt(0, 0, 0);
+        }
+        updateCamera();
+    }
+
+    // Initialisation du jeu
+    function initGame() {
+        robots = []; projectiles = []; obstacles = [];
+        currentArenaSize = CONFIG.ARENA_SIZE; zoneWarning = false;
+        stats = { robotFights: 0, totalShots: 0, totalKills: 0, startTime: Date.now(), endTime: 0 };
+        clearMeshes(); createRobots(); createObstacles(); updateArenaVisuals(); updateUI();
+    }
+
+    function clearMeshes() {
+        [...robotMeshes, ...obstacleMeshes, ...projectileMeshes].forEach(mesh => scene.remove(mesh));
+        robotMeshes = []; obstacleMeshes = []; projectileMeshes = [];
+    }
+
+    function createRobots() {
+        for (let i = 0; i < CONFIG.ROBOTS; i++) {
+            const angle = (i / CONFIG.ROBOTS) * Math.PI * 2;
+            const radius = (CONFIG.ARENA_SIZE * 0.7) + Math.random() * (CONFIG.ARENA_SIZE * 0.2);
+
+            const robot = {
+                id: i, name: ROBOT_NAMES[i], color: COLORS[i],
+                x: Math.cos(angle) * radius, y: 1.5, z: Math.sin(angle) * radius, vx: 0, vz: 0,
+                kindness: 50 + Math.random() * 40, charm: 40 + Math.random() * 35,
+                empathy: 60 + Math.random() * 30, charisma: 70 + Math.random() * 30,
+                friendship: 50 + Math.random() * 25, generosity: 60 + Math.random() * 40,
+                health: CONFIG.ROBOT_HP, maxHealth: CONFIG.ROBOT_HP, hearts: 0, loves: 0, received: 0,
+                loveAccuracy: 0, alive: true, size: 1.5, lastLove: 0, target: null, friends: [],
+                charmMode: false, friendMode: false, seekMode: false, shareMode: false,
+                happiness: 60, excitement: 0, joy: 0, enthusiasm: 100, shyness: 0,
+                weapon: { type: ['romantic', 'friendship', 'caring'][Math.floor(Math.random() * 3)], energy: 150, tired: false },
+                experience: 0, level: 1, memory: { lastPositions: [], friendPatterns: new Map() }
+            };
+            robots.push(robot);
+            createRobotMesh(robot, i);
+        }
+    }
+
+    function createRobotMesh(robot, index) {
+        const group = new THREE.Group();
+        const color = new THREE.Color(robot.color);
+
+        // Corps principal
+        const body = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 2.2, 0.8),
+            new THREE.MeshLambertMaterial({ color: color, emissive: color, emissiveIntensity: 0.15 })
+        );
+        body.position.y = 2; body.castShadow = true; group.add(body);
+
+        // Tête
+        const head = new THREE.Mesh(
+            new THREE.SphereGeometry(0.6),
+            new THREE.MeshLambertMaterial({ color: color.clone().multiplyScalar(1.2) })
+        );
+        head.position.y = 3.2; head.castShadow = true; group.add(head);
+
+        // Yeux en cœur
+        const eyeColor = 0xff69b4;
+        const eyeMaterial = new THREE.MeshBasicMaterial({ color: eyeColor, emissive: eyeColor, emissiveIntensity: 1.0 });
+        const heartGeometry = new THREE.SphereGeometry(0.1);
+        [-0.2, 0.2].forEach(x => {
+            const eye = new THREE.Mesh(heartGeometry, eyeMaterial);
+            eye.position.set(x, 3.3, 0.4); group.add(eye);
+        });
+
+        // Membres simplifiés
+        createLimbs(group, color);
+        createWeapon(group, robot.weapon.type);
+
+        group.position.set(robot.x, 0, robot.z);
+        robotMeshes.push(group); scene.add(group);
+    }
+
+    function createLimbs(group, color) {
+        // Bras
+        [-0.8, 0.8].forEach(x => {
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.5), new THREE.MeshLambertMaterial({ color: color }));
+            arm.position.set(x, 2, 0); arm.castShadow = true; group.add(arm);
+        });
+
+        // Jambes
+        [-0.3, 0.3].forEach(x => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.5), new THREE.MeshLambertMaterial({ color: color }));
+            leg.position.set(x, 0.75, 0); leg.castShadow = true; group.add(leg);
+        });
+    }
+
+    function createWeapon(group, type) {
+        const configs = {
+            romantic: { geometry: new THREE.SphereGeometry(0.3), color: 0xff69b4 },
+            caring: { geometry: new THREE.BoxGeometry(0.4, 0.4, 0.4), color: 0x98fb98 },
+            friendship: { geometry: new THREE.CylinderGeometry(0.2, 0.2, 0.8), color: 0xffb6c1 }
+        };
+        const config = configs[type] || configs.friendship;
+        const weapon = new THREE.Mesh(config.geometry, new THREE.MeshLambertMaterial({ color: config.color }));
+        weapon.position.set(0.8, 2.5, 0.3); group.add(weapon);
+    }
+
+    function createObstacles() {
+        for (let i = 0; i < CONFIG.OBSTACLES; i++) {
+            const angle = (i / CONFIG.OBSTACLES) * Math.PI * 2;
+            const radius = 25 + Math.random() * 15;
+            const [x, z] = [Math.cos(angle) * radius, Math.sin(angle) * radius];
+            const [width, height, depth] = [4 + Math.random() * 3, 6 + Math.random() * 4, 4 + Math.random() * 3];
+
+            obstacles.push({ x, y: height/2, z, width, height, depth });
+
+            const obstacle = new THREE.Mesh(
+                new THREE.BoxGeometry(width, height, depth),
+                new THREE.MeshLambertMaterial({ color: 0x665566, transparent: true, opacity: 0.7 })
+            );
+            obstacle.position.set(x, height/2, z);
+            obstacle.castShadow = true; obstacle.receiveShadow = true;
+            obstacleMeshes.push(obstacle); scene.add(obstacle);
+        }
+    }
+
+    function updateArenaVisuals() {
+        scene.children.forEach(child => {
+            if (child.type === 'GridHelper' || child.type === 'PolarGridHelper') {
+                scene.remove(child);
+            }
+        });
+
+        const grid = new THREE.PolarGridHelper(currentArenaSize, 16, 8, 64, 0xff69b4, 0xff69b4);
+        grid.material.opacity = 0.3; grid.material.transparent = true; scene.add(grid);
+
+        if (currentArenaSize < CONFIG.ARENA_SIZE * 0.8) {
+            const love = new THREE.Mesh(
+                new THREE.RingGeometry(currentArenaSize, CONFIG.ARENA_SIZE * 1.2, 32),
+                new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0.2, side: THREE.DoubleSide })
+            );
+            love.rotation.x = -Math.PI / 2; love.position.y = 0.1; scene.add(love);
+        }
+    }
+
+    // IA des robots
+    function updateRobots() {
+        if (gameState !== 'battle') return;
+        robots.forEach((robot, index) => {
+            if (!robot.alive) return;
+            updateRobotAI(robot); updateRobotMesh(robot, index);
+        });
+    }
+
+    function updateRobotAI(robot) {
+        updateMentalState(robot); analyzeEnvironment(robot); selectTacticalMode(robot);
+        const now = Date.now();
+
+        if (robot.seekMode) executeSurvivalMode(robot, now);
+        else if (robot.charmMode) executeCharmBehavior(robot, now);
+        else if (robot.friendMode) executeFriendBehavior(robot, now);
+        else if (robot.shareMode) executeShareBehavior(robot, now);
+        else executeStandardCombat(robot, now);
+
+        enforceArenaBounds(robot);
+    }
+
+    function updateMentalState(robot) {
+        const healthRatio = robot.health / robot.maxHealth;
+        const distanceFromCenter = Math.sqrt(robot.x * robot.x + robot.z * robot.z);
+        const zoneRatio = distanceFromCenter / currentArenaSize;
+
+        robot.shyness = Math.max(0, (1 - healthRatio) * 30 + zoneRatio * 20);
+        robot.happiness = Math.min(100, 50 + robot.hearts * 5);
+        robot.excitement = healthRatio > 0.8 ? Math.min(100, robot.excitement + 5) : Math.max(0, robot.excitement - 1);
+        robot.joy = zoneRatio < 0.5 ? Math.min(100, robot.joy + 3) : Math.max(0, robot.joy - 2);
+        robot.enthusiasm = Math.max(20, 100 - robot.shyness * 0.3 + robot.happiness * 0.2);
+    }
+
+    function analyzeEnvironment(robot) {
+        robot.friends = robots.filter(r => r.alive && r.id !== robot.id && getDistance(robot, r) < CONFIG.DETECTION_RANGE)
+            .sort((a, b) => getDistance(robot, a) - getDistance(robot, b));
+    }
+
+    function selectTacticalMode(robot) {
+        const friendCount = robot.friends.length;
+        const zoneRatio = Math.sqrt(robot.x * robot.x + robot.z * robot.z) / currentArenaSize;
+
+        robot.charmMode = robot.friendMode = robot.seekMode = robot.shareMode = false;
+
+        if (zoneRatio > 0.8 || robot.shyness > 60) robot.seekMode = true;
+        else if (robot.happiness > 80 && robot.excitement > 70) robot.charmMode = true;
+        else if (robot.joy > 60 && robot.enthusiasm > 70) robot.shareMode = true;
+        else if (friendCount >= 2 && robot.charisma > 70) robot.friendMode = true;
+    }
+
+    function executeSurvivalMode(robot, now) {
+        const [dx, dz] = [-robot.x, -robot.z];
+        const distance = Math.sqrt(dx * dx + dz * dz);
+
+        if (distance > 2) {
+            const speed = CONFIG.ROBOT_SPEED * (1 + robot.generosity / 100);
+            robot.vx = (dx / distance) * speed; robot.vz = (dz / distance) * speed;
+            robot.x += robot.vx; robot.z += robot.vz;
+        }
+
+        if (robot.friends.length > 0 && canSendLove(robot, now)) {
+            executeLoveSending(robot, robot.friends[0], now);
+        }
+    }
+
+    function executeCharmBehavior(robot, now) {
+        if (!robot.target?.alive) robot.target = robot.friends[0] || null;
+
+        if (robot.target) {
+            const distance = getDistance(robot, robot.target);
+            const speed = CONFIG.ROBOT_SPEED * (1 + robot.kindness / 100);
+            const [dx, dz] = [robot.target.x - robot.x, robot.target.z - robot.z];
+
+            if (distance > 0) {
+                robot.vx = (dx / distance) * speed; robot.vz = (dz / distance) * speed;
+                robot.x += robot.vx; robot.z += robot.vz;
+
+                if (distance < 25 && canSendLove(robot, now)) executeLoveSending(robot, robot.target, now);
+            }
+        }
+    }
+
+    function executeFriendBehavior(robot, now) {
+        const cover = findNearestCover(robot);
+        if (cover) moveToPosition(robot, cover);
+
+        if (robot.friends.length > 0 && canSendLove(robot, now)) {
+            executeLoveSending(robot, robot.friends[0], now);
+        }
+    }
+
+    function executeShareBehavior(robot, now) {
+        if (!robot.target?.alive) robot.target = robot.friends[0] || null;
+
+        if (robot.target) {
+            const angle = Math.atan2(robot.target.z - robot.z, robot.target.x - robot.x);
+            const shareAngle = angle + Math.PI / 3;
+            const [shareX, shareZ] = [robot.target.x + Math.cos(shareAngle) * 10, robot.target.z + Math.sin(shareAngle) * 10];
+
+            moveToPosition(robot, { x: shareX, z: shareZ });
+
+            if (getDistance(robot, robot.target) < 20 && canSendLove(robot, now)) {
+                executeLoveSending(robot, robot.target, now);
+            }
+        }
+    }
+
+    function executeStandardCombat(robot, now) {
+        if (robot.friends.length > 0) {
+            if (!robot.target?.alive || Math.random() < 0.05) robot.target = selectBestFriend(robot);
+
+            if (robot.target?.alive) {
+                const distance = getDistance(robot, robot.target);
+                executeFriendlyMovement(robot, robot.target, distance);
+                avoidObstacles(robot);
+
+                if (distance < getOptimalRange(robot) && canSendLove(robot, now)) {
+                    executeLoveSending(robot, robot.target, now);
+                }
+            }
+        } else {
+            executePatrol(robot);
+        }
+    }
+
+    // Fonctions utilitaires
+    const getDistance = (obj1, obj2) => Math.sqrt((obj1.x - obj2.x) ** 2 + (obj1.z - obj2.z) ** 2);
+
+    function selectBestFriend(robot) {
+        return robot.friends.length === 0 ? null : robot.friends.reduce((best, friend) => {
+            const calcScore = (r) => {
+                const distance = getDistance(robot, r);
+                const happinessRatio = r.happiness / 100;
+                const charm = r.hearts + r.charisma / 100;
+                return (1 / distance) * 10 + happinessRatio * 5 + charm * 2;
+            };
+            return calcScore(friend) > calcScore(best) ? friend : best;
+        });
+    }
+
+    const canSendLove = (robot, now) => {
+        const cooldowns = { romantic: CONFIG.LOVE_COOLDOWN * 0.5, caring: CONFIG.LOVE_COOLDOWN * 0.8, friendship: CONFIG.LOVE_COOLDOWN };
+        return now - robot.lastLove > (cooldowns[robot.weapon.type] || cooldowns.friendship) && !robot.weapon.tired;
+    };
+
+    const getOptimalRange = (robot) => ({ romantic: 15, caring: 25, friendship: 20 }[robot.weapon.type] || 20);
+
+    function executeLoveSending(robot, target, now) {
+        const distance = getDistance(robot, target);
+        let loveChance = robot.kindness + robot.enthusiasm * 0.3 - robot.shyness * 0.2 - distance * 0.3;
+
+        const bonuses = { romantic: distance < 20 ? 30 : 0, caring: distance < 30 ? 20 : 0, friendship: 10 };
+        loveChance += bonuses[robot.weapon.type] || 0;
+        loveChance = Math.max(10, Math.min(95, loveChance));
+
+        if (Math.random() * 100 < loveChance) {
+            const [predictedX, predictedZ] = [target.x + target.vx * (distance / 3), target.z + target.vz * (distance / 3)];
+            const direction = new THREE.Vector3(predictedX - robot.x, 0, predictedZ - robot.z).normalize();
+
+            createLoveProjectile(robot, direction);
+            robot.loves++; robot.lastLove = now; stats.totalShots++;
+        }
+    }
+
+    function createLoveProjectile(robot, direction) {
+        const configs = {
+            romantic: { color: '#ff69b4', love: CONFIG.LOVE * 2, speed: 1.5, geometry: new THREE.SphereGeometry(0.4) },
+            caring: { color: '#98fb98', love: CONFIG.LOVE * 1.5, speed: 1.2, geometry: new THREE.BoxGeometry(0.3, 0.3, 0.3) },
+            friendship: { color: '#ffb6c1', love: CONFIG.LOVE, speed: 1.0, geometry: new THREE.CylinderGeometry(0.2, 0.2, 0.6) }
+        };
+        const config = configs[robot.weapon.type] || configs.friendship;
+
+        const heart = {
+            x: robot.x, y: robot.y + 1, z: robot.z,
+            vx: direction.x * config.speed, vy: 0, vz: direction.z * config.speed,
+            owner: robot.id, color: config.color, love: config.love, life: 150
+        };
+        projectiles.push(heart);
+
+        const mesh = new THREE.Mesh(config.geometry, new THREE.MeshBasicMaterial({
+            color: new THREE.Color(config.color), emissive: new THREE.Color(config.color), emissiveIntensity: 0.8
+        }));
+        mesh.position.set(robot.x, robot.y + 1, robot.z);
+        projectileMeshes.push(mesh); scene.add(mesh);
+    }
+
+    function executeFriendlyMovement(robot, target, distance) {
+        const optimalRange = getOptimalRange(robot);
+        let moveIntensity = distance < optimalRange * 0.7 ? -0.3 : distance > optimalRange * 1.5 ? 1.2 : 0.5;
+
+        const [dx, dz] = [target.x - robot.x, target.z - robot.z];
+
+        if (distance > 0) {
+            robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED * moveIntensity;
+            robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED * moveIntensity;
+
+            const hugAngle = Math.atan2(dz, dx) + Math.PI / 4;
+            const hugIntensity = robot.charisma / 200;
+            robot.vx += Math.cos(hugAngle) * CONFIG.ROBOT_SPEED * hugIntensity;
+            robot.vz += Math.sin(hugAngle) * CONFIG.ROBOT_SPEED * hugIntensity;
+
+            robot.x += robot.vx; robot.z += robot.vz;
+        }
+    }
+
+    const executePatrol = (robot) => {
+        robot.vx = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED * 0.5;
+        robot.vz = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED * 0.5;
+        robot.x += robot.vx; robot.z += robot.vz;
+        robot.target = null;
+    };
+
+    const moveToPosition = (robot, position) => {
+        const [dx, dz] = [position.x - robot.x, position.z - robot.z];
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        if (distance > 1) {
+            robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED;
+            robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED;
+            robot.x += robot.vx; robot.z += robot.vz;
+        }
+    };
+
+    const findNearestCover = (robot) => obstacles.reduce((nearest, obstacle) => {
+        const distance = getDistance(robot, obstacle);
+        const nearestDistance = nearest ? getDistance(robot, nearest) : Infinity;
+        return distance < nearestDistance ? obstacle : nearest;
+    }, null);
+
+    function avoidObstacles(robot) {
+        obstacles.forEach(obstacle => {
+            const [dx, dz] = [robot.x - obstacle.x, robot.z - obstacle.z];
+            const distance = Math.sqrt(dx * dx + dz * dz);
+            if (distance < obstacle.width + 3) {
+                robot.x += (dx / distance) * 0.2;
+                robot.z += (dz / distance) * 0.2;
+            }
+        });
+    }
+
+    function enforceArenaBounds(robot) {
+        const distance = Math.sqrt(robot.x * robot.x + robot.z * robot.z);
+        if (distance > currentArenaSize - 5) {
+            robot.x *= 0.9; robot.z *= 0.9;
+            robot.shyness = Math.min(100, robot.shyness + 8);
+            robot.excitement = Math.max(0, robot.excitement - 10);
+            robot.seekMode = true;
+        }
+    }
+
+    function updateRobotMesh(robot, index) {
+        const mesh = robotMeshes[index];
+        if (!mesh) return;
+
+        mesh.position.set(robot.x, 0, robot.z);
+
+        if (robot.target) {
+            const angle = Math.atan2(robot.target.z - robot.z, robot.target.x - robot.x);
+            mesh.rotation.y = angle - Math.PI / 2;
+        }
+
+        const happinessRatio = robot.happiness / 100;
+        if (mesh.children[0]?.material) {
+            mesh.children[0].material.emissiveIntensity = 0.15 + happinessRatio * 0.3 + robot.excitement * 0.002;
+        }
+
+        const isMoving = Math.abs(robot.vx) > 0.01 || Math.abs(robot.vz) > 0.01;
+        if (isMoving) {
+            const walkCycle = Date.now() * 0.015;
+            const speedMultiplier = Math.sqrt(robot.vx * robot.vx + robot.vz * robot.vz) * 10;
+
+            if (mesh.children[3]) mesh.children[3].rotation.x = Math.sin(walkCycle) * 0.4 * speedMultiplier;
+            if (mesh.children[4]) mesh.children[4].rotation.x = Math.sin(walkCycle + Math.PI) * 0.4 * speedMultiplier;
+            if (mesh.children[5]) mesh.children[5].rotation.x = Math.sin(walkCycle + Math.PI) * 0.3 * speedMultiplier;
+            if (mesh.children[6]) mesh.children[6].rotation.x = Math.sin(walkCycle) * 0.3 * speedMultiplier;
+        }
+
+        if (robot.charmMode && mesh.children[0]?.material?.color) {
+            const baseColor = new THREE.Color(robot.color);
+            mesh.children[0].material.color.setRGB(baseColor.r * 1.3, baseColor.g * 1.2, baseColor.b * 1.1);
+        }
+    }
+
+    // Système de projectiles
+    function updateProjectiles() {
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const heart = projectiles[i];
+            const mesh = projectileMeshes[i];
+            if (!heart || !mesh) continue;
+
+            heart.x += heart.vx; heart.y += heart.vy || 0; heart.z += heart.vz; heart.life--;
+            mesh.position.set(heart.x, heart.y, heart.z);
+
+            if (Math.abs(heart.x) > CONFIG.ARENA_SIZE * 1.5 || Math.abs(heart.z) > CONFIG.ARENA_SIZE * 1.5 ||
+                heart.y < 0 || heart.y > 50 || heart.life <= 0) {
+                removeProjectile(i); continue;
+            }
+
+            if (checkProjectileCollisions(heart, i) || checkObstacleCollisions(heart, i)) continue;
+        }
+    }
+
+    const removeProjectile = (index) => {
+        projectiles.splice(index, 1);
+        scene.remove(projectileMeshes[index]);
+        projectileMeshes.splice(index, 1);
+    };
+
+    function checkProjectileCollisions(heart, heartIndex) {
+        for (const robot of robots) {
+            if (!robot.alive || robot.id === heart.owner) continue;
+
+            if (getDistance(robot, heart) < robot.size + 0.5) {
+                robot.hearts += heart.love;
+
+                const sender = robots.find(r => r.id === heart.owner);
+                if (sender) {
+                    sender.received++; sender.hearts++;
+                    sender.loveAccuracy = sender.loves > 0 ? (sender.received / sender.loves) * 100 : 0;
+                    stats.robotFights++; stats.totalKills++;
+                }
+
+                removeProjectile(heartIndex);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    const checkObstacleCollisions = (heart, heartIndex) => {
+        for (const obstacle of obstacles) {
+            if (Math.abs(heart.x - obstacle.x) < obstacle.width/2 &&
+                Math.abs(heart.z - obstacle.z) < obstacle.depth/2 && heart.y < obstacle.height) {
+                removeProjectile(heartIndex);
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Gestion de la Battle Royale
+    function updateBattleRoyaleZone() {
+        const timeElapsed = Date.now() - stats.startTime;
+        if (timeElapsed > 30000) {
+            currentArenaSize = Math.max(15, currentArenaSize - CONFIG.ZONE_SHRINK_RATE);
+
+            if (currentArenaSize < CONFIG.ARENA_SIZE * 0.6 && !zoneWarning) {
+                zoneWarning = true;
+                showZoneWarning();
+            }
+
+            if (Math.floor(timeElapsed / 1000) % 5 === 0) updateArenaVisuals();
+        }
+    }
+
+    function showZoneWarning() {
+        const warning = document.createElement('div');
+        warning.style.cssText = `position: fixed; top: 30%; left: 50%; transform: translateX(-50%);
+                background: rgba(255,105,180,0.8); color: white; padding: 20px; border-radius: 10px;
+                font-size: 24px; font-weight: bold; z-index: 300; animation: pulse 2s infinite;`;
+        warning.textContent = '💕 ZONE D\'AMOUR - RAPPROCHEZ-VOUS ! 💕';
+        document.body.appendChild(warning);
+        setTimeout(() => document.body.removeChild(warning), 4000);
+    }
+
+    function checkWinConditions() {
+        if (battleTimer <= 0) endBattle();
+    }
+
+    function endBattle() {
+        stats.endTime = Date.now();
+        const battleDuration = (stats.endTime - stats.startTime) / 1000;
+
+        gameState = 'ended';
+        document.getElementById('timer').style.display = 'none';
+
+        const winner = robots.reduce((best, robot) =>
+            robot.hearts > best.hearts ? robot : best, robots[0]
+        );
+
+        overallStats.totalBattles++;
+        if (winner && winner.hearts > 0) {
+            overallStats.champions.push({
+                name: winner.name, hearts: winner.hearts, loves: winner.loves,
+                battleNumber: battleNumber, duration: battleDuration
+            });
+
+            if (winner.hearts > overallStats.recordKills) {
+                overallStats.recordKills = winner.hearts;
+                overallStats.recordHolder = winner.name;
+            }
+        }
+
+        showBattleResults(winner, battleDuration);
+        if (CONFIG.AUTO_RESTART) setTimeout(() => startNewBattle(), CONFIG.RESTART_DELAY);
+    }
+
+    function showBattleResults(winner, duration) {
+        const results = document.createElement('div');
+        results.style.cssText = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: linear-gradient(145deg, #2a1a2e, #3e1634); border: 3px solid ${winner ? winner.color : '#ff69b4'};
+                border-radius: 15px; padding: 30px; color: white; text-align: center; font-size: 18px;
+                z-index: 400; max-width: 500px; backdrop-filter: blur(10px);`;
+
+        const winnerText = winner && winner.hearts > 0 ?
+            `💕 CHAMPION DE L'AMOUR: ${winner.name}!<br>💖 Cœurs reçus: ${winner.hearts}<br>💌 Messages d'amour: ${winner.loves}<br>🎯 Précision: ${Math.round(winner.loveAccuracy)}%` :
+            `💔 BATAILLE D'AMOUR TERMINÉE!<br>Aucun cœur échangé`;
+
+        results.innerHTML = `
+                <h2 style="color: ${winner ? winner.color : '#ff69b4'}; margin-bottom: 20px;">BATAILLE D'AMOUR #${battleNumber}</h2>
+                ${winnerText}<br><br>
+                <div style="font-size: 14px; color: #aaa;">
+                    ⏱️ Durée: ${Math.round(duration)}s<br>💌 Total messages: ${stats.totalShots}<br>💕 Total relations: ${stats.robotFights}<br>
+                    🏆 Batailles totales: ${overallStats.totalBattles}<br>📈 Record cœurs: ${overallStats.recordKills} (${overallStats.recordHolder || 'N/A'})
+                </div><br>
+                <div style="color: #ff69b4;">Prochaine bataille dans ${CONFIG.RESTART_DELAY/1000} secondes...</div>`;
+
+        document.body.appendChild(results);
+        setTimeout(() => { if (document.body.contains(results)) document.body.removeChild(results); }, CONFIG.RESTART_DELAY - 1000);
+    }
+
+    function gameLoop() {
+        if (gameState === 'battle') {
+            updateRobots(); updateProjectiles(); updateBattleRoyaleZone();
+            updateTimer(); checkWinConditions();
+        }
+        updateUI(); renderer.render(scene, camera);
+        requestAnimationFrame(gameLoop);
+    }
+
+    function updateTimer() {
+        battleTimer--;
+        if (battleTimer <= 0) endBattle();
+        const minutes = Math.floor(battleTimer / 60);
+        const seconds = battleTimer % 60;
+        document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function startNewBattle() {
+        battleNumber++; gameState = 'battle'; battleTimer = CONFIG.BATTLE_TIME;
+
+        document.getElementById('timer').style.display = 'block';
+        document.getElementById('startBtn').textContent = `💕 BATAILLE D'AMOUR #${battleNumber}`;
+        document.getElementById('startBtn').disabled = true;
+
+        initGame();
+
+        robots.forEach(robot => {
+            Object.assign(robot, {
+                alive: true, health: robot.maxHealth, hearts: 0, loves: 0, received: 0, loveAccuracy: 0,
+                target: null, charmMode: false, friendMode: false, seekMode: false, shareMode: false,
+                shyness: 0, happiness: 60, excitement: 0, joy: 0, enthusiasm: 100
+            });
+            robot.weapon.tired = false; robot.weapon.energy = 150;
+            robot.memory.lastPositions = []; robot.memory.friendPatterns.clear();
+        });
+
+        robotMeshes.forEach(mesh => mesh.visible = true);
+    }
+
+    function updateUI() {
+        const aliveCount = robots.filter(r => r.alive).length;
+        const zonePercentage = Math.round((currentArenaSize / CONFIG.ARENA_SIZE) * 100);
+
+        document.getElementById('battleNumber').textContent = battleNumber;
+        document.getElementById('aliveRobots').textContent = aliveCount;
+        document.getElementById('zoneSize').textContent = zonePercentage;
+        document.getElementById('totalKills').textContent = stats.totalKills;
+        document.getElementById('recordKills').textContent = overallStats.recordKills;
+        document.getElementById('recordHolder').textContent = overallStats.recordHolder || 'Aucun';
+
+        updateLeaderboard();
+    }
+
+    function updateLeaderboard() {
+        const leaderboard = document.getElementById('leaderboardContent');
+        const sorted = [...robots].sort((a, b) => (b.hearts * 10 + b.loveAccuracy + b.level * 5) - (a.hearts * 10 + a.loveAccuracy + a.level * 5));
+
+        leaderboard.innerHTML = '';
+        sorted.slice(0, 12).forEach((r, i) => {
+            const status = r.alive ? '💚' : '💀';
+            const levelIcon = '⭐'.repeat(Math.min(r.level, 3));
+            const modeIcons = { charmMode: '😍', friendMode: '🤝', seekMode: '🏃', shareMode: '💕' };
+            const modeIcon = Object.keys(modeIcons).find(mode => r[mode]) ? modeIcons[Object.keys(modeIcons).find(mode => r[mode])] : '💖';
+            const weaponIcon = { romantic: '💘', caring: '💚', friendship: '💝' }[r.weapon.type] || '💝';
+
+            const happinessIndicator = r.happiness > 80 ? '😊' : r.shyness > 50 ? '😳' : '';
+
+            leaderboard.innerHTML +=
+                `<div style="color:${r.color}; font-size: 9px; margin: 1px 0;">
+                        ${i + 1}. ${modeIcon}${weaponIcon} ${r.name} ${status}${happinessIndicator}
+                        <br>&nbsp;&nbsp;&nbsp;💖:${r.hearts} 😊:${Math.round(r.happiness)} ${levelIcon}
+                    </div>`;
+        });
+    }
+
+    // Contrôles
+    document.getElementById('startBtn').addEventListener('click', () => {
+        if (['idle', 'ended'].includes(gameState)) startNewBattle();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        gameState = 'idle'; battleNumber = 1;
+        overallStats = { totalBattles: 0, champions: [], recordKills: 0, recordHolder: null };
+        document.getElementById('timer').style.display = 'none';
+        document.getElementById('startBtn').textContent = '💕 DÉMARRER BATAILLE D\'AMOUR';
+        document.getElementById('startBtn').disabled = false;
+        initGame();
+    });
+
+    // Initialisation
+    initThreeJS(); initGame(); gameLoop();
+</script>
+</body>
+</html>
