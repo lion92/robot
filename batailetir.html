@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robot Deathmatch 3D</title>
+  <style>
+    body {
+      background: radial-gradient(circle at center, #111 0%, #000 100%);
+      margin: 0; overflow: hidden; color: white; font-family: 'Poppins', sans-serif;
+    }
+    #gameContainer { position:absolute; top:0; left:0; width:100%; height:100%; }
+    .hud, .leaderboard {
+      position: fixed; background: rgba(0,0,0,0.5);
+      padding: 12px; border-radius: 12px; font-size: 14px;
+      backdrop-filter: blur(8px);
+    }
+    .hud { top:10px; left:10px; }
+    .leaderboard { top:10px; right:10px; max-width:200px; }
+    .leaderboard h4 { margin:0 0 5px; text-align:center; color:#ffdd00; }
+  </style>
+</head>
+<body>
+<div id="gameContainer"></div>
+<div class="hud">
+  <div>Bataille #<span id="battleNumber">1</span></div>
+  <div>Robots en vie: <span id="aliveRobots">0</span></div>
+</div>
+<div class="leaderboard">
+  <h4>Classement</h4>
+  <div id="leaderboardContent"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  const CONFIG = {
+    ROBOTS: 10,
+    ARENA_SIZE: 80,
+    ROBOT_SPEED: 0.2,
+    ATTACK_RANGE: 35,
+    DAMAGE: 20,
+    ATTACK_COOLDOWN: 800
+  };
+  let scene, camera, renderer;
+  let robots = [], robotMeshes = [], projectiles = [], projectileMeshes = [];
+  let battleNumber = 1;
+
+  function init() {
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 60, 80);
+
+    renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+    let ambient = new THREE.AmbientLight(0x404040, 1.5);
+    scene.add(ambient);
+    let dirLight = new THREE.DirectionalLight(0xffffff, 2);
+    dirLight.position.set(50,100,50);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    let floorTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
+    floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+    floorTex.repeat.set(8,8);
+    let floor = new THREE.Mesh(new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 64), new THREE.MeshLambertMaterial({ map:floorTex }));
+    floor.rotation.x = -Math.PI/2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    createRobots();
+    animate();
+  }
+  function createRobots() {
+    const colors = [0xff0000,0x00ff00,0x0000ff,0xffff00,0xff00ff,0x00ffff,0xff8800,0x8888ff];
+    for (let i=0;i<CONFIG.ROBOTS;i++) {
+      let angle = Math.random()*Math.PI*2;
+      let radius = CONFIG.ARENA_SIZE*0.5;
+      let robot = {
+        id: i,
+        name: `Robot_${i+1}`,
+        x: Math.cos(angle)*radius,
+        z: Math.sin(angle)*radius,
+        vx:0, vz:0,
+        health:100,
+        alive:true,
+        kills:0,
+        lastShot:0,
+        color: colors[i%colors.length]
+      };
+      robots.push(robot);
+      createRobotMesh(robot);
+    }
+  }
+  function createRobotMesh(robot) {
+    let group = new THREE.Group();
+    let bodyMat = new THREE.MeshStandardMaterial({ color:robot.color, metalness:0.5, roughness:0.3 });
+    let body = new THREE.Mesh(new THREE.SphereGeometry(1.2,32,32), bodyMat);
+    body.position.y = 2;
+    body.castShadow = true;
+    group.add(body);
+    let head = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.8), new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0x333333 }));
+    head.position.y = 3.2;
+    head.castShadow = true;
+    group.add(head);
+    group.position.set(robot.x,0,robot.z);
+    robotMeshes.push(group);
+    scene.add(group);
+  }
+  function updateRobots() {
+    robots.forEach((r, idx) => {
+      if (!r.alive) return;
+      let targets = robots.filter(o=>o.alive && o.id!==r.id);
+      if (targets.length===0) return;
+      let target = targets[Math.floor(Math.random()*targets.length)];
+      let dx = target.x - r.x;
+      let dz = target.z - r.z;
+      let dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist>5) {
+        r.vx = (dx/dist)*CONFIG.ROBOT_SPEED;
+        r.vz = (dz/dist)*CONFIG.ROBOT_SPEED;
+      }
+      r.x += r.vx;
+      r.z += r.vz;
+      if (dist < CONFIG.ATTACK_RANGE && Date.now()-r.lastShot>CONFIG.ATTACK_COOLDOWN) {
+        shoot(r,target);
+        r.lastShot = Date.now();
+      }
+      updateRobotMesh(r, idx);
+    });
+  }
+  function shoot(r,t) {
+    let dx = t.x - r.x;
+    let dz = t.z - r.z;
+    let len = Math.sqrt(dx*dx + dz*dz);
+    let proj = {
+      x:r.x, y:3, z:r.z,
+      vx:(dx/len)*0.6,
+      vz:(dz/len)*0.6,
+      target:t.id,
+      damage:CONFIG.DAMAGE,
+      life:150
+    };
+    projectiles.push(proj);
+    let projMat = new THREE.MeshStandardMaterial({ color:0xffff00, emissive:0xffaa00 });
+    let mesh = new THREE.Mesh(new THREE.SphereGeometry(0.2,16,16), projMat);
+    mesh.position.set(r.x,3,r.z);
+    projectileMeshes.push(mesh);
+    scene.add(mesh);
+  }
+  function updateProjectiles() {
+    for (let i=projectiles.length-1;i>=0;i--) {
+      let p = projectiles[i];
+      p.x += p.vx;
+      p.z += p.vz;
+      p.life--;
+      projectileMeshes[i].position.set(p.x,p.y,p.z);
+      let target = robots.find(r=>r.id===p.target);
+      if (target && target.alive) {
+        let dist = Math.sqrt((target.x-p.x)**2+(target.z-p.z)**2);
+        if (dist<1.5) {
+          target.health -= p.damage;
+          if (target.health<=0) target.alive=false;
+          scene.remove(projectileMeshes[i]);
+          projectiles.splice(i,1);
+          projectileMeshes.splice(i,1);
+          continue;
+        }
+      }
+      if (p.life<=0) {
+        scene.remove(projectileMeshes[i]);
+        projectiles.splice(i,1);
+        projectileMeshes.splice(i,1);
+      }
+    }
+  }
+  function updateRobotMesh(r, idx) {
+    let mesh = robotMeshes[idx];
+    if (!mesh) return;
+    mesh.position.set(r.x,0,r.z);
+  }
+  function updateLeaderboard() {
+    document.getElementById('aliveRobots').textContent = robots.filter(r=>r.alive).length;
+    let sorted = [...robots].sort((a,b)=>b.kills-a.kills);
+    let lb = document.getElementById('leaderboardContent');
+    lb.innerHTML='';
+    sorted.forEach(r=>{
+      lb.innerHTML+=`<div style="color:${r.alive?'white':'#777'}">${r.name} - K:${r.kills} HP:${r.health}</div>`;
+    });
+  }
+  function animate() {
+    updateRobots();
+    updateProjectiles();
+    updateLeaderboard();
+    renderer.render(scene,camera);
+    requestAnimationFrame(animate);
+  }
+  init();
+</script>
+</body>
+</html>

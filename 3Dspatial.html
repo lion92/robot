@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bataille Spatiale - Robots IA</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        #hud {
+            position: absolute; top: 10px; left: 10px; z-index: 10;
+            color: #0ff; font-family: monospace; font-size: 14px;
+            background: rgba(0,0,0,0.5); padding: 8px; border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="hud"></div>
+<script src="./three.js"></script>
+<script>
+    // Config
+    const CONFIG = { ROBOTS: 6, ROBOT_HP: 100, SPEED: 25, BULLET_SPEED: 80, DAMAGE: 15 };
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000010);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 100, 250);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x404040));
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(1, 1, 1);
+    scene.add(light);
+
+    // Obstacles
+    const obstacles = [];
+    for (let i = 0; i < 8; i++) {
+        const cube = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshLambertMaterial({ color: 0x333333 }));
+        cube.position.set((Math.random() - 0.5) * 300, (Math.random() - 0.5) * 200, (Math.random() - 0.5) * 300);
+        scene.add(cube);
+        obstacles.push(cube);
+    }
+
+    // Ship Class
+    class Ship {
+        constructor(name, color) {
+            this.name = name;
+            this.health = CONFIG.ROBOT_HP;
+            this.maxHealth = CONFIG.ROBOT_HP;
+            this.velocity = new THREE.Vector3();
+            this.mesh = new THREE.Mesh(new THREE.ConeGeometry(5, 20, 8), new THREE.MeshLambertMaterial({ color }));
+            this.mesh.rotation.x = Math.PI / 2;
+            this.mesh.position.set((Math.random() - 0.5) * 200, 0, (Math.random() - 0.5) * 200);
+            scene.add(this.mesh);
+            this.cooldown = 0;
+        }
+        update(dt) {
+            // Déplacement aléatoire IA
+            this.velocity.x += (Math.random() - 0.5) * 2;
+            this.velocity.z += (Math.random() - 0.5) * 2;
+            this.mesh.position.add(this.velocity.clone().multiplyScalar(dt));
+            this.velocity.multiplyScalar(0.95);
+            // Tir automatique
+            if (this.cooldown <= 0) {
+                const target = ships[Math.floor(Math.random() * ships.length)];
+                if (target !== this) this.shootAt(target);
+                this.cooldown = 1 + Math.random();
+            }
+            this.cooldown -= dt;
+        }
+        shootAt(target) {
+            const dir = target.mesh.position.clone().sub(this.mesh.position).normalize();
+            bullets.push(new Bullet(this.mesh.position.clone(), dir, this));
+        }
+    }
+
+    // Bullet Class
+    class Bullet {
+        constructor(pos, dir, owner) {
+            this.owner = owner;
+            this.mesh = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+            this.velocity = dir.clone().multiplyScalar(CONFIG.BULLET_SPEED);
+            this.mesh.position.copy(pos);
+            scene.add(this.mesh);
+        }
+        update(dt) {
+            this.mesh.position.add(this.velocity.clone().multiplyScalar(dt));
+            // Collision avec vaisseaux
+            ships.forEach(s => {
+                if (s !== this.owner && s.health > 0) {
+                    if (this.mesh.position.distanceTo(s.mesh.position) < 5) {
+                        s.health -= CONFIG.DAMAGE;
+                        this.mesh.position.set(9999, 9999, 9999);
+                    }
+                }
+            });
+        }
+    }
+
+    // Robots uniquement
+    const ships = [];
+    const bullets = [];
+    const colors = [0x00ffff, 0xff5555, 0xffff55, 0x9955ff, 0x55ff55, 0xffaa00];
+    for (let i = 0; i < CONFIG.ROBOTS; i++) {
+        ships.push(new Ship('BOT' + i, colors[i]));
+    }
+
+    // HUD
+    const hud = document.getElementById('hud');
+
+    // Loop
+    let last = performance.now();
+    function animate(t) {
+        const dt = (t - last) / 1000; last = t;
+        ships.forEach(s => s.update(dt));
+        bullets.forEach(b => b.update(dt));
+        hud.innerHTML = ships.map(s => `${s.name}: ${s.health}/${s.maxHealth}`).join('<br>');
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+    animate();
+</script>
+</body>
+</html>

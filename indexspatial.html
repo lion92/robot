@@ -1,0 +1,2350 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Battle 3D - IA Adaptative Avancée</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Orbitron', monospace;
+      background: #000;
+      cursor: crosshair;
+    }
+
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* HUD */
+    .hud {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #00ffff;
+      border-radius: 20px;
+      padding: 15px 30px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+    }
+
+    /* Camera Controls */
+    .camera-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #00ff00;
+      border-radius: 15px;
+      padding: 15px;
+      z-index: 100;
+      min-width: 200px;
+      user-select: none;
+    }
+
+    .camera-title {
+      color: #00ff00;
+      font-size: 14px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .camera-btn {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      background: rgba(0, 255, 0, 0.2);
+      border: 1px solid #00ff00;
+      color: #00ff00;
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .camera-btn:hover {
+      background: rgba(0, 255, 0, 0.4);
+      transform: translateX(-2px);
+    }
+
+    .camera-btn.active {
+      background: rgba(0, 255, 0, 0.6);
+      color: #000;
+    }
+
+    .target-info {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #00ff00;
+      font-size: 12px;
+      color: #fff;
+    }
+
+    .hud-content {
+      display: flex;
+      gap: 40px;
+      align-items: center;
+    }
+
+    .stat-item {
+      text-align: center;
+      color: #fff;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      background: linear-gradient(45deg, #00ffff, #ff00ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #888;
+      text-transform: uppercase;
+    }
+
+    /* AI Training Panel */
+    .ai-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid #ff00ff;
+      border-radius: 15px;
+      padding: 20px;
+      width: 300px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+    }
+
+    .ai-title {
+      color: #ff00ff;
+      font-size: 18px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .ai-stat {
+      margin: 10px 0;
+      padding: 8px;
+      background: rgba(255, 0, 255, 0.1);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #fff;
+    }
+
+    .ai-progress {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      margin-top: 5px;
+      overflow: hidden;
+    }
+
+    .ai-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ff00ff, #00ffff);
+      transition: width 0.3s;
+    }
+
+    /* Battle Info */
+    .battle-info {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #ffd700;
+      border-radius: 15px;
+      padding: 15px 30px;
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      text-align: center;
+      color: #ffd700;
+    }
+
+    /* Winner */
+    .winner-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      backdrop-filter: blur(10px);
+    }
+
+    .loading {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div class="loading" id="loading">Initialisation du système 3D...</div>
+
+<div class="hud" id="hud" style="display: none;">
+  <div class="hud-content">
+    <div class="stat-item">
+      <div class="stat-value" id="battleNum">1</div>
+      <div class="stat-label">Bataille</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="aliveCount">0</div>
+      <div class="stat-label">Survivants</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="timer">0:00</div>
+      <div class="stat-label">Temps</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value" id="totalShots">0</div>
+      <div class="stat-label">Tirs</div>
+    </div>
+  </div>
+</div>
+
+<div class="ai-panel" id="aiPanel" style="display: none;">
+  <div class="ai-title">🧠 IA NEURONALE ADAPTATIVE</div>
+  <div id="aiStats"></div>
+</div>
+
+<div class="camera-controls">
+  <div class="camera-title">📹 CAMÉRA</div>
+  <button class="camera-btn active" id="cameraOrbit" onclick="setCameraMode('orbit')">Vue Orbitale</button>
+  <button class="camera-btn" id="cameraFollow" onclick="setCameraMode('follow')">Suivre Combat</button>
+  <button class="camera-btn" id="cameraFPV" onclick="setCameraMode('fpv')">Vue Cockpit</button>
+  <button class="camera-btn" id="cameraCinematic" onclick="setCameraMode('cinematic')">Cinématique</button>
+  <button class="camera-btn" id="cameraFree" onclick="setCameraMode('free')">🎮 Libre 3D</button>
+  <div class="target-info" id="targetInfo" style="display: none;">
+    <div>Cible: <span id="targetName">-</span></div>
+    <div>Santé: <span id="targetHealth">-</span></div>
+  </div>
+  <div class="target-info" id="freeControls" style="display: none;">
+    <div style="font-size: 11px; line-height: 1.4;">
+      <strong>Contrôles:</strong><br>
+      ZQSD/WASD - Déplacer<br>
+      Souris - Regarder<br>
+      Shift - Vitesse x2<br>
+      Espace/Ctrl - Haut/Bas
+    </div>
+  </div>
+</div>
+
+<div class="battle-info" id="battleInfo" style="display: none;">
+  ⚔️ Bataille spatiale en cours - Mode IA Avancée Active
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  // Configuration
+  const CONFIG = {
+    SHIPS: 10,
+    ARENA_SIZE: 1500,
+    SHIP_SPEED: 6,
+    LASER_SPEED: 20,
+    SHIP_HP: 100,
+    DAMAGE: 15,
+    AI_LEARNING_RATE: 0.1,
+    NEURAL_LAYERS: [12, 24, 16, 8],
+    BATTLE_TIME: 300,
+    COLLISION_DAMAGE: 10,
+    MISSILE_SPEED: 12,
+    MISSILE_DAMAGE: 30,
+    SHIELD_REGEN_RATE: 0.5,
+    POWERUP_SPAWN_RATE: 0.002
+  };
+
+  // Ship configurations with AI personalities
+  const SHIP_CONFIGS = [
+    { name: 'PHOENIX', color: 0xff0000, emissive: 0xff0000, personality: 'aggressive' },
+    { name: 'NEBULA', color: 0x00ffff, emissive: 0x00ffff, personality: 'defensive' },
+    { name: 'QUANTUM', color: 0xff00ff, emissive: 0xff00ff, personality: 'balanced' },
+    { name: 'STELLAR', color: 0xffd700, emissive: 0xffd700, personality: 'sniper' },
+    { name: 'VORTEX', color: 0x00ff00, emissive: 0x00ff00, personality: 'flanker' },
+    { name: 'COSMIC', color: 0x9400d3, emissive: 0x9400d3, personality: 'hunter' },
+    { name: 'AURORA', color: 0xff69b4, emissive: 0xff69b4, personality: 'tactical' },
+    { name: 'ECLIPSE', color: 0x1e90ff, emissive: 0x1e90ff, personality: 'adaptive' },
+    { name: 'NOVA', color: 0xff8800, emissive: 0xff8800, personality: 'aggressive' },
+    { name: 'PULSAR', color: 0x00ff88, emissive: 0x00ff88, personality: 'balanced' }
+  ];
+
+  // Global variables
+  let scene, camera, renderer;
+  let ships = [];
+  let lasers = [];
+  let missiles = [];
+  let particles = [];
+  let explosions = [];
+  let powerups = [];
+  let asteroids = [];
+  let battleNumber = 0;
+  let timer = CONFIG.BATTLE_TIME;
+  let gameState = 'loading';
+  let stats = { totalShots: 0, collisions: 0 };
+
+  // Camera system
+  let cameraMode = 'orbit';
+  let cameraTarget = null;
+  let cameraOffset = new THREE.Vector3();
+  let cameraShake = 0;
+
+  // Free camera controls
+  let freeCameraPos = new THREE.Vector3(0, 200, 400);
+  let freeCameraTarget = new THREE.Vector3(0, 0, 1);
+  let mouseDown = false;
+  let mouseX = 0, mouseY = 0;
+  let keys = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    up: false,
+    down: false,
+    shift: false,
+    w: false,
+    s: false,
+    a: false,
+    d: false,
+    space: false,
+    ctrl: false
+  };
+
+  // Neural Network for AI
+  class NeuralNetwork {
+    constructor(layers) {
+      this.layers = layers;
+      this.weights = [];
+      this.biases = [];
+
+      // Initialize weights and biases
+      for (let i = 0; i < layers.length - 1; i++) {
+        this.weights.push(this.createMatrix(layers[i + 1], layers[i]));
+        this.biases.push(this.createMatrix(layers[i + 1], 1));
+      }
+    }
+
+    createMatrix(rows, cols) {
+      const matrix = [];
+      for (let i = 0; i < rows; i++) {
+        matrix[i] = [];
+        for (let j = 0; j < cols; j++) {
+          matrix[i][j] = Math.random() * 2 - 1; // Random between -1 and 1
+        }
+      }
+      return matrix;
+    }
+
+    sigmoid(x) {
+      return 1 / (1 + Math.exp(-x));
+    }
+
+    predict(inputs) {
+      let current = inputs;
+
+      for (let i = 0; i < this.weights.length; i++) {
+        const weighted = this.matrixMultiply(this.weights[i], current);
+        const biased = this.matrixAdd(weighted, this.biases[i]);
+        current = biased.map(x => this.sigmoid(x[0]));
+      }
+
+      return current;
+    }
+
+    matrixMultiply(a, b) {
+      const result = [];
+      for (let i = 0; i < a.length; i++) {
+        result[i] = [0];
+        for (let j = 0; j < a[i].length; j++) {
+          result[i][0] += a[i][j] * b[j];
+        }
+      }
+      return result;
+    }
+
+    matrixAdd(a, b) {
+      return a.map((row, i) => [row[0] + b[i][0]]);
+    }
+
+    mutate(rate) {
+      // Mutation for evolution
+      for (let i = 0; i < this.weights.length; i++) {
+        for (let j = 0; j < this.weights[i].length; j++) {
+          for (let k = 0; k < this.weights[i][j].length; k++) {
+            if (Math.random() < rate) {
+              this.weights[i][j][k] += (Math.random() * 2 - 1) * 0.5;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Ship class with advanced AI
+  class Ship {
+    constructor(config, index) {
+      this.config = config;
+      this.name = config.name;
+      this.health = CONFIG.SHIP_HP;
+      this.maxHealth = CONFIG.SHIP_HP;
+      this.shield = 50;
+      this.maxShield = 50;
+      this.alive = true;
+      this.shots = 0;
+      this.hits = 0;
+      this.lastShot = 0;
+      this.lastMissile = 0;
+      this.brain = new NeuralNetwork(CONFIG.NEURAL_LAYERS);
+      this.memory = []; // For learning
+      this.score = 0;
+      this.generation = 1;
+      this.powerupType = null;
+      this.powerupTime = 0;
+
+      // Create 3D ship model
+      this.createModel();
+
+      // Position - fully 3D space distribution
+      const phi = Math.random() * Math.PI; // 0 to PI
+      const theta = Math.random() * Math.PI * 2; // 0 to 2PI
+      const radius = CONFIG.ARENA_SIZE * (0.3 + Math.random() * 0.4);
+
+      this.mesh.position.x = radius * Math.sin(phi) * Math.cos(theta);
+      this.mesh.position.y = radius * Math.cos(phi);
+      this.mesh.position.z = radius * Math.sin(phi) * Math.sin(theta);
+
+      // Random initial rotation
+      this.mesh.rotation.x = Math.random() * Math.PI * 2;
+      this.mesh.rotation.y = Math.random() * Math.PI * 2;
+      this.mesh.rotation.z = Math.random() * Math.PI * 2;
+
+      // Physics
+      this.velocity = new THREE.Vector3();
+      this.angularVelocity = new THREE.Vector3();
+      this.target = null;
+      this.dodgeTarget = null;
+
+      // Combat stats
+      this.combo = 0;
+      this.lastHitTime = 0;
+
+      // AI parameters based on personality
+      this.setupPersonality();
+
+      // Initialize angularVelocity properly
+      if (!this.angularVelocity) {
+        this.angularVelocity = new THREE.Vector3();
+      }
+
+      // Physics
+      this.velocity = new THREE.Vector3();
+      this.angularVelocity = new THREE.Vector3();
+      this.target = null;
+      this.dodgeTarget = null;
+
+      // Combat stats
+      this.combo = 0;
+      this.lastHitTime = 0;
+
+      // AI parameters based on personality
+      this.setupPersonality();
+
+      // Initialize angularVelocity properly
+      if (!this.angularVelocity) {
+        this.angularVelocity = new THREE.Vector3();
+      }
+    }
+
+    createModel() {
+      const group = new THREE.Group();
+
+      // Main body - massive warship design
+      const bodyGeometry = new THREE.ConeGeometry(15, 80, 12);
+      const bodyMaterial = new THREE.MeshPhongMaterial({
+        color: this.config.color,
+        emissive: this.config.emissive,
+        emissiveIntensity: 0.5,
+        specular: 0xffffff,
+        shininess: 100
+      });
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      body.rotation.x = Math.PI / 2;
+      group.add(body);
+
+      // Secondary hull sections
+      const hull1 = new THREE.Mesh(
+              new THREE.CylinderGeometry(12, 15, 40, 8),
+              bodyMaterial
+      );
+      hull1.rotation.x = Math.PI / 2;
+      hull1.position.z = -20;
+      group.add(hull1);
+
+      const hull2 = new THREE.Mesh(
+              new THREE.CylinderGeometry(10, 12, 30, 8),
+              bodyMaterial
+      );
+      hull2.rotation.x = Math.PI / 2;
+      hull2.position.z = -35;
+      group.add(hull2);
+
+      // Massive wings
+      const wingGeometry = new THREE.BoxGeometry(120, 3, 30);
+      const wingMaterial = new THREE.MeshPhongMaterial({
+        color: this.config.color,
+        emissive: this.config.emissive,
+        emissiveIntensity: 0.3
+      });
+      const wings = new THREE.Mesh(wingGeometry, wingMaterial);
+      wings.position.z = -10;
+      group.add(wings);
+
+      // Wing tips with engines
+      for (let side of [-1, 1]) {
+        const wingTip = new THREE.Mesh(
+                new THREE.ConeGeometry(8, 20, 6),
+                wingMaterial
+        );
+        wingTip.rotation.x = Math.PI / 2;
+        wingTip.position.x = side * 55;
+        wingTip.position.z = -10;
+        group.add(wingTip);
+
+        // Wing engines
+        const wingEngine = new THREE.Mesh(
+                new THREE.CylinderGeometry(5, 7, 15, 8),
+                new THREE.MeshPhongMaterial({
+                  color: this.config.emissive,
+                  emissive: this.config.emissive,
+                  emissiveIntensity: 1
+                })
+        );
+        wingEngine.rotation.x = Math.PI / 2;
+        wingEngine.position.x = side * 50;
+        wingEngine.position.z = -25;
+        group.add(wingEngine);
+      }
+
+      // Vertical fins
+      const finGeometry = new THREE.BoxGeometry(3, 40, 20);
+      const fin1 = new THREE.Mesh(finGeometry, wingMaterial);
+      fin1.position.y = 20;
+      fin1.position.z = -20;
+      group.add(fin1);
+
+      const fin2 = new THREE.Mesh(finGeometry, wingMaterial);
+      fin2.position.y = -20;
+      fin2.position.z = -20;
+      group.add(fin2);
+
+      // Main engines cluster
+      const engineGroup = new THREE.Group();
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          const engineGeometry = new THREE.CylinderGeometry(4, 6, 20, 8);
+          const engineMaterial = new THREE.MeshPhongMaterial({
+            color: this.config.emissive,
+            emissive: this.config.emissive,
+            emissiveIntensity: 1.5,
+            transparent: true,
+            opacity: 0.8
+          });
+          const engine = new THREE.Mesh(engineGeometry, engineMaterial);
+          engine.rotation.x = Math.PI / 2;
+          engine.position.x = (i - 1) * 10;
+          engine.position.y = (j - 1) * 10;
+          engine.position.z = -40;
+          engineGroup.add(engine);
+        }
+      }
+      group.add(engineGroup);
+
+      // Bridge/cockpit detail
+      const bridgeGeometry = new THREE.BoxGeometry(15, 8, 20);
+      const bridgeMaterial = new THREE.MeshPhongMaterial({
+        color: 0x333333,
+        emissive: this.config.emissive,
+        emissiveIntensity: 0.2
+      });
+      const bridge = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
+      bridge.position.y = 10;
+      bridge.position.z = 15;
+      group.add(bridge);
+
+      // Weapon turrets
+      for (let pos of [[20, 5, 0], [-20, 5, 0], [0, 5, -15]]) {
+        const turretBase = new THREE.Mesh(
+                new THREE.CylinderGeometry(4, 5, 6, 8),
+                bridgeMaterial
+        );
+        turretBase.position.set(...pos);
+        group.add(turretBase);
+
+        const turretGun = new THREE.Mesh(
+                new THREE.CylinderGeometry(1, 1.5, 10, 6),
+                bridgeMaterial
+        );
+        turretGun.rotation.x = Math.PI / 2;
+        turretGun.position.set(pos[0], pos[1] + 3, pos[2] + 5);
+        group.add(turretGun);
+      }
+
+      // Shield
+      const shieldGeometry = new THREE.SphereGeometry(80, 32, 32);
+      const shieldMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0,
+        wireframe: true
+      });
+      this.shield = new THREE.Mesh(shieldGeometry, shieldMaterial);
+      group.add(this.shield);
+
+      // Lights on the ship
+      const shipLight1 = new THREE.PointLight(this.config.color, 0.5, 100);
+      shipLight1.position.set(0, 0, 30);
+      group.add(shipLight1);
+
+      const shipLight2 = new THREE.PointLight(this.config.emissive, 0.8, 150);
+      shipLight2.position.set(0, 0, -40);
+      group.add(shipLight2);
+
+      this.mesh = group;
+      this.size = 60; // Massive collision radius
+      this.shieldMesh = this.shield; // Reference for shield updates
+      scene.add(this.mesh);
+    }
+
+    setupPersonality() {
+      switch(this.config.personality) {
+        case 'aggressive':
+          this.aggressiveness = 0.9;
+          this.caution = 0.3;
+          this.accuracy = 0.7;
+          break;
+
+        case 'free':
+          // Free camera movement
+          const moveSpeed = (keys.shift ? 10 : 5);
+
+          // Get camera direction vectors
+          const forward = new THREE.Vector3();
+          const right = new THREE.Vector3();
+          const up = new THREE.Vector3(0, 1, 0);
+
+          camera.getWorldDirection(forward);
+          right.crossVectors(forward, up).normalize();
+
+          // Movement
+          if (keys.forward || keys.w) {
+            const moveForward = forward.clone();
+            freeCameraPos.add(moveForward.multiplyScalar(moveSpeed));
+          }
+          if (keys.backward || keys.s) {
+            const moveBackward = forward.clone();
+            freeCameraPos.add(moveBackward.multiplyScalar(-moveSpeed));
+          }
+          if (keys.left || keys.a) {
+            const moveLeft = right.clone();
+            freeCameraPos.add(moveLeft.multiplyScalar(-moveSpeed));
+          }
+          if (keys.right || keys.d) {
+            const moveRight = right.clone();
+            freeCameraPos.add(moveRight.multiplyScalar(moveSpeed));
+          }
+          if (keys.up || keys.space) {
+            freeCameraPos.y += moveSpeed;
+          }
+          if (keys.down || keys.ctrl) {
+            freeCameraPos.y -= moveSpeed;
+          }
+
+          // Apply position
+          camera.position.copy(freeCameraPos);
+
+          // Look at target (controlled by mouse)
+          const lookAt = freeCameraPos.clone().add(freeCameraTarget);
+          camera.lookAt(lookAt);
+
+          break;
+        case 'defensive':
+          this.aggressiveness = 0.3;
+          this.caution = 0.9;
+          this.accuracy = 0.6;
+          break;
+        case 'sniper':
+          this.aggressiveness = 0.5;
+          this.caution = 0.6;
+          this.accuracy = 0.95;
+          break;
+        case 'flanker':
+          this.aggressiveness = 0.7;
+          this.caution = 0.5;
+          this.accuracy = 0.6;
+          break;
+        default:
+          this.aggressiveness = 0.6;
+          this.caution = 0.6;
+          this.accuracy = 0.7;
+      }
+    }
+
+    update() {
+      if (!this.alive) return;
+
+      // Regenerate shields
+      if (this.shield < this.maxShield) {
+        this.shield = Math.min(this.maxShield, this.shield + CONFIG.SHIELD_REGEN_RATE);
+      }
+
+      // Update powerup
+      if (this.powerupType && Date.now() - this.powerupTime > 10000) {
+        this.powerupType = null;
+      }
+
+      // Get sensor data for neural network
+      const inputs = this.getSensorData();
+
+      // Neural network decision
+      const outputs = this.brain.predict(inputs);
+
+      // Interpret outputs
+      const moveX = (outputs[0] - 0.5) * 2;
+      const moveY = (outputs[1] - 0.5) * 2;
+      const moveZ = (outputs[2] - 0.5) * 2;
+      const shouldShoot = outputs[3] > 0.7;
+      const shouldMissile = outputs[4] > 0.85;
+      const shouldDodge = outputs[5] > 0.6;
+      const targetIndex = Math.floor(outputs[6] * ships.length);
+
+      // Advanced 3D movement
+      if (shouldDodge && this.dodgeTarget) {
+        // Full 3D evasive maneuvers
+        const dodgeDir = new THREE.Vector3();
+        dodgeDir.subVectors(this.mesh.position, this.dodgeTarget);
+        dodgeDir.normalize();
+
+        // Add perpendicular dodge movement
+        const perpendicular = new THREE.Vector3();
+        perpendicular.crossVectors(dodgeDir, new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5));
+        perpendicular.normalize();
+
+        this.velocity.add(dodgeDir.multiplyScalar(0.8));
+        this.velocity.add(perpendicular.multiplyScalar(1.2));
+
+        // 3D barrel roll
+        this.angularVelocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.2,
+                (Math.random() - 0.5) * 0.2,
+                (Math.random() - 0.5) * 0.2
+        );
+      } else {
+        // Normal 3D movement
+        const moveVector = new THREE.Vector3(moveX, moveY, moveZ);
+        moveVector.normalize();
+        moveVector.multiplyScalar(0.5 * (this.powerupType === 'speed' ? 1.5 : 1));
+        this.velocity.add(moveVector);
+      }
+
+      // Apply 3D rotation
+      if (this.angularVelocity && this.angularVelocity.length() > 0.01) {
+        this.mesh.rotation.x += this.angularVelocity.x;
+        this.mesh.rotation.y += this.angularVelocity.y;
+        this.mesh.rotation.z += this.angularVelocity.z;
+        this.angularVelocity.multiplyScalar(0.9);
+      }
+
+      // Limit velocity
+      const maxSpeed = CONFIG.SHIP_SPEED * (1 + this.aggressiveness * 0.5);
+      if (this.velocity.length() > maxSpeed) {
+        this.velocity.normalize().multiplyScalar(maxSpeed);
+      }
+
+      // Apply velocity with damping
+      this.mesh.position.add(this.velocity);
+      this.velocity.multiplyScalar(0.98);
+
+      // Check ship collisions
+      this.checkShipCollisions();
+
+      // Spherical boundary check
+      const distanceFromCenter = this.mesh.position.length();
+      if (distanceFromCenter > CONFIG.ARENA_SIZE) {
+        // Push back towards center
+        const pushBack = this.mesh.position.clone();
+        pushBack.normalize();
+        pushBack.multiplyScalar(CONFIG.ARENA_SIZE);
+        this.mesh.position.copy(pushBack);
+
+        // Reflect velocity
+        const normal = this.mesh.position.clone().normalize();
+        const dot = this.velocity.dot(normal);
+        this.velocity.sub(normal.multiplyScalar(2 * dot));
+        this.velocity.multiplyScalar(0.8);
+
+        this.takeDamage(5);
+        createSparks(this.mesh.position, this.config.color);
+      }
+
+      // Targeting
+      const potentialTargets = ships.filter(s => s !== this && s.alive);
+      if (potentialTargets.length > 0 && targetIndex < potentialTargets.length) {
+        this.target = potentialTargets[targetIndex];
+      }
+
+      // Look at target with full 3D orientation
+      if (this.target) {
+        const direction = new THREE.Vector3();
+        direction.subVectors(this.target.mesh.position, this.mesh.position);
+        direction.normalize();
+
+        // Create rotation matrix to look at target
+        const targetQuaternion = new THREE.Quaternion();
+        const rotationMatrix = new THREE.Matrix4();
+
+        // Calculate up vector based on current position (space orientation)
+        const up = this.mesh.position.clone().normalize();
+        rotationMatrix.lookAt(this.mesh.position, this.target.mesh.position, up);
+        targetQuaternion.setFromRotationMatrix(rotationMatrix);
+
+        // Smooth rotation
+        this.mesh.quaternion.slerp(targetQuaternion, 0.1);
+
+        // Combat decisions
+        const distance = this.mesh.position.distanceTo(this.target.mesh.position);
+
+        // Laser shooting
+        if (shouldShoot && Date.now() - this.lastShot > 300) {
+          this.shoot();
+        }
+
+        // Missile shooting
+        if (shouldMissile && Date.now() - this.lastMissile > 2000 && distance < 300) {
+          this.shootMissile();
+        }
+      }
+
+      // Engine effects
+      this.updateEngineEffects();
+
+      // Update shields visual
+      this.shieldMesh.material.opacity = this.shield > 0 ? this.shield / this.maxShield * 0.2 : 0;
+
+      // Update AI stats display
+      this.updateAIDisplay();
+    }
+
+    checkShipCollisions() {
+      ships.forEach(other => {
+        if (other !== this && other.alive) {
+          const distance = this.mesh.position.distanceTo(other.mesh.position);
+          const collisionDistance = this.size + other.size;
+
+          if (distance < collisionDistance) {
+            // Collision detected!
+            stats.collisions++;
+
+            // Calculate collision response
+            const normal = new THREE.Vector3();
+            normal.subVectors(this.mesh.position, other.mesh.position);
+            normal.normalize();
+
+            // Separate ships
+            const overlap = collisionDistance - distance;
+            this.mesh.position.add(normal.clone().multiplyScalar(overlap * 0.5));
+            other.mesh.position.add(normal.clone().multiplyScalar(-overlap * 0.5));
+
+            // Apply collision forces
+            const relativeVelocity = new THREE.Vector3();
+            relativeVelocity.subVectors(this.velocity, other.velocity);
+            const speed = relativeVelocity.dot(normal);
+
+            if (speed < 0) return; // Moving away
+
+            // Elastic collision
+            const impulse = 2 * speed / 2; // Equal mass assumed
+            this.velocity.sub(normal.clone().multiplyScalar(impulse));
+            other.velocity.add(normal.clone().multiplyScalar(impulse));
+
+            // Damage from collision
+            const collisionDamage = Math.abs(speed) * CONFIG.COLLISION_DAMAGE;
+            this.takeDamage(collisionDamage);
+            other.takeDamage(collisionDamage);
+
+            // Collision effects
+            const collisionPoint = new THREE.Vector3();
+            collisionPoint.lerpVectors(this.mesh.position, other.mesh.position, 0.5);
+            createCollisionEffect(collisionPoint, this.config.color, other.config.color);
+
+            // Check if other ship has angularVelocity initialized
+            if (!other.angularVelocity) {
+              other.angularVelocity = new THREE.Vector3();
+            }
+
+            // Add spin
+            this.angularVelocity.x += (Math.random() - 0.5) * 0.3;
+            this.angularVelocity.y += (Math.random() - 0.5) * 0.3;
+            this.angularVelocity.z += (Math.random() - 0.5) * 0.3;
+            other.angularVelocity.x += (Math.random() - 0.5) * 0.3;
+            other.angularVelocity.y += (Math.random() - 0.5) * 0.3;
+            other.angularVelocity.z += (Math.random() - 0.5) * 0.3;
+          }
+        }
+      });
+    }
+
+    updateEngineEffects() {
+      // Update engine effects
+      const engineGroup = this.mesh.children.find(child => child.children && child.children.length === 9);
+      if (engineGroup) {
+        const speed = this.velocity.length();
+        const engineScale = 1 + speed * 0.1 + Math.sin(Date.now() * 0.01) * 0.2;
+        engineGroup.children.forEach(engine => {
+          if (engine.scale) {
+            engine.scale.z = engineScale;
+          }
+        });
+      }
+
+      // Thruster particles
+      const speed = this.velocity.length();
+      if (speed > 1 && Math.random() < 0.3) {
+        const pos = this.mesh.position.clone();
+        const backward = new THREE.Vector3(0, 0, -1);
+        backward.applyQuaternion(this.mesh.quaternion);
+        pos.add(backward.multiplyScalar(40)); // Adjusted for larger ships
+
+        createThrusterParticle(pos, backward.multiplyScalar(-2), this.config.color);
+      }
+    }
+
+    getSensorData() {
+      const inputs = [];
+
+      // Own position (normalized)
+      inputs.push(this.mesh.position.x / CONFIG.ARENA_SIZE);
+      inputs.push(this.mesh.position.y / CONFIG.ARENA_SIZE);
+      inputs.push(this.mesh.position.z / CONFIG.ARENA_SIZE);
+
+      // Own health and shield
+      inputs.push(this.health / this.maxHealth);
+      inputs.push(this.shield / this.maxShield);
+
+      // Velocity
+      inputs.push(this.velocity.x / CONFIG.SHIP_SPEED);
+      inputs.push(this.velocity.y / CONFIG.SHIP_SPEED);
+      inputs.push(this.velocity.z / CONFIG.SHIP_SPEED);
+
+      // Nearest enemy data
+      let nearestEnemy = null;
+      let minDist = Infinity;
+
+      ships.forEach(ship => {
+        if (ship !== this && ship.alive) {
+          const dist = this.mesh.position.distanceTo(ship.mesh.position);
+          if (dist < minDist) {
+            minDist = dist;
+            nearestEnemy = ship;
+          }
+        }
+      });
+
+      if (nearestEnemy) {
+        const relativePos = new THREE.Vector3();
+        relativePos.subVectors(nearestEnemy.mesh.position, this.mesh.position);
+        inputs.push(relativePos.x / CONFIG.ARENA_SIZE);
+        inputs.push(relativePos.y / CONFIG.ARENA_SIZE);
+        inputs.push(relativePos.z / CONFIG.ARENA_SIZE);
+        inputs.push(minDist / CONFIG.ARENA_SIZE);
+      } else {
+        inputs.push(0, 0, 0, 1);
+      }
+
+      return inputs;
+    }
+
+    shoot() {
+      if (!this.target || !this.alive) return;
+
+      this.lastShot = Date.now();
+      this.shots++;
+      stats.totalShots++;
+
+      // Multiple shots with powerup
+      const shotCount = this.powerupType === 'multishot' ? 3 : 1;
+
+      for (let i = 0; i < shotCount; i++) {
+        // Calculate lead prediction
+        const distance = this.mesh.position.distanceTo(this.target.mesh.position);
+        const timeToTarget = distance / CONFIG.LASER_SPEED;
+        const predictedPos = new THREE.Vector3();
+        predictedPos.copy(this.target.mesh.position);
+        predictedPos.add(this.target.velocity.clone().multiplyScalar(timeToTarget));
+
+        // Add accuracy variance
+        const spread = (1 - this.accuracy) * 0.1;
+        predictedPos.x += (Math.random() - 0.5) * spread * distance;
+        predictedPos.y += (Math.random() - 0.5) * spread * distance;
+        predictedPos.z += (Math.random() - 0.5) * spread * distance;
+
+        // Shot spread for multishot
+        if (shotCount > 1) {
+          const spreadAngle = (i - 1) * 0.1;
+          predictedPos.x += Math.cos(spreadAngle) * 10;
+          predictedPos.z += Math.sin(spreadAngle) * 10;
+        }
+
+        // Create laser
+        const direction = new THREE.Vector3();
+        direction.subVectors(predictedPos, this.mesh.position);
+        direction.normalize();
+
+        const laser = new Laser(this.mesh.position, direction, this.config.color, this);
+        lasers.push(laser);
+      }
+
+      // Muzzle flash
+      createMuzzleFlash(this.mesh.position, this.config.color);
+    }
+
+    shootMissile() {
+      if (!this.target || !this.alive || !missiles) return;
+
+      this.lastMissile = Date.now();
+
+      const missile = new Missile(this.mesh.position, this.target, this.config.color, this);
+      missiles.push(missile);
+
+      // Launch effect
+      createMissileTrail(this.mesh.position, this.config.color);
+    }
+
+    takeDamage(amount) {
+      // Shield absorbs damage first
+      if (this.shield > 0) {
+        const shieldDamage = Math.min(this.shield, amount);
+        this.shield -= shieldDamage;
+        amount -= shieldDamage;
+
+        // Shield effect
+        this.shieldMesh.material.opacity = 0.8;
+        this.shieldMesh.material.color.setHex(0xff0000);
+        setTimeout(() => {
+          this.shieldMesh.material.color.setHex(0x00ffff);
+        }, 100);
+      }
+
+      // Apply remaining damage to health
+      if (amount > 0) {
+        this.health -= amount;
+
+        // Damage feedback
+        createDamageNumber(this.mesh.position, Math.round(amount), this.config.color);
+      }
+
+      // Camera shake on hit
+      if (this === cameraTarget && (cameraMode === 'follow' || cameraMode === 'fpv')) {
+        cameraShake = 5;
+      }
+
+      if (this.health <= 0) {
+        this.alive = false;
+        this.destroy();
+      }
+    }
+
+    destroy() {
+      createExplosion(this.mesh.position, this.config.color);
+      if (this.mesh && this.mesh.parent) {
+        scene.remove(this.mesh);
+      }
+
+      // Find new camera target immediately if this was it
+      if (this === cameraTarget && (cameraMode === 'follow' || cameraMode === 'fpv')) {
+        cameraTarget = null;
+        findBestCameraTarget();
+      }
+
+      // Big camera shake for explosions
+      if (camera && camera.position && this.mesh && this.mesh.position) {
+        const distance = camera.position.distanceTo(this.mesh.position);
+        if (distance < 200) {
+          cameraShake = Math.max(10, 30 - distance / 10);
+        }
+      }
+    }
+
+    updateAIDisplay() {
+      // Update score based on performance
+      this.score = this.hits * 100 + this.shots * 10 - (this.maxHealth - this.health);
+    }
+  }
+
+  // Missile class
+  class Missile {
+    constructor(position, target, color, owner) {
+      this.owner = owner;
+      this.target = target;
+      this.position = position.clone();
+      this.velocity = new THREE.Vector3();
+      this.speed = CONFIG.MISSILE_SPEED;
+      this.color = color;
+      this.lifeTime = 5000;
+      this.birthTime = Date.now();
+
+      // Create missile mesh
+      const geometry = new THREE.ConeGeometry(2, 15, 8);
+      const material = new THREE.MeshPhongMaterial({
+        color: color,
+        emissive: color,
+        emissiveIntensity: 0.5
+      });
+      this.mesh = new THREE.Mesh(geometry, material);
+      this.mesh.position.copy(position);
+      scene.add(this.mesh);
+
+      // Trail effect
+      this.trail = [];
+    }
+
+    update() {
+      // Check lifetime
+      if (Date.now() - this.birthTime > this.lifeTime) {
+        this.destroy();
+        return false;
+      }
+
+      // Homing behavior
+      if (this.target && this.target.alive && this.target.mesh) {
+        const direction = new THREE.Vector3();
+        direction.subVectors(this.target.mesh.position, this.mesh.position);
+        direction.normalize();
+
+        // Add acceleration towards target
+        this.velocity.add(direction.multiplyScalar(0.5));
+
+        // Limit speed
+        if (this.velocity.length() > this.speed) {
+          this.velocity.normalize().multiplyScalar(this.speed);
+        }
+      }
+
+      // Update position
+      this.mesh.position.add(this.velocity);
+
+      // Orient missile
+      if (this.velocity.length() > 0) {
+        this.mesh.lookAt(this.mesh.position.clone().add(this.velocity));
+      }
+
+      // Trail
+      createMissileTrail(this.mesh.position, this.color);
+
+      // Check collisions
+      for (let ship of ships) {
+        if (ship !== this.owner && ship.alive && ship.mesh) {
+          const distance = this.mesh.position.distanceTo(ship.mesh.position);
+          if (distance < ship.size) {
+            ship.takeDamage(CONFIG.MISSILE_DAMAGE);
+            if (this.owner) this.owner.hits++;
+            createExplosion(this.mesh.position, this.color);
+            this.destroy();
+            return false;
+          }
+        }
+      }
+
+      // Boundary check
+      if (this.mesh.position.length() > CONFIG.ARENA_SIZE * 1.5) {
+        this.destroy();
+        return false;
+      }
+
+      return true;
+    }
+
+    destroy() {
+      if (this.mesh && this.mesh.parent) {
+        scene.remove(this.mesh);
+      }
+    }
+  }
+
+  // Enhanced effects
+  function createCollisionEffect(position, color1, color2) {
+    // Shockwave
+    const geometry = new THREE.RingGeometry(1, 5, 32);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 1,
+      side: THREE.DoubleSide
+    });
+    const shockwave = new THREE.Mesh(geometry, material);
+    shockwave.position.copy(position);
+    shockwave.lookAt(camera.position);
+    scene.add(shockwave);
+
+    // Animate shockwave
+    const animateShockwave = () => {
+      shockwave.scale.multiplyScalar(1.2);
+      shockwave.material.opacity *= 0.9;
+
+      if (shockwave.material.opacity > 0.01) {
+        requestAnimationFrame(animateShockwave);
+      } else {
+        scene.remove(shockwave);
+      }
+    };
+    animateShockwave();
+
+    // Sparks
+    for (let i = 0; i < 20; i++) {
+      const spark = new THREE.Vector3(
+              (Math.random() - 0.5) * 10,
+              (Math.random() - 0.5) * 10,
+              (Math.random() - 0.5) * 10
+      );
+      createSpark(position, spark, Math.random() > 0.5 ? color1 : color2);
+    }
+  }
+
+  function createSpark(position, velocity, color) {
+    const geometry = new THREE.BoxGeometry(0.5, 0.5, 2);
+    const material = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 1
+    });
+    const spark = new THREE.Mesh(geometry, material);
+    spark.position.copy(position);
+    scene.add(spark);
+
+    const vel = velocity.clone();
+    const animateSpark = () => {
+      spark.position.add(vel);
+      vel.multiplyScalar(0.95);
+      spark.material.opacity *= 0.95;
+      spark.rotation.x += 0.3;
+      spark.rotation.y += 0.2;
+
+      if (spark.material.opacity > 0.01) {
+        requestAnimationFrame(animateSpark);
+      } else {
+        scene.remove(spark);
+      }
+    };
+    animateSpark();
+  }
+
+  function createDamageNumber(position, damage, color) {
+    // This would require text rendering in 3D, simplified for now
+    const size = Math.min(damage / 10, 5);
+    const geometry = new THREE.SphereGeometry(size, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: 1
+    });
+    const sphere = new THREE.Mesh(geometry, material);
+    sphere.position.copy(position);
+    sphere.position.y += 10;
+    scene.add(sphere);
+
+    const vel = new THREE.Vector3(0, 2, 0);
+    const animateDamage = () => {
+      sphere.position.add(vel);
+      vel.y *= 0.9;
+      sphere.material.opacity *= 0.95;
+
+      if (sphere.material.opacity > 0.01) {
+        requestAnimationFrame(animateDamage);
+      } else {
+        scene.remove(sphere);
+      }
+    };
+    animateDamage();
+  }
+
+  function createThrusterParticle(position, velocity, color) {
+    const geometry = new THREE.SphereGeometry(0.5, 4, 4);
+    const material = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.8
+    });
+    const particle = new THREE.Mesh(geometry, material);
+    particle.position.copy(position);
+    scene.add(particle);
+
+    const vel = velocity.clone();
+    const animateParticle = () => {
+      particle.position.add(vel);
+      particle.scale.multiplyScalar(0.95);
+      particle.material.opacity *= 0.95;
+
+      if (particle.material.opacity > 0.01) {
+        requestAnimationFrame(animateParticle);
+      } else {
+        scene.remove(particle);
+      }
+    };
+    animateParticle();
+  }
+
+  function createMissileTrail(position, color) {
+    for (let i = 0; i < 3; i++) {
+      const offset = new THREE.Vector3(
+              (Math.random() - 0.5) * 2,
+              (Math.random() - 0.5) * 2,
+              (Math.random() - 0.5) * 2
+      );
+      const pos = position.clone().add(offset);
+
+      const geometry = new THREE.SphereGeometry(1, 4, 4);
+      const material = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.6
+      });
+      const trail = new THREE.Mesh(geometry, material);
+      trail.position.copy(pos);
+      scene.add(trail);
+
+      const animateTrail = () => {
+        trail.scale.multiplyScalar(0.9);
+        trail.material.opacity *= 0.9;
+
+        if (trail.material.opacity > 0.01) {
+          requestAnimationFrame(animateTrail);
+        } else {
+          scene.remove(trail);
+        }
+      };
+      animateTrail();
+    }
+  }
+  class Laser {
+    constructor(position, direction, color, owner) {
+      this.owner = owner;
+      this.velocity = direction.multiplyScalar(CONFIG.LASER_SPEED);
+
+      // Create laser
+      const geometry = new THREE.CylinderGeometry(1, 1, 30);
+      const material = new THREE.MeshBasicMaterial({
+        color: color,
+        emissive: color,
+        transparent: true,
+        opacity: 0.8
+      });
+      this.mesh = new THREE.Mesh(geometry, material);
+      this.mesh.position.copy(position);
+
+      // Orient laser
+      const quaternion = new THREE.Quaternion();
+      quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      this.mesh.quaternion.copy(quaternion);
+
+      scene.add(this.mesh);
+
+      // Glow effect
+      const glowGeometry = new THREE.SphereGeometry(3);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.6
+      });
+      this.glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      this.glow.position.copy(position);
+      scene.add(this.glow);
+    }
+
+    update() {
+      this.mesh.position.add(this.velocity);
+      this.glow.position.copy(this.mesh.position);
+
+      // Check boundaries
+      if (this.mesh.position.length() > CONFIG.ARENA_SIZE * 1.5) {
+        this.destroy();
+        return false;
+      }
+
+      // Check collisions
+      for (let ship of ships) {
+        if (ship !== this.owner && ship.alive) {
+          const distance = this.mesh.position.distanceTo(ship.mesh.position);
+          if (distance < 10) {
+            ship.takeDamage(CONFIG.DAMAGE);
+            this.owner.hits++;
+            createImpact(this.mesh.position, this.owner.config.color);
+            this.destroy();
+            return false;
+          }
+        }
+      }
+
+      return true;
+    }
+
+    destroy() {
+      scene.remove(this.mesh);
+      scene.remove(this.glow);
+    }
+  }
+
+  // Camera control functions
+  window.setCameraMode = function(mode) {
+    cameraMode = mode;
+
+    // Update UI
+    ['orbit', 'follow', 'fpv', 'cinematic', 'free'].forEach(m => {
+      const btn = document.getElementById('camera' + m.charAt(0).toUpperCase() + m.slice(1));
+      if (btn) btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById('camera' + mode.charAt(0).toUpperCase() + mode.slice(1));
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Show/hide info panels
+    const targetInfo = document.getElementById('targetInfo');
+    const freeControls = document.getElementById('freeControls');
+    if (targetInfo) {
+      targetInfo.style.display = (mode === 'follow' || mode === 'fpv') ? 'block' : 'none';
+    }
+    if (freeControls) {
+      freeControls.style.display = mode === 'free' ? 'block' : 'none';
+    }
+
+    // Reset camera offset for smooth transition
+    cameraOffset = new THREE.Vector3();
+
+    // Find initial target for follow modes
+    if ((mode === 'follow' || mode === 'fpv')) {
+      cameraTarget = null; // Force new target selection
+      findBestCameraTarget();
+    }
+
+    // Initialize free camera position
+    if (mode === 'free' && camera) {
+      freeCameraPos.copy(camera.position);
+      freeCameraTarget.set(0, 0, 1);
+    }
+  }
+
+  function findBestCameraTarget() {
+    const aliveShips = ships.filter(s => s && s.alive && s.mesh);
+    if (aliveShips.length === 0) {
+      cameraTarget = null;
+      return;
+    }
+
+    // Prioritize ships in combat
+    let bestShip = null;
+    let bestScore = -1;
+
+    // Remove debug log
+    aliveShips.forEach(ship => {
+      let score = 0;
+
+      // Check if ship is actively shooting
+      if (ship.lastShot && Date.now() - ship.lastShot < 2000) {
+        score += 50;
+      }
+
+      // Check if ship has a target nearby
+      if (ship.target && ship.target.alive && ship.target.mesh) {
+        const distance = ship.mesh.position.distanceTo(ship.target.mesh.position);
+        if (distance < 500) { // Increased range for larger ships
+          score += 100 - (distance / 5); // Closer combat = higher score
+        }
+      }
+
+      // Check health (prefer ships in danger)
+      if (ship.health < ship.maxHealth * 0.5) {
+        score += 30;
+      }
+
+      // Add activity score
+      score += ship.shots * 2 + ship.hits * 5;
+
+      // Random factor to switch between combats
+      score += Math.random() * 20;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestShip = ship;
+      }
+    });
+
+    if (bestShip) {
+      cameraTarget = bestShip;
+      updateTargetInfo();
+    } else {
+      // No combat found, pick random alive ship
+      cameraTarget = aliveShips[Math.floor(Math.random() * aliveShips.length)];
+      updateTargetInfo();
+    }
+  }
+
+  function updateTargetInfo() {
+    if (cameraTarget && cameraTarget.mesh) {
+      const nameEl = document.getElementById('targetName');
+      const healthEl = document.getElementById('targetHealth');
+      if (nameEl) {
+        nameEl.textContent = cameraTarget.name;
+        nameEl.style.color = `#${cameraTarget.config.color.toString(16).padStart(6, '0')}`;
+      }
+      if (healthEl) {
+        const healthPercent = Math.round((cameraTarget.health / cameraTarget.maxHealth) * 100);
+        healthEl.textContent = `${Math.round(cameraTarget.health)}/${cameraTarget.maxHealth} (${healthPercent}%)`;
+
+        // Color based on health
+        if (healthPercent > 60) {
+          healthEl.style.color = '#4CAF50';
+        } else if (healthPercent > 30) {
+          healthEl.style.color = '#FF9800';
+        } else {
+          healthEl.style.color = '#F44336';
+        }
+      }
+    }
+  }
+
+  function updateCamera() {
+    if (!camera) return;
+
+    const time = Date.now() * 0.0001;
+
+    switch(cameraMode) {
+      case 'orbit':
+        // Rotating overview
+        camera.position.x = Math.cos(time) * 400;
+        camera.position.z = Math.sin(time) * 400;
+        camera.position.y = 200 + Math.sin(time * 2) * 50;
+        camera.lookAt(0, 0, 0);
+        break;
+
+      case 'follow':
+        // Third person follow
+        if (!cameraTarget || !cameraTarget.alive) {
+          findBestCameraTarget();
+        }
+
+        if (cameraTarget && cameraTarget.mesh) {
+          const distance = 100;
+          const height = 50;
+
+          // Smooth follow
+          const targetPos = cameraTarget.mesh.position.clone();
+          const direction = new THREE.Vector3(0, 0, 1);
+          direction.applyQuaternion(cameraTarget.mesh.quaternion);
+
+          const idealOffset = direction.multiplyScalar(-distance);
+          idealOffset.y = height;
+
+          cameraOffset.lerp(idealOffset, 0.1);
+
+          camera.position.copy(targetPos).add(cameraOffset);
+          camera.lookAt(targetPos);
+
+          updateTargetInfo();
+        }
+        break;
+
+      case 'fpv':
+        // First person view from cockpit
+        if (!cameraTarget || !cameraTarget.alive) {
+          findBestCameraTarget();
+        }
+
+        if (cameraTarget && cameraTarget.mesh) {
+          const cockpitOffset = new THREE.Vector3(0, 5, 10);
+          cockpitOffset.applyQuaternion(cameraTarget.mesh.quaternion);
+
+          camera.position.copy(cameraTarget.mesh.position).add(cockpitOffset);
+
+          // Look forward
+          const lookTarget = cameraTarget.mesh.position.clone();
+          const forward = new THREE.Vector3(0, 0, 100);
+          forward.applyQuaternion(cameraTarget.mesh.quaternion);
+          lookTarget.add(forward);
+
+          camera.lookAt(lookTarget);
+
+          updateTargetInfo();
+        }
+        break;
+
+      case 'cinematic':
+        // Dynamic cinematic shots
+        const cinematicTime = Date.now() * 0.0003;
+        const shotDuration = 5000; // 5 seconds per shot
+        const currentShot = Math.floor(Date.now() / shotDuration) % 4;
+
+        switch(currentShot) {
+          case 0:
+            // Sweeping low angle
+            camera.position.x = Math.cos(cinematicTime) * 300;
+            camera.position.y = 30;
+            camera.position.z = Math.sin(cinematicTime) * 300;
+            camera.lookAt(0, 50, 0);
+            break;
+
+          case 1:
+            // Top down spiral
+            camera.position.x = Math.cos(cinematicTime * 2) * 200;
+            camera.position.y = 400;
+            camera.position.z = Math.sin(cinematicTime * 2) * 200;
+            camera.lookAt(0, 0, 0);
+            break;
+
+          case 2:
+            // Close flyby
+            if (!cameraTarget || !cameraTarget.alive) {
+              findBestCameraTarget();
+            }
+            if (cameraTarget && cameraTarget.mesh) {
+              const flybyOffset = new THREE.Vector3(
+                      Math.cos(cinematicTime * 3) * 50,
+                      20,
+                      Math.sin(cinematicTime * 3) * 50
+              );
+              camera.position.copy(cameraTarget.mesh.position).add(flybyOffset);
+              camera.lookAt(cameraTarget.mesh.position);
+            }
+            break;
+
+          case 3:
+            // Wide establishing shot
+            camera.position.set(500, 300, 500);
+            camera.lookAt(0, 0, 0);
+            break;
+        }
+        break;
+    }
+
+    // Apply camera shake
+    if (cameraShake > 0) {
+      camera.position.x += (Math.random() - 0.5) * cameraShake;
+      camera.position.y += (Math.random() - 0.5) * cameraShake;
+      camera.position.z += (Math.random() - 0.5) * cameraShake;
+      cameraShake *= 0.9;
+    }
+  }
+
+  // Initialize Three.js
+  function init() {
+    // Scene
+    scene = new THREE.Scene();
+
+    // Camera
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+    camera.position.set(0, 400, 800);
+    camera.lookAt(0, 0, 0);
+
+    // Renderer
+    renderer = new THREE.WebGLRenderer({
+      canvas: document.getElementById('canvas'),
+      antialias: true
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0x222244, 0.5);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(500, 800, 300);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.camera.left = -800;
+    directionalLight.shadow.camera.right = 800;
+    directionalLight.shadow.camera.top = 800;
+    directionalLight.shadow.camera.bottom = -800;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 2000;
+    scene.add(directionalLight);
+
+    // Colored space lights
+    const colors = [0xff0066, 0x00ff66, 0x6600ff, 0xffaa00, 0x00aaff];
+    colors.forEach((color, i) => {
+      const light = new THREE.PointLight(color, 0.4, 500);
+      const angle = (Math.PI * 2 * i) / colors.length;
+      const radius = 400;
+      light.position.set(
+              Math.cos(angle) * radius,
+              Math.sin(angle * 2) * 200,
+              Math.sin(angle) * radius
+      );
+      scene.add(light);
+    });
+
+    // Space environment
+    createSpaceEnvironment();
+
+    // Show UI
+    document.getElementById('hud').style.display = 'block';
+    document.getElementById('aiPanel').style.display = 'block';
+
+    // Start
+    startBattle();
+    animate();
+  }
+
+  // Create space environment
+  function createSpaceEnvironment() {
+    // Deep space background
+    scene.background = new THREE.Color(0x000814);
+
+    // Nebula clouds
+    const nebulaGroup = new THREE.Group();
+
+    // Create multiple nebula layers
+    for (let i = 0; i < 5; i++) {
+      const nebulaGeometry = new THREE.SphereGeometry(1000 + i * 200, 32, 32);
+      const nebulaMaterial = new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setHSL(0.6 + i * 0.1, 0.8, 0.3),
+        transparent: true,
+        opacity: 0.1 - i * 0.015,
+        side: THREE.BackSide
+      });
+      const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
+      nebula.rotation.x = Math.random() * Math.PI;
+      nebula.rotation.y = Math.random() * Math.PI;
+      nebulaGroup.add(nebula);
+    }
+    scene.add(nebulaGroup);
+
+    // Animate nebula
+    const animateNebula = () => {
+      nebulaGroup.rotation.y += 0.0001;
+      nebulaGroup.rotation.x += 0.00005;
+      requestAnimationFrame(animateNebula);
+    };
+    animateNebula();
+
+    // Enhanced starfield
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 10000;
+    const positions = new Float32Array(starCount * 3);
+    const colors = new Float32Array(starCount * 3);
+    const sizes = new Float32Array(starCount);
+
+    for (let i = 0; i < starCount; i++) {
+      const i3 = i * 3;
+
+      // Distribute stars in a sphere
+      const radius = 500 + Math.random() * 2000;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+
+      positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i3 + 1] = radius * Math.cos(phi);
+      positions[i3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
+
+      // Star colors (white, blue, orange, red)
+      const starType = Math.random();
+      if (starType < 0.7) {
+        colors[i3] = colors[i3 + 1] = colors[i3 + 2] = 1; // White
+      } else if (starType < 0.85) {
+        colors[i3] = 0.7; colors[i3 + 1] = 0.8; colors[i3 + 2] = 1; // Blue
+      } else if (starType < 0.95) {
+        colors[i3] = 1; colors[i3 + 1] = 0.9; colors[i3 + 2] = 0.7; // Orange
+      } else {
+        colors[i3] = 1; colors[i3 + 1] = 0.6; colors[i3 + 2] = 0.6; // Red
+      }
+
+      sizes[i] = Math.random() * 3 + 1;
+    }
+
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+    const starMaterial = new THREE.PointsMaterial({
+      size: 2,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      sizeAttenuation: true
+    });
+
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+
+    // Space dust particles
+    const dustGeometry = new THREE.BufferGeometry();
+    const dustCount = 2000;
+    const dustPositions = new Float32Array(dustCount * 3);
+
+    for (let i = 0; i < dustCount * 3; i += 3) {
+      dustPositions[i] = (Math.random() - 0.5) * CONFIG.ARENA_SIZE * 2;
+      dustPositions[i + 1] = (Math.random() - 0.5) * CONFIG.ARENA_SIZE * 2;
+      dustPositions[i + 2] = (Math.random() - 0.5) * CONFIG.ARENA_SIZE * 2;
+    }
+
+    dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+
+    const dustMaterial = new THREE.PointsMaterial({
+      color: 0x4444ff,
+      size: 1,
+      transparent: true,
+      opacity: 0.3
+    });
+
+    const dust = new THREE.Points(dustGeometry, dustMaterial);
+    scene.add(dust);
+
+    // Animate dust
+    const animateDust = () => {
+      dust.rotation.y += 0.0002;
+      dust.rotation.x += 0.0001;
+      requestAnimationFrame(animateDust);
+    };
+    animateDust();
+
+    // Asteroids floating in space
+    const asteroidGroup = new THREE.Group();
+    for (let i = 0; i < 20; i++) {
+      const asteroidGeometry = new THREE.DodecahedronGeometry(10 + Math.random() * 30, 1);
+      const asteroidMaterial = new THREE.MeshPhongMaterial({
+        color: 0x888888,
+        specular: 0x333333,
+        shininess: 5
+      });
+      const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+
+      // Random position in sphere
+      const radius = CONFIG.ARENA_SIZE * (0.8 + Math.random() * 0.6);
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+
+      asteroid.position.x = radius * Math.sin(phi) * Math.cos(theta);
+      asteroid.position.y = radius * Math.cos(phi);
+      asteroid.position.z = radius * Math.sin(phi) * Math.sin(theta);
+
+      asteroid.rotation.x = Math.random() * Math.PI;
+      asteroid.rotation.y = Math.random() * Math.PI;
+      asteroid.castShadow = true;
+      asteroid.receiveShadow = true;
+
+      // Rotation speed
+      asteroid.userData.rotationSpeed = new THREE.Vector3(
+              (Math.random() - 0.5) * 0.01,
+              (Math.random() - 0.5) * 0.01,
+              (Math.random() - 0.5) * 0.01
+      );
+
+      asteroidGroup.add(asteroid);
+    }
+    scene.add(asteroidGroup);
+
+    // Animate asteroids
+    const animateAsteroids = () => {
+      asteroidGroup.children.forEach(asteroid => {
+        asteroid.rotation.x += asteroid.userData.rotationSpeed.x;
+        asteroid.rotation.y += asteroid.userData.rotationSpeed.y;
+        asteroid.rotation.z += asteroid.userData.rotationSpeed.z;
+      });
+      requestAnimationFrame(animateAsteroids);
+    };
+    animateAsteroids();
+
+    // Space station or large structure
+    const stationGroup = new THREE.Group();
+
+    // Main ring
+    const ringGeometry = new THREE.TorusGeometry(150, 20, 8, 20);
+    const ringMaterial = new THREE.MeshPhongMaterial({
+      color: 0x444466,
+      emissive: 0x111133,
+      emissiveIntensity: 0.2,
+      specular: 0x666666
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    stationGroup.add(ring);
+
+    // Station core
+    const coreGeometry = new THREE.SphereGeometry(40, 16, 16);
+    const coreMaterial = new THREE.MeshPhongMaterial({
+      color: 0x666688,
+      emissive: 0x222244,
+      emissiveIntensity: 0.3
+    });
+    const core = new THREE.Mesh(coreGeometry, coreMaterial);
+    stationGroup.add(core);
+
+    // Station lights
+    for (let i = 0; i < 8; i++) {
+      const lightGeometry = new THREE.SphereGeometry(2, 8, 8);
+      const lightMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00ffff
+      });
+      const stationLight = new THREE.Mesh(lightGeometry, lightMaterial);
+      const angle = (i / 8) * Math.PI * 2;
+      stationLight.position.x = Math.cos(angle) * 150;
+      stationLight.position.z = Math.sin(angle) * 150;
+      stationGroup.add(stationLight);
+
+      // Point light
+      const pointLight = new THREE.PointLight(0x00ffff, 0.5, 50);
+      pointLight.position.copy(stationLight.position);
+      stationGroup.add(pointLight);
+    }
+
+    stationGroup.position.set(0, -300, 0);
+    scene.add(stationGroup);
+
+    // Animate station
+    const animateStation = () => {
+      stationGroup.rotation.y += 0.001;
+      requestAnimationFrame(animateStation);
+    };
+    animateStation();
+
+    // Arena boundary - subtle energy field
+    const boundaryGeometry = new THREE.SphereGeometry(CONFIG.ARENA_SIZE, 64, 64);
+    const boundaryMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        color: { value: new THREE.Color(0x00ffff) }
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform vec3 color;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+          float pulse = sin(time * 2.0 + vPosition.y * 0.01) * 0.5 + 0.5;
+          float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
+          gl_FragColor = vec4(color, fresnel * pulse * 0.3);
+        }
+      `,
+      transparent: true,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending
+    });
+    const boundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+    scene.add(boundary);
+
+    // Animate boundary shader
+    const animateBoundary = () => {
+      boundaryMaterial.uniforms.time.value += 0.01;
+      requestAnimationFrame(animateBoundary);
+    };
+    animateBoundary();
+
+    // Remove fog for space
+    scene.fog = null;
+  }
+
+  // Effects
+  function createMuzzleFlash(position, color) {
+    const flash = new THREE.PointLight(color, 2, 50);
+    flash.position.copy(position);
+    scene.add(flash);
+
+    setTimeout(() => scene.remove(flash), 100);
+  }
+
+  function createImpact(position, color) {
+    // Ring effect
+    const geometry = new THREE.RingGeometry(1, 5, 32);
+    const material = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 1,
+      side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(geometry, material);
+    ring.position.copy(position);
+    ring.lookAt(camera.position);
+    scene.add(ring);
+
+    // Animate
+    const animate = () => {
+      ring.scale.multiplyScalar(1.1);
+      ring.material.opacity *= 0.95;
+
+      if (ring.material.opacity > 0.01) {
+        requestAnimationFrame(animate);
+      } else {
+        scene.remove(ring);
+      }
+    };
+    animate();
+  }
+
+  function createExplosion(position, color) {
+    // Multiple explosion spheres
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        const geometry = new THREE.SphereGeometry(1, 16, 16);
+        const material = new THREE.MeshBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: 1
+        });
+        const sphere = new THREE.Mesh(geometry, material);
+        sphere.position.copy(position);
+        sphere.position.add(new THREE.Vector3(
+                (Math.random() - 0.5) * 20,
+                (Math.random() - 0.5) * 20,
+                (Math.random() - 0.5) * 20
+        ));
+        scene.add(sphere);
+
+        // Animate
+        const animate = () => {
+          sphere.scale.multiplyScalar(1.15);
+          sphere.material.opacity *= 0.93;
+
+          if (sphere.material.opacity > 0.01) {
+            requestAnimationFrame(animate);
+          } else {
+            scene.remove(sphere);
+          }
+        };
+        animate();
+      }, i * 50);
+    }
+
+    // Particles
+    const particleCount = 30;
+    const particleGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = [];
+
+    for (let i = 0; i < particleCount * 3; i += 3) {
+      positions[i] = position.x;
+      positions[i + 1] = position.y;
+      positions[i + 2] = position.z;
+
+      const velocity = new THREE.Vector3(
+              (Math.random() - 0.5) * 10,
+              (Math.random() - 0.5) * 10,
+              (Math.random() - 0.5) * 10
+      );
+      velocities.push(velocity);
+    }
+
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const particleMaterial = new THREE.PointsMaterial({
+      color: color,
+      size: 3,
+      transparent: true,
+      opacity: 1
+    });
+
+    const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+    scene.add(particleSystem);
+
+    // Animate particles
+    const animateParticles = () => {
+      const positions = particleGeometry.attributes.position.array;
+
+      for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] += velocities[i].x;
+        positions[i * 3 + 1] += velocities[i].y;
+        positions[i * 3 + 2] += velocities[i].z;
+
+        velocities[i].multiplyScalar(0.98);
+      }
+
+      particleGeometry.attributes.position.needsUpdate = true;
+      particleMaterial.opacity *= 0.96;
+
+      if (particleMaterial.opacity > 0.01) {
+        requestAnimationFrame(animateParticles);
+      } else {
+        scene.remove(particleSystem);
+      }
+    };
+    animateParticles();
+  }
+
+  // Game logic
+  function startBattle() {
+    battleNumber++;
+    timer = CONFIG.BATTLE_TIME;
+    ships = [];
+    lasers = [];
+    missiles = [];
+    gameState = 'battle';
+
+    // Create ships
+    for (let i = 0; i < CONFIG.SHIPS; i++) {
+      const ship = new Ship(SHIP_CONFIGS[i % SHIP_CONFIGS.length], i);
+
+      // Evolve AI from previous generation
+      if (battleNumber > 1) {
+        ship.brain.mutate(CONFIG.AI_LEARNING_RATE);
+        ship.generation = battleNumber;
+      }
+
+      ships.push(ship);
+    }
+
+    document.getElementById('battleNum').textContent = battleNumber;
+    gameLoop();
+  }
+
+  function gameLoop() {
+    if (gameState !== 'battle') return;
+
+    timer--;
+    const minutes = Math.floor(timer / 60);
+    const seconds = timer % 60;
+    document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    const alive = ships.filter(s => s.alive);
+    document.getElementById('aliveCount').textContent = alive.length;
+    document.getElementById('totalShots').textContent = `${stats.totalShots} (${stats.collisions} ⚡)`;
+
+    if (alive.length <= 1 || timer <= 0) {
+      endBattle();
+      return;
+    }
+
+    setTimeout(gameLoop, 1000);
+  }
+
+  function endBattle() {
+    gameState = 'ended';
+
+    const alive = ships.filter(s => s.alive);
+    const winner = alive.length > 0 ? alive[0] : ships.reduce((a, b) => a.score > b.score ? a : b);
+
+    // Auto restart after 2 seconds
+    setTimeout(() => {
+      // Clean up scene
+      ships.forEach(ship => {
+        if (ship.mesh && ship.mesh.parent) scene.remove(ship.mesh);
+      });
+      lasers.forEach(laser => {
+        if (laser.mesh) scene.remove(laser.mesh);
+        if (laser.glow) scene.remove(laser.glow);
+      });
+      missiles.forEach(missile => {
+        if (missile.mesh) scene.remove(missile.mesh);
+      });
+
+      lasers = [];
+      missiles = [];
+      stats.totalShots = 0;
+      startBattle();
+    }, 2000);
+  }
+
+  // Update AI display
+  function updateAIDisplay() {
+    const aiStats = document.getElementById('aiStats');
+    const topShips = [...ships].sort((a, b) => b.score - a.score).slice(0, 5);
+
+    aiStats.innerHTML = topShips.map(ship => `
+      <div class="ai-stat">
+        <div style="color: #${ship.config.color.toString(16).padStart(6, '0')}; font-weight: bold;">
+          ${ship.name} (Gen ${ship.generation})
+        </div>
+        <div>Score: ${Math.round(ship.score)} | Vie: ${Math.round(ship.health)}</div>
+        <div class="ai-progress">
+          <div class="ai-progress-bar" style="width: ${ship.health}%"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Animation loop
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Update camera
+    updateCamera();
+
+    // Update game objects
+    if (gameState === 'battle') {
+      ships.forEach(ship => ship.update());
+
+      lasers = lasers.filter(laser => laser.update());
+      missiles = missiles.filter(missile => missile.update());
+
+      updateAIDisplay();
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // Keyboard controls
+  window.addEventListener('keydown', (e) => {
+    switch(e.key.toLowerCase()) {
+      case '1':
+        setCameraMode('orbit');
+        break;
+      case '2':
+        setCameraMode('follow');
+        e.preventDefault();
+        break;
+      case '3':
+        setCameraMode('fpv');
+        break;
+      case '4':
+        setCameraMode('cinematic');
+        break;
+      case '5':
+        setCameraMode('free');
+        break;
+      case ' ':
+        e.preventDefault();
+        if (cameraMode === 'follow' || cameraMode === 'fpv') {
+          // Switch to next alive ship
+          const aliveShips = ships.filter(s => s.alive);
+          if (aliveShips.length > 0) {
+            const currentIndex = aliveShips.indexOf(cameraTarget);
+            const nextIndex = (currentIndex + 1) % aliveShips.length;
+            cameraTarget = aliveShips[nextIndex];
+            updateTargetInfo();
+          }
+        } else if (cameraMode === 'free') {
+          keys.space = true;
+        }
+        break;
+      case 'w':
+      case 'z':
+        keys.forward = true;
+        keys.w = true;
+        break;
+      case 's':
+        keys.backward = true;
+        keys.s = true;
+        break;
+      case 'a':
+      case 'q':
+        keys.left = true;
+        keys.a = true;
+        break;
+      case 'd':
+        keys.right = true;
+        keys.d = true;
+        break;
+      case 'shift':
+        keys.shift = true;
+        break;
+      case 'control':
+        e.preventDefault();
+        keys.ctrl = true;
+        break;
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    switch(e.key.toLowerCase()) {
+      case 'w':
+      case 'z':
+        keys.forward = false;
+        keys.w = false;
+        break;
+      case 's':
+        keys.backward = false;
+        keys.s = false;
+        break;
+      case 'a':
+      case 'q':
+        keys.left = false;
+        keys.a = false;
+        break;
+      case 'd':
+        keys.right = false;
+        keys.d = false;
+        break;
+      case ' ':
+        keys.space = false;
+        break;
+      case 'shift':
+        keys.shift = false;
+        break;
+      case 'control':
+        keys.ctrl = false;
+        break;
+    }
+  });
+
+  // Mouse controls for free camera
+  window.addEventListener('mousedown', (e) => {
+    if (cameraMode === 'free') {
+      mouseDown = true;
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    mouseDown = false;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (mouseDown && cameraMode === 'free') {
+      const deltaX = e.clientX - mouseX;
+      const deltaY = e.clientY - mouseY;
+
+      // Rotate camera target
+      const sensitivity = 0.005;
+      const spherical = new THREE.Spherical();
+      spherical.setFromVector3(freeCameraTarget);
+
+      spherical.theta -= deltaX * sensitivity;
+      spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi + deltaY * sensitivity));
+
+      freeCameraTarget.setFromSpherical(spherical);
+      freeCameraTarget.normalize();
+
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    }
+  });
+
+  // Prevent right-click menu
+  window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Start the game
+  window.addEventListener('load', init);
+</script>
+
+</body>
+</html>

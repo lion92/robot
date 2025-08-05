@@ -1,1966 +1,434 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bataille d'Amour 3D - Édition Romantique</title>
+    <title>3D Space Battle Game</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 25%, #ff9999 50%, #ffb3ba 100%);
-            color: #fff;
-            font-family: 'Poppins', sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            position: relative;
-        }
-
-        /* Particules flottantes */
-        .floating-hearts {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .heart-particle {
-            position: absolute;
-            color: rgba(255, 255, 255, 0.3);
-            font-size: 20px;
-            animation: float 8s infinite ease-in-out;
-        }
-
-        @keyframes float {
-            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
-        }
-
-        #gameContainer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-        }
-
-        .hud, .leaderboard {
-            position: fixed;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(25px);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 25px;
-            padding: 25px;
-            z-index: 100;
-            box-shadow: 0 15px 50px rgba(255, 107, 107, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .hud:hover, .leaderboard:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 60px rgba(255, 107, 107, 0.4);
-        }
-
-        .hud { top: 20px; left: 20px; }
-        .hud h4 {
-            color: #fff;
-            margin-bottom: 20px;
-            font-weight: 700;
-            font-size: 18px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        .hud div {
-            font-size: 15px;
-            margin: 10px 0;
-            font-weight: 400;
-            opacity: 0.95;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .stat-value {
-            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-weight: 600;
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
-        }
-
-        .leaderboard { top: 20px; right: 20px; min-width: 280px; }
-        .leaderboard h4 {
-            color: #fff;
-            margin-bottom: 20px;
-            font-weight: 700;
-            font-size: 18px;
-            text-align: center;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-
-        .robot-entry {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(255, 255, 255, 0.1);
-            margin: 8px 0;
-            padding: 12px;
-            border-radius: 15px;
-            transition: all 0.3s ease;
-        }
-
-        .robot-entry:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateX(5px);
-        }
-
-        .robot-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .robot-avatar {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-
-        .robot-stats {
-            font-size: 11px;
-            opacity: 0.9;
-        }
-
-        .timer {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 80px;
-            font-weight: 900;
-            text-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
-            background: linear-gradient(45deg, #ff6b6b, #ff8e8e, #ff9999, #ffb3ba);
-            background-size: 300% 300%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradientShift 3s ease-in-out infinite;
-            z-index: 200;
-            display: none;
-        }
-
-        @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        .controls {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 20px;
-            z-index: 150;
-        }
-
-        .btn {
-            padding: 18px 35px;
-            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
-            border: none;
-            color: white;
-            font-family: inherit;
-            font-weight: 700;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.4s ease;
-            font-size: 16px;
-            box-shadow: 0 15px 35px rgba(255, 107, 107, 0.4);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.6s;
-        }
-
-        .btn:hover::before {
-            left: 100%;
-        }
-
-        .btn:hover {
-            transform: translateY(-5px) scale(1.05);
-            box-shadow: 0 20px 45px rgba(255, 107, 107, 0.6);
-            background: linear-gradient(45deg, #ff8e8e, #ff6b6b);
-        }
-
-        .btn:active {
-            transform: translateY(-2px) scale(1.02);
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Effets spéciaux */
-        .love-explosion {
-            position: fixed;
-            pointer-events: none;
-            z-index: 300;
-        }
-
-        .explosion-heart {
-            position: absolute;
-            color: #ff6b6b;
-            font-size: 24px;
-            animation: explode 1s ease-out forwards;
-        }
-
-        @keyframes explode {
-            0% {
-                transform: scale(0) rotate(0deg);
-                opacity: 1;
-            }
-            100% {
-                transform: scale(1.5) rotate(360deg) translateY(-50px);
-                opacity: 0;
-            }
-        }
-
-        /* Messages d'encouragement */
-        .encouragement {
-            position: fixed;
-            top: 40%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            color: #ff6b6b;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-weight: 600;
-            font-size: 18px;
-            z-index: 250;
-            animation: encourageFade 3s ease-in-out;
-            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        body.show-popups .encouragement {
-            opacity: 1;
-        }
-
-        @keyframes encourageFade {
-            0%, 100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-            20%, 80% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-
-        /* Mode sombre pour la nuit */
-        body.night-mode {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 50%, #9b59b6 100%);
-        }
-
-        .night-toggle {
-            position: fixed;
-            top: 20px;
-            right: 320px;
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50px;
-            padding: 10px 20px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            z-index: 100;
-        }
-
-        .night-toggle:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
-        }
-
-        .popup-toggle {
-            position: fixed;
-            top: 20px;
-            right: 500px;
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50px;
-            padding: 10px 20px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            z-index: 100;
-            font-size: 14px;
-        }
-
-        .popup-toggle:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
+        body { margin: 0; overflow: hidden; }
+        #hud {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; font-family: Arial, sans-serif; color: #0F0;
         }
     </style>
 </head>
 <body>
-<div class="floating-hearts" id="floatingHearts"></div>
-
-<div id="gameContainer"></div>
-
-<div class="night-toggle" onclick="toggleNightMode()">🌙 Mode Nuit</div>
-
-<div class="popup-toggle" onclick="togglePopups()">💬 Pop-ups: ON</div>
-
-<div class="hud">
-    <h4>💕 BATAILLE D'AMOUR SUPRÊME</h4>
-    <div>Bataille #<span class="stat-value" id="battleNumber">1</span></div>
-    <div>Participants <span class="stat-value" id="aliveRobots">15</span></div>
-    <div>Zone d'Amour <span class="stat-value" id="zoneSize">100</span>%</div>
-    <div>Cœurs Totaux <span class="stat-value" id="totalKills">0</span></div>
-    <div>Record <span class="stat-value" id="recordKills">0</span></div>
-    <div>Bonheur Moyen <span class="stat-value" id="avgHappiness">60</span>%</div>
-</div>
-
-<div class="timer" id="timer">3:00</div>
-
-<div class="leaderboard">
-    <h4>💖 CLASSEMENT DES CŒURS</h4>
-    <div id="leaderboardContent"></div>
-</div>
-
-<div class="controls">
-    <button class="btn" id="startBtn">💕 DÉMARRER L'AMOUR</button>
-    <button class="btn" id="resetBtn">🔄 NOUVEAU JEU</button>
-    <button class="btn" id="pauseBtn">⏸️ PAUSE</button>
-</div>
-
+<div id="hud"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
-    // Configuration améliorée
-    const CONFIG = {
-        ROBOTS: 15, BATTLE_TIME: 180, OBSTACLES: 8, ROBOT_HP: 120, LOVE: 18,
-        ROBOT_SPEED: 0.25, LOVE_COOLDOWN: 600, ARENA_SIZE: 45, DETECTION_RANGE: 35,
-        ZONE_SHRINK_RATE: 0.025, AUTO_RESTART: true, RESTART_DELAY: 6000,
-        SPECIAL_ABILITIES: true, WEATHER_EFFECTS: true, POWER_UPS: true
-    };
+    const SHIP_COUNT = 4;
+    const ARENA_SIZE = 1000;
+    const ASTEROID_COUNT = 100;
+    const MAX_HEALTH = 100;
+    const SHIP_SPEED = 1;
+    const LASER_SPEED = 5;
+    const LASER_COOLDOWN = 1000;
+    const LASER_DAMAGE = 10;
+    const MISSILE_SPEED = 3;
+    const MISSILE_COOLDOWN = 5000;
+    const MISSILE_DAMAGE = 30;
+    const MISSILE_LOCK_DISTANCE = 200;
 
-    const COLORS = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3',
-        '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43', '#10ac84', '#ee5a24',
-        '#ff6348', '#2ed573', '#1e90ff'];
+    let scene, camera, renderer, ships = [], projectiles = [], asteroids = [];
 
-    const NAMES = ['Amour', 'Tendresse', 'Câlin', 'Bisou', 'Sourire', 'Joie', 'Bonheur',
-        'Rire', 'Espoir', 'Rêve', 'Magie', 'Charme', 'Étoile', 'Soleil', 'Lune'];
-
-    const ENCOURAGEMENTS = [
-        "L'amour triomphe toujours! 💕",
-        "Que la tendresse soit avec vous! 🌸",
-        "Partagez la joie! ✨",
-        "L'union fait la force! 💪",
-        "Brillez de mille feux! ⭐",
-        "Que vos cœurs battent à l'unisson! 💓"
-    ];
-
-    // Variables globales améliorées
-    let gameState = 'idle', battleTimer = CONFIG.BATTLE_TIME, battleNumber = 1;
-    let currentArenaSize = CONFIG.ARENA_SIZE, robots = [], projectiles = [], obstacles = [];
-    let powerUps = [], specialEffects = [], weatherParticles = [], trees = [], birds = [];
-    let stats = { totalShots: 0, totalKills: 0, startTime: 0, avgHappiness: 60 };
-    let overallStats = { totalBattles: 0, recordKills: 0, recordHolder: null };
-    let scene, camera, renderer, robotMeshes = [], obstacleMeshes = [], projectileMeshes = [];
-    let powerUpMeshes = [], treeMeshes = [], birdMeshes = [], rainbow = null;
-    let nightMode = false, isPaused = false, showPopups = true;
-
-    // Animation des particules de cœurs
-    function createFloatingHearts() {
-        const container = document.getElementById('floatingHearts');
-        setInterval(() => {
-            if (container.children.length < 15) {
-                const heart = document.createElement('div');
-                heart.className = 'heart-particle';
-                heart.innerHTML = ['💕', '💖', '💗', '💓', '💝'][Math.floor(Math.random() * 5)];
-                heart.style.left = Math.random() * 100 + '%';
-                heart.style.animationDelay = Math.random() * 2 + 's';
-                heart.style.animationDuration = (6 + Math.random() * 4) + 's';
-                container.appendChild(heart);
-
-                setTimeout(() => {
-                    if (heart.parentNode) heart.parentNode.removeChild(heart);
-                }, 10000);
-            }
-        }, 800);
-    }
-
-    // Mode nuit
-    function toggleNightMode() {
-        nightMode = !nightMode;
-        document.body.classList.toggle('night-mode', nightMode);
-
-        if (scene) {
-            const newColor = nightMode ? 0x2c3e50 : 0xff8e8e;
-            renderer.setClearColor(newColor);
-            scene.fog.color.setHex(newColor);
-        }
-
-        document.querySelector('.night-toggle').innerHTML = nightMode ? '☀️ Mode Jour' : '🌙 Mode Nuit';
-    }
-
-    // Gestion des pop-ups
-    function togglePopups() {
-        showPopups = !showPopups;
-        document.body.classList.toggle('show-popups', showPopups);
-        document.querySelector('.popup-toggle').innerHTML = showPopups ? '💬 Pop-ups: ON' : '💬 Pop-ups: OFF';
-    }
-
-    // Effets spéciaux d'explosion d'amour
-    function createLoveExplosion(x, y) {
-        const explosion = document.createElement('div');
-        explosion.className = 'love-explosion';
-        explosion.style.left = x + 'px';
-        explosion.style.top = y + 'px';
-
-        for (let i = 0; i < 8; i++) {
-            const heart = document.createElement('div');
-            heart.className = 'explosion-heart';
-            heart.innerHTML = '💖';
-            heart.style.left = '0px';
-            heart.style.top = '0px';
-            heart.style.animationDelay = (i * 0.1) + 's';
-
-            const angle = (i / 8) * Math.PI * 2;
-            const distance = 50 + Math.random() * 30;
-            heart.style.setProperty('--end-x', Math.cos(angle) * distance + 'px');
-            heart.style.setProperty('--end-y', Math.sin(angle) * distance + 'px');
-
-            explosion.appendChild(heart);
-        }
-
-        document.body.appendChild(explosion);
-        setTimeout(() => document.body.removeChild(explosion), 1000);
-    }
-
-    // Messages d'encouragement
-    function showEncouragement() {
-        if (!showPopups || Math.random() > 0.3) return;
-
-        const msg = document.createElement('div');
-        msg.className = 'encouragement';
-        msg.textContent = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
-        document.body.appendChild(msg);
-        setTimeout(() => {
-            if (msg.parentNode) document.body.removeChild(msg);
-        }, 3000);
-    }
-
-    // Initialisation Three.js améliorée
-    function initThreeJS() {
+    function init() {
+        // Scene
         scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(nightMode ? 0x2c3e50 : 0xff8e8e, 60, 180);
+        scene.background = new THREE.Color(0x000000);
 
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 40, 55);
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xcccccc, 0.4);
+        scene.add(ambientLight);
+        const pointLight1 = new THREE.PointLight(0xffffff, 1);
+        pointLight1.position.set(ARENA_SIZE, ARENA_SIZE, ARENA_SIZE);
+        scene.add(pointLight1);
+        const pointLight2 = new THREE.PointLight(0xffffff, 1);
+        pointLight2.position.set(-ARENA_SIZE, -ARENA_SIZE, -ARENA_SIZE);
+        scene.add(pointLight2);
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        // Camera
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, ARENA_SIZE * 2);
+        camera.position.set(0, ARENA_SIZE * 0.2, ARENA_SIZE * 0.2);
+        camera.lookAt(0, 0, 0);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.setClearColor(nightMode ? 0x2c3e50 : 0xff8e8e);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.getElementById('gameContainer').appendChild(renderer.domElement);
+        document.body.appendChild(renderer.domElement);
 
-        // Éclairage amélioré
-        scene.add(new THREE.AmbientLight(0x404040, 0.7));
-
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        mainLight.position.set(60, 120, 60);
-        mainLight.castShadow = true;
-        mainLight.shadow.mapSize.width = 4096;
-        mainLight.shadow.mapSize.height = 4096;
-        mainLight.shadow.camera.near = 0.5;
-        mainLight.shadow.camera.far = 500;
-        scene.add(mainLight);
-
-        // Éclairage d'ambiance coloré
-        const colorLight1 = new THREE.PointLight(0xff6b6b, 0.8, 100);
-        colorLight1.position.set(-30, 20, -30);
-        scene.add(colorLight1);
-
-        const colorLight2 = new THREE.PointLight(0x4ecdc4, 0.8, 100);
-        colorLight2.position.set(30, 20, 30);
-        scene.add(colorLight2);
-
-        // Sol amélioré avec texture
-        const floorGeometry = new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 64);
-        const floorMaterial = new THREE.MeshLambertMaterial({
-            color: 0xff9999,
-            transparent: true,
-            opacity: 0.9
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        scene.add(floor);
 
-        // Bordure décorative
-        const borderGeometry = new THREE.RingGeometry(CONFIG.ARENA_SIZE, CONFIG.ARENA_SIZE + 2, 64);
-        const borderMaterial = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.6
+        // Loaders
+        const loader = new THREE.GLTFLoader();
+
+        // Skybox
+        const skyboxGeometry = new THREE.BoxGeometry(ARENA_SIZE * 2, ARENA_SIZE * 2, ARENA_SIZE * 2);
+        const skyboxMaterial = new THREE.MeshBasicMaterial({
+            map: new THREE.TextureLoader().load('space_skybox.png'),
+            side: THREE.BackSide
         });
-        const border = new THREE.Mesh(borderGeometry, borderMaterial);
-        border.rotation.x = -Math.PI / 2;
-        border.position.y = 0.1;
-        scene.add(border);
+        const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+        scene.add(skybox);
 
-        // Créer le décor naturel
-        createTrees();
-        createBirds();
-        createRainbow();
-
-        setupControls();
-        window.addEventListener('resize', onWindowResize);
-    }
-
-    // Création des arbres
-    function createTrees() {
-        trees = [];
-        treeMeshes = [];
-
-        for (let i = 0; i < 10; i++) {
-            const angle = (i / 10) * Math.PI * 2 + Math.random() * 0.5;
-            const radius = CONFIG.ARENA_SIZE + 8 + Math.random() * 15; // En dehors de l'arène
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-
-            const tree = {
-                x: x,
-                y: 0,
-                z: z,
-                height: 8 + Math.random() * 6,
-                trunkRadius: 0.3 + Math.random() * 0.4,
-                foliageRadius: 2 + Math.random() * 1.5,
-                swayPhase: Math.random() * Math.PI * 2
-            };
-
-            trees.push(tree);
-            createTreeMesh(tree);
-        }
-    }
-
-    function createTreeMesh(tree) {
-        const treeGroup = new THREE.Group();
-
-        // Tronc
-        const trunkGeometry = new THREE.CylinderGeometry(
-            tree.trunkRadius,
-            tree.trunkRadius * 1.2,
-            tree.height * 0.4,
-            12
-        );
-        const trunkMaterial = new THREE.MeshLambertMaterial({
-            color: new THREE.Color().setHSL(0.1, 0.6, 0.3) // Brun naturel
+        // Asteroids
+        const asteroidGeometry = new THREE.SphereGeometry(1, 6, 6);
+        const asteroidMaterial = new THREE.MeshStandardMaterial({
+            map: new THREE.TextureLoader().load('asteroid_texture.jpg'),
+            roughness: 0.7
         });
-        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = tree.height * 0.2;
-        trunk.castShadow = true;
-        treeGroup.add(trunk);
-
-        // Feuillage (plusieurs sphères pour un aspect naturel)
-        const foliageColors = [
-            new THREE.Color().setHSL(0.25, 0.8, 0.4), // Vert foncé
-            new THREE.Color().setHSL(0.3, 0.7, 0.5),  // Vert moyen
-            new THREE.Color().setHSL(0.35, 0.6, 0.6)  // Vert clair
-        ];
-
-        for (let i = 0; i < 3; i++) {
-            const foliageGeometry = new THREE.SphereGeometry(
-                tree.foliageRadius * (1 - i * 0.15),
-                16,
-                16
+        asteroids = [...Array(ASTEROID_COUNT)].map(() => {
+            const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+            const pos = new THREE.Vector3(
+                (Math.random() - 0.5) * ARENA_SIZE * 1.5,
+                (Math.random() - 0.5) * ARENA_SIZE * 1.5,
+                (Math.random() - 0.5) * ARENA_SIZE * 1.5
             );
-            const foliageMaterial = new THREE.MeshLambertMaterial({
-                color: foliageColors[i]
+            asteroid.position.copy(pos);
+            asteroid.scale.setScalar(10 + Math.random() * 40);
+            asteroid.setRotationFromAxisAngle(new THREE.Vector3(Math.random(), Math.random(), Math.random()).normalize(), Math.random() * Math.PI * 2);
+            scene.add(asteroid);
+            return asteroid;
+        });
+
+        // Ships
+        ships = [...Array(SHIP_COUNT)].map(async (_, i) => {
+            let model;
+            await loader.loadAsync(`fighter_${i % 3}.glb`).then((gltf) => model = gltf.scene);
+
+            model.scale.setScalar(10);
+
+            const pos = new THREE.Vector3(
+                (Math.random() - 0.5) * ARENA_SIZE * 0.8,
+                (Math.random() - 0.5) * ARENA_SIZE * 0.8,
+                (Math.random() - 0.5) * ARENA_SIZE * 0.8
+            );
+            model.position.copy(pos);
+            model.velocity = new THREE.Vector3(0, 0, 0);
+
+            model.traverse(object => {
+                if (object.isMesh) {
+                    object.material = new THREE.MeshPhongMaterial({
+                        color: i === 0 ? 0x00ff00 : 0xcccccc,
+                        shininess: 80,
+                    });
+                }
             });
-            const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
-            foliage.position.y = tree.height * 0.5 + i * 0.8;
-            foliage.position.x = (Math.random() - 0.5) * 0.5;
-            foliage.position.z = (Math.random() - 0.5) * 0.5;
-            foliage.castShadow = true;
-            treeGroup.add(foliage);
-        }
 
-        // Quelques branches
-        for (let i = 0; i < 5; i++) {
-            const branchGeometry = new THREE.CylinderGeometry(0.05, 0.08, 1.5, 6);
-            const branchMaterial = new THREE.MeshLambertMaterial({
-                color: new THREE.Color().setHSL(0.1, 0.5, 0.25)
-            });
-            const branch = new THREE.Mesh(branchGeometry, branchMaterial);
-
-            const angle = (i / 5) * Math.PI * 2;
-            branch.position.x = Math.cos(angle) * 0.8;
-            branch.position.z = Math.sin(angle) * 0.8;
-            branch.position.y = tree.height * 0.3 + Math.random() * 2;
-            branch.rotation.z = (Math.random() - 0.5) * 0.8;
-            branch.rotation.x = (Math.random() - 0.5) * 0.5;
-            branch.castShadow = true;
-            treeGroup.add(branch);
-        }
-
-        treeGroup.position.set(tree.x, tree.y, tree.z);
-        treeMeshes.push(treeGroup);
-        scene.add(treeGroup);
-    }
-
-    // Création des oiseaux
-    function createBirds() {
-        birds = [];
-        birdMeshes = [];
-
-        for (let i = 0; i < 15; i++) {
-            const bird = {
-                x: (Math.random() - 0.5) * 200,
-                y: 15 + Math.random() * 20,
-                z: (Math.random() - 0.5) * 200,
-                vx: (Math.random() - 0.5) * 0.3,
-                vy: (Math.random() - 0.5) * 0.1,
-                vz: (Math.random() - 0.5) * 0.3,
-                wingPhase: Math.random() * Math.PI * 2,
-                color: Math.random() < 0.3 ? 0xff6b6b : (Math.random() < 0.5 ? 0x4ecdc4 : 0xffd93d),
-                size: 0.3 + Math.random() * 0.4
+            model.health = MAX_HEALTH;
+            model.ai = {
+                state: 'idle', // idle, chase, evade, group, flank, strafe
+                target: null,
+                preferredRange: 100 + Math.random() * 200,
             };
+            model.lastLaserShot = model.lastMissileShot = 0;
 
-            birds.push(bird);
-            createBirdMesh(bird);
-        }
-    }
-
-    function createBirdMesh(bird) {
-        const birdGroup = new THREE.Group();
-
-        // Corps de l'oiseau
-        const bodyGeometry = new THREE.SphereGeometry(bird.size, 8, 8);
-        const bodyMaterial = new THREE.MeshLambertMaterial({ color: bird.color });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        birdGroup.add(body);
-
-        // Ailes
-        const wingGeometry = new THREE.ConeGeometry(bird.size * 0.8, bird.size * 2, 6);
-        const wingMaterial = new THREE.MeshLambertMaterial({
-            color: new THREE.Color(bird.color).multiplyScalar(0.8)
+            scene.add(model);
+            return model;
         });
 
-        const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        leftWing.position.set(-bird.size * 1.2, 0, 0);
-        leftWing.rotation.z = Math.PI / 2;
-        birdGroup.add(leftWing);
-
-        const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        rightWing.position.set(bird.size * 1.2, 0, 0);
-        rightWing.rotation.z = -Math.PI / 2;
-        birdGroup.add(rightWing);
-
-        // Bec
-        const beakGeometry = new THREE.ConeGeometry(bird.size * 0.2, bird.size * 0.5, 6);
-        const beakMaterial = new THREE.MeshLambertMaterial({ color: 0xffa500 });
-        const beak = new THREE.Mesh(beakGeometry, beakMaterial);
-        beak.position.set(0, 0, bird.size * 0.8);
-        beak.rotation.x = Math.PI / 2;
-        birdGroup.add(beak);
-
-        birdGroup.position.set(bird.x, bird.y, bird.z);
-        birdMeshes.push(birdGroup);
-        scene.add(birdGroup);
+        Promise.all(ships).then(resolvedShips => ships = resolvedShips);
     }
 
-    // Création de l'arc-en-ciel
-    function createRainbow() {
-        const rainbowGroup = new THREE.Group();
-        const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
+    function animate(time) {
+        requestAnimationFrame(animate);
 
-        for (let i = 0; i < colors.length; i++) {
-            const radius = 80 + i * 2;
-            const rainbowGeometry = new THREE.TorusGeometry(radius, 1, 8, 100, Math.PI);
-            const rainbowMaterial = new THREE.MeshBasicMaterial({
-                color: colors[i],
-                transparent: true,
-                opacity: 0.6
-            });
-            const rainbowRing = new THREE.Mesh(rainbowGeometry, rainbowMaterial);
-            rainbowRing.rotation.x = Math.PI / 2;
-            rainbowRing.position.y = 40;
-            rainbowGroup.add(rainbowRing);
-        }
+        const delta = (time - lastTime) / 1000;
+        lastTime = time;
 
-        // Positionnement de l'arc-en-ciel
-        rainbowGroup.position.set(0, 0, -100);
-        rainbow = rainbowGroup;
-        scene.add(rainbowGroup);
-    }
+        // Update AI
+        ships.forEach((ship, i) => {
+            if (!ship.health) return;
 
-    function setupControls() {
-        let mouseDown = false, angle = 0, height = 40;
+            const targetShip = ship.ai.target;
+            const nearbyShips = ships.filter(s => s !== ship && s.health > 0 && s.position.distanceTo(ship.position) < 500);
 
-        document.addEventListener('mousedown', () => mouseDown = true);
-        document.addEventListener('mouseup', () => mouseDown = false);
-        document.addEventListener('mousemove', (e) => {
-            if (mouseDown) {
-                angle += e.movementX * 0.01;
-                height = Math.max(25, Math.min(80, height - e.movementY * 0.4));
-                updateCamera();
+            // Check alive
+            if (!targetShip || !targetShip.health) {
+                ship.ai.state = 'idle';
+                ship.ai.target = null;
             }
-        });
-        document.addEventListener('wheel', (e) => {
-            height = Math.max(20, Math.min(100, height + e.deltaY * 0.08));
-            updateCamera();
-        });
 
-        function updateCamera() {
-            const distance = 60;
-            camera.position.set(Math.sin(angle) * distance, height, Math.cos(angle) * distance);
-            camera.lookAt(0, 0, 0);
-        }
-    }
-
-    function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    // Création de power-ups
-    function createPowerUps() {
-        if (!CONFIG.POWER_UPS) return;
-
-        for (let i = 0; i < 5; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = Math.random() * (CONFIG.ARENA_SIZE * 0.8);
-            const powerUp = {
-                x: Math.cos(angle) * radius,
-                y: 2,
-                z: Math.sin(angle) * radius,
-                type: ['speed', 'love', 'happiness', 'shield', 'magnet'][i % 5],
-                active: true,
-                rotation: 0
-            };
-            powerUps.push(powerUp);
-            createPowerUpMesh(powerUp);
-        }
-    }
-
-    function createPowerUpMesh(powerUp) {
-        const colors = {
-            speed: 0x00ff00,
-            love: 0xff69b4,
-            happiness: 0xffff00,
-            shield: 0x00ffff,
-            magnet: 0xff00ff
-        };
-
-        const geometry = new THREE.OctahedronGeometry(1.5);
-        const material = new THREE.MeshBasicMaterial({
-            color: colors[powerUp.type],
-            emissive: colors[powerUp.type],
-            emissiveIntensity: 0.3,
-            transparent: true,
-            opacity: 0.8
-        });
-
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(powerUp.x, powerUp.y, powerUp.z);
-        powerUpMeshes.push(mesh);
-        scene.add(mesh);
-    }
-
-    // Animation des éléments du décor
-    function updateEnvironment() {
-        const time = Date.now() * 0.001;
-
-        // Animation des arbres (balancement)
-        trees.forEach((tree, index) => {
-            if (treeMeshes[index]) {
-                const sway = Math.sin(time * 0.5 + tree.swayPhase) * 0.1;
-                treeMeshes[index].rotation.z = sway;
-
-                // Animation du feuillage
-                treeMeshes[index].children.forEach((child, childIndex) => {
-                    if (childIndex > 0) { // Pas le tronc
-                        child.rotation.y = Math.sin(time * 0.3 + childIndex) * 0.1;
-                    }
-                });
-            }
-        });
-
-        // Animation des oiseaux
-        birds.forEach((bird, index) => {
-            if (birdMeshes[index]) {
-                // Mouvement de vol
-                bird.x += bird.vx;
-                bird.y += bird.vy * Math.sin(time * 2 + bird.wingPhase);
-                bird.z += bird.vz;
-
-                // Limites de vol
-                if (Math.abs(bird.x) > 150) bird.vx *= -1;
-                if (Math.abs(bird.z) > 150) bird.vz *= -1;
-                if (bird.y > 40) bird.vy = -Math.abs(bird.vy);
-                if (bird.y < 10) bird.vy = Math.abs(bird.vy);
-
-                // Animation des ailes
-                bird.wingPhase += 0.3;
-                const wingFlap = Math.sin(bird.wingPhase) * 0.8;
-
-                birdMeshes[index].position.set(bird.x, bird.y, bird.z);
-
-                // Orientation de vol
-                const angle = Math.atan2(bird.vz, bird.vx);
-                birdMeshes[index].rotation.y = angle;
-
-                // Battement d'ailes
-                if (birdMeshes[index].children[1]) { // Aile gauche
-                    birdMeshes[index].children[1].rotation.y = wingFlap;
-                }
-                if (birdMeshes[index].children[2]) { // Aile droite
-                    birdMeshes[index].children[2].rotation.y = -wingFlap;
+            // Find new target if idle
+            if (ship.ai.state === 'idle') {
+                const viableTargets = nearbyShips.filter(s => s.position.distanceTo(ship.position) < ship.ai.preferredRange * 2);
+                if (viableTargets.length > 0) {
+                    ship.ai.state = 'chase';
+                    ship.ai.target = viableTargets[Math.floor(Math.random() * viableTargets.length)];
+                } else {
+                    // Wander
+                    ship.velocity.add(new THREE.Vector3(
+                        (Math.random() - 0.5) * SHIP_SPEED * 0.02,
+                        (Math.random() - 0.5) * SHIP_SPEED * 0.02,
+                        (Math.random() - 0.5) * SHIP_SPEED * 0.02
+                    ));
                 }
             }
-        });
 
-        // Animation de l'arc-en-ciel (légère pulsation)
-        if (rainbow) {
-            const pulse = 1 + Math.sin(time * 0.2) * 0.1;
-            rainbow.scale.setScalar(pulse);
-
-            // Changement subtil d'opacité
-            rainbow.children.forEach((ring, index) => {
-                ring.material.opacity = 0.4 + Math.sin(time * 0.5 + index * 0.5) * 0.3;
-            });
-        }
-    }
-
-    // Système de robots amélioré
-    function initGame() {
-        robots = []; projectiles = []; obstacles = []; powerUps = [];
-        currentArenaSize = CONFIG.ARENA_SIZE;
-        stats = { totalShots: 0, totalKills: 0, startTime: Date.now(), avgHappiness: 60 };
-        clearMeshes();
-        createRobots();
-        createObstacles();
-        createPowerUps();
-        updateArenaVisuals();
-        updateUI();
-    }
-
-    function clearMeshes() {
-        [...robotMeshes, ...obstacleMeshes, ...projectileMeshes, ...powerUpMeshes, ...treeMeshes, ...birdMeshes].forEach(mesh => scene.remove(mesh));
-        robotMeshes = []; obstacleMeshes = []; projectileMeshes = []; powerUpMeshes = [];
-        // Ne pas supprimer les arbres et oiseaux, ils sont permanents
-    }
-
-    function createRobots() {
-        for (let i = 0; i < CONFIG.ROBOTS; i++) {
-            const angle = (i / CONFIG.ROBOTS) * Math.PI * 2;
-            const radius = CONFIG.ARENA_SIZE * 0.6 + Math.random() * CONFIG.ARENA_SIZE * 0.3;
-
-            const robot = {
-                id: i, name: NAMES[i], color: COLORS[i],
-                x: Math.cos(angle) * radius, y: 1.5, z: Math.sin(angle) * radius,
-                vx: 0, vz: 0, health: CONFIG.ROBOT_HP, maxHealth: CONFIG.ROBOT_HP,
-                hearts: 0, loves: 0, accuracy: 0, alive: true, size: 1.8,
-                lastLove: 0, target: null, friends: [], happiness: 50 + Math.random() * 30,
-                kindness: 40 + Math.random() * 50, charm: 30 + Math.random() * 40,
-                intelligence: 40 + Math.random() * 40, energy: 80 + Math.random() * 20,
-                specialAbility: ['healer', 'speedster', 'charmer', 'guardian', 'lover'][Math.floor(Math.random() * 5)],
-                powerUps: [], lastSpecialUse: 0,
-                weapon: { type: ['romantic', 'friendship', 'caring', 'passionate'][Math.floor(Math.random() * 4)] }
-            };
-            robots.push(robot);
-            createRobotMesh(robot);
-        }
-    }
-
-    function createRobotMesh(robot) {
-        const group = new THREE.Group();
-        const color = new THREE.Color(robot.color);
-
-        // Corps principal amélioré
-        const bodyGeom = new THREE.SphereGeometry(0.9, 20, 20);
-        const bodyMat = new THREE.MeshPhongMaterial({
-            color: color,
-            shininess: 100,
-            specular: 0x222222
-        });
-        const body = new THREE.Mesh(bodyGeom, bodyMat);
-        body.position.y = 1.5;
-        body.castShadow = true;
-        group.add(body);
-
-        // Tête avec détails
-        const headGeom = new THREE.SphereGeometry(0.6, 16, 16);
-        const headMat = new THREE.MeshPhongMaterial({
-            color: color.clone().multiplyScalar(1.3),
-            shininess: 80
-        });
-        const head = new THREE.Mesh(headGeom, headMat);
-        head.position.y = 2.7;
-        head.castShadow = true;
-        group.add(head);
-
-        // Yeux brillants
-        [-0.18, 0.18].forEach(x => {
-            const eyeGeom = new THREE.SphereGeometry(0.1, 12, 12);
-            const eyeMat = new THREE.MeshBasicMaterial({
-                color: 0x4ecdc4,
-                emissive: 0x4ecdc4,
-                emissiveIntensity: 1.2
-            });
-            const eye = new THREE.Mesh(eyeGeom, eyeMat);
-            eye.position.set(x, 2.8, 0.5);
-            group.add(eye);
-        });
-
-        // Antenne spéciale pour les capacités
-        const antennaGeom = new THREE.CylinderGeometry(0.02, 0.02, 0.8);
-        const antennaMat = new THREE.MeshBasicMaterial({ color: robot.color, emissive: robot.color, emissiveIntensity: 0.5 });
-        const antenna = new THREE.Mesh(antennaGeom, antennaMat);
-        antenna.position.set(0, 3.5, 0);
-        group.add(antenna);
-
-        const tipGeom = new THREE.SphereGeometry(0.08);
-        const tip = new THREE.Mesh(tipGeom, new THREE.MeshBasicMaterial({
-            color: 0xffff00,
-            emissive: 0xffff00,
-            emissiveIntensity: 0.8
-        }));
-        tip.position.set(0, 3.9, 0);
-        group.add(tip);
-
-        // Bras articulés
-        [-0.7, 0.7].forEach((x, index) => {
-            const armGeom = new THREE.CylinderGeometry(0.18, 0.18, 1.2, 12);
-            const armMat = new THREE.MeshPhongMaterial({ color: color, shininess: 60 });
-            const arm = new THREE.Mesh(armGeom, armMat);
-            arm.position.set(x, 1.9, 0);
-            arm.castShadow = true;
-            group.add(arm);
-
-            // Mains
-            const handGeom = new THREE.SphereGeometry(0.2, 12, 12);
-            const hand = new THREE.Mesh(handGeom, armMat);
-            hand.position.set(x, 1.3, 0);
-            hand.castShadow = true;
-            group.add(hand);
-        });
-
-        // Jambes améliorées
-        [-0.35, 0.35].forEach((x, index) => {
-            const legGeom = new THREE.CylinderGeometry(0.15, 0.15, 1.4, 12);
-            const legMat = new THREE.MeshPhongMaterial({ color: color, shininess: 60 });
-            const leg = new THREE.Mesh(legGeom, legMat);
-            leg.position.set(x, 0.7, 0);
-            leg.castShadow = true;
-            group.add(leg);
-
-            // Pieds
-            const footGeom = new THREE.BoxGeometry(0.3, 0.15, 0.5);
-            const foot = new THREE.Mesh(footGeom, legMat);
-            foot.position.set(x, 0.1, 0.1);
-            foot.castShadow = true;
-            group.add(foot);
-        });
-
-        // Indicateur de capacité spéciale
-        const abilityColors = {
-            healer: 0x00ff00,
-            speedster: 0xffff00,
-            charmer: 0xff69b4,
-            guardian: 0x00ffff,
-            lover: 0xff0000
-        };
-
-        const abilityGeom = new THREE.RingGeometry(1.2, 1.4, 16);
-        const abilityMat = new THREE.MeshBasicMaterial({
-            color: abilityColors[robot.specialAbility],
-            transparent: true,
-            opacity: 0.6,
-            side: THREE.DoubleSide
-        });
-        const abilityRing = new THREE.Mesh(abilityGeom, abilityMat);
-        abilityRing.rotation.x = -Math.PI / 2;
-        abilityRing.position.y = 0.1;
-        group.add(abilityRing);
-
-        group.position.set(robot.x, 0, robot.z);
-        robotMeshes.push(group);
-        scene.add(group);
-    }
-
-    function createObstacles() {
-        for (let i = 0; i < CONFIG.OBSTACLES; i++) {
-            const angle = (i / CONFIG.OBSTACLES) * Math.PI * 2;
-            const radius = 15 + Math.random() * 15;
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-            const width = 2 + Math.random() * 3;
-            const height = 3 + Math.random() * 4;
-            const depth = 2 + Math.random() * 3;
-
-            obstacles.push({ x, y: height/2, z, width, height, depth });
-
-            // Obstacles en forme de cœur
-            const heartShape = new THREE.Shape();
-            heartShape.moveTo(0, 0);
-            heartShape.bezierCurveTo(0, -0.3, -0.6, -0.3, -0.6, 0);
-            heartShape.bezierCurveTo(-0.6, 0.3, 0, 0.6, 0, 1);
-            heartShape.bezierCurveTo(0, 0.6, 0.6, 0.3, 0.6, 0);
-            heartShape.bezierCurveTo(0.6, -0.3, 0, -0.3, 0, 0);
-
-            const extrudeSettings = {
-                depth: depth,
-                bevelEnabled: true,
-                bevelSegments: 4,
-                steps: 2,
-                bevelSize: 0.1,
-                bevelThickness: 0.1
-            };
-
-            const heartGeom = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
-            const heartMat = new THREE.MeshPhongMaterial({
-                color: 0xff69b4,
-                transparent: true,
-                opacity: 0.8,
-                shininess: 100
-            });
-
-            const obstacle = new THREE.Mesh(heartGeom, heartMat);
-            obstacle.position.set(x, height/2, z);
-            obstacle.scale.set(width, height * 0.3, 1);
-            obstacle.castShadow = true;
-            obstacle.receiveShadow = true;
-            obstacleMeshes.push(obstacle);
-            scene.add(obstacle);
-        }
-    }
-
-    function updateArenaVisuals() {
-        scene.children.forEach(child => {
-            if (child.type === 'GridHelper' || child.type === 'PolarGridHelper') {
-                scene.remove(child);
-            }
-        });
-
-        // Grille polaire avec animation
-        const grid = new THREE.PolarGridHelper(currentArenaSize, 16, 8, 64, 0x4ecdc4, 0x4ecdc4);
-        grid.material.opacity = 0.5;
-        grid.material.transparent = true;
-        scene.add(grid);
-
-        // Zone de danger avec effet pulsant
-        if (currentArenaSize < CONFIG.ARENA_SIZE * 0.9) {
-            const dangerGeom = new THREE.RingGeometry(currentArenaSize, CONFIG.ARENA_SIZE * 1.8, 48);
-            const dangerMat = new THREE.MeshBasicMaterial({
-                color: 0xff0000,
-                transparent: true,
-                opacity: 0.15 + Math.sin(Date.now() * 0.003) * 0.1,
-                side: THREE.DoubleSide
-            });
-            const danger = new THREE.Mesh(dangerGeom, dangerMat);
-            danger.rotation.x = -Math.PI / 2;
-            danger.position.y = 0.2;
-            scene.add(danger);
-        }
-    }
-
-    // IA avancée des robots
-    function updateRobots() {
-        if (gameState !== 'battle' || isPaused) return;
-
-        robots.forEach((robot, index) => {
-            if (!robot.alive) return;
-            updateRobotAI(robot);
-            updateSpecialAbilities(robot);
-            updateRobotMesh(robot, index);
-            checkPowerUpCollisions(robot);
-        });
-
-        // Calcul du bonheur moyen
-        const totalHappiness = robots.filter(r => r.alive).reduce((sum, r) => sum + r.happiness, 0);
-        stats.avgHappiness = Math.round(totalHappiness / robots.filter(r => r.alive).length) || 0;
-    }
-
-    function updateRobotAI(robot) {
-        const now = Date.now();
-
-        // Système d'amitié avancé
-        robot.friends = robots.filter(r =>
-            r.alive && r.id !== robot.id && getDistance(robot, r) < CONFIG.DETECTION_RANGE
-        ).sort((a, b) => {
-            const distA = getDistance(robot, a);
-            const distB = getDistance(robot, b);
-            const affinityA = calculateAffinity(robot, a);
-            const affinityB = calculateAffinity(robot, b);
-            return (distA / affinityA) - (distB / affinityB);
-        });
-
-        // Sélection intelligente de cible
-        if (!robot.target || !robot.target.alive || Math.random() < 0.08) {
-            robot.target = selectBestTarget(robot);
-        }
-
-        // Mouvement stratégique
-        if (robot.target) {
-            moveTowardsTarget(robot, robot.target);
-
-            const distance = getDistance(robot, robot.target);
-            if (distance < 25 && canSendLove(robot, now)) {
-                sendEnhancedLove(robot, robot.target, now);
-            }
-        } else {
-            // Exploration intelligente
-            exploreArena(robot);
-        }
-
-        // Éviter les bords de l'arène
-        avoidArenaBounds(robot);
-
-        // Mise à jour des stats émotionnelles
-        updateEmotionalState(robot);
-    }
-
-    function calculateAffinity(robot1, robot2) {
-        const kindnessDiff = Math.abs(robot1.kindness - robot2.kindness);
-        const charmDiff = Math.abs(robot1.charm - robot2.charm);
-        return 100 - (kindnessDiff + charmDiff) / 2;
-    }
-
-    function selectBestTarget(robot) {
-        if (robot.friends.length === 0) return null;
-
-        // Préférer les robots avec moins de cœurs (plus besoin d'amour)
-        return robot.friends.sort((a, b) => {
-            const scoreA = a.hearts - getDistance(robot, a) * 0.1;
-            const scoreB = b.hearts - getDistance(robot, b) * 0.1;
-            return scoreA - scoreB;
-        })[0];
-    }
-
-    function moveTowardsTarget(robot, target) {
-        const distance = getDistance(robot, target);
-        const dx = target.x - robot.x;
-        const dz = target.z - robot.z;
-
-        if (distance > 0) {
-            let speed = CONFIG.ROBOT_SPEED * (1 + robot.energy / 300);
-
-            // Bonus de vitesse pour les speedsters
-            if (robot.specialAbility === 'speedster') speed *= 1.5;
-
-            robot.vx = (dx / distance) * speed;
-            robot.vz = (dz / distance) * speed;
-
-            // Évitement d'obstacles
-            avoidObstacles(robot);
-
-            robot.x += robot.vx;
-            robot.z += robot.vz;
-
-            robot.energy = Math.max(0, robot.energy - 0.1);
-        }
-    }
-
-    function avoidObstacles(robot) {
-        obstacles.forEach(obstacle => {
-            const dx = robot.x - obstacle.x;
-            const dz = robot.z - obstacle.z;
-            const distance = Math.sqrt(dx * dx + dz * dz);
-
-            if (distance < 3) {
-                const avoidForce = 0.1 / Math.max(distance, 0.1);
-                robot.vx += (dx / distance) * avoidForce;
-                robot.vz += (dz / distance) * avoidForce;
-            }
-        });
-    }
-
-    function exploreArena(robot) {
-        if (Math.random() < 0.1) {
-            const angle = Math.random() * Math.PI * 2;
-            robot.vx = Math.cos(angle) * CONFIG.ROBOT_SPEED * 0.6;
-            robot.vz = Math.sin(angle) * CONFIG.ROBOT_SPEED * 0.6;
-        }
-
-        robot.x += robot.vx * 0.8;
-        robot.z += robot.vz * 0.8;
-    }
-
-    function avoidArenaBounds(robot) {
-        const distance = Math.sqrt(robot.x * robot.x + robot.z * robot.z);
-        const safeZone = currentArenaSize - 4;
-
-        if (distance > safeZone) {
-            const pushBack = (distance - safeZone) * 0.1;
-            robot.x -= (robot.x / distance) * pushBack;
-            robot.z -= (robot.z / distance) * pushBack;
-            robot.happiness = Math.max(0, robot.happiness - 1);
-        }
-    }
-
-    function updateEmotionalState(robot) {
-        // Récupération graduelle d'énergie
-        robot.energy = Math.min(100, robot.energy + 0.05);
-
-        // Bonheur basé sur les interactions
-        if (robot.friends.length > 0) {
-            robot.happiness = Math.min(100, robot.happiness + 0.1);
-        } else {
-            robot.happiness = Math.max(0, robot.happiness - 0.05);
-        }
-    }
-
-    // Capacités spéciales
-    function updateSpecialAbilities(robot) {
-        const now = Date.now();
-        if (now - robot.lastSpecialUse < 5000) return;
-
-        switch (robot.specialAbility) {
-            case 'healer':
-                if (robot.happiness < 50) {
-                    healNearbyRobots(robot);
-                    robot.lastSpecialUse = now;
-                }
-                break;
-
-            case 'speedster':
-                if (robot.energy < 30) {
-                    robot.energy = Math.min(100, robot.energy + 30);
-                    robot.lastSpecialUse = now;
-                    createSpeedEffect(robot);
-                }
-                break;
-
-            case 'charmer':
-                if (robot.friends.length < 3) {
-                    charmNearbyRobots(robot);
-                    robot.lastSpecialUse = now;
-                }
-                break;
-
-            case 'guardian':
-                protectNearbyRobots(robot);
-                robot.lastSpecialUse = now;
-                break;
-
-            case 'lover':
-                if (robot.hearts < 5) {
-                    sendMassLove(robot);
-                    robot.lastSpecialUse = now;
-                }
-                break;
-        }
-    }
-
-    function healNearbyRobots(robot) {
-        robot.friends.forEach(friend => {
-            if (getDistance(robot, friend) < 15) {
-                friend.happiness = Math.min(100, friend.happiness + 10);
-                createHealingEffect(friend);
-            }
-        });
-    }
-
-    function createSpeedEffect(robot) {
-        const speedRing = document.createElement('div');
-        speedRing.style.cssText = `
-                position: fixed;
-                width: 100px;
-                height: 100px;
-                border: 3px solid #ffff00;
-                border-radius: 50%;
-                animation: speedPulse 1s ease-out;
-                pointer-events: none;
-                z-index: 200;
-            `;
-        document.body.appendChild(speedRing);
-        setTimeout(() => document.body.removeChild(speedRing), 1000);
-    }
-
-    function charmNearbyRobots(robot) {
-        robots.forEach(other => {
-            if (other.alive && other.id !== robot.id && getDistance(robot, other) < 20) {
-                other.charm = Math.min(100, other.charm + 5);
-                other.happiness = Math.min(100, other.happiness + 3);
-            }
-        });
-    }
-
-    function protectNearbyRobots(robot) {
-        robot.friends.forEach(friend => {
-            if (getDistance(robot, friend) < 12) {
-                friend.powerUps.push({ type: 'shield', duration: 3000, startTime: Date.now() });
-            }
-        });
-    }
-
-    function sendMassLove(robot) {
-        robot.friends.forEach(friend => {
-            if (getDistance(robot, friend) < 30) {
-                createLoveProjectile(robot, {
-                    x: (friend.x - robot.x) / getDistance(robot, friend),
-                    z: (friend.z - robot.z) / getDistance(robot, friend)
-                });
-            }
-        });
-    }
-
-    // Power-ups et collisions
-    function checkPowerUpCollisions(robot) {
-        powerUps.forEach((powerUp, index) => {
-            if (!powerUp.active) return;
-
-            const distance = getDistance(robot, powerUp);
-            if (distance < 3) {
-                applyPowerUp(robot, powerUp);
-                powerUp.active = false;
-                scene.remove(powerUpMeshes[index]);
-                createLoveExplosion(window.innerWidth / 2, window.innerHeight / 2);
-            }
-        });
-    }
-
-    function applyPowerUp(robot, powerUp) {
-        switch (powerUp.type) {
-            case 'speed':
-                robot.energy = 100;
-                robot.powerUps.push({ type: 'speed', duration: 5000, startTime: Date.now() });
-                break;
-            case 'love':
-                robot.hearts += 3;
-                robot.happiness = Math.min(100, robot.happiness + 15);
-                break;
-            case 'happiness':
-                robot.happiness = 100;
-                robot.charm = Math.min(100, robot.charm + 10);
-                break;
-            case 'shield':
-                robot.powerUps.push({ type: 'shield', duration: 8000, startTime: Date.now() });
-                break;
-            case 'magnet':
-                robot.powerUps.push({ type: 'magnet', duration: 6000, startTime: Date.now() });
-                break;
-        }
-    }
-
-    // Système de projectiles amélioré
-    function sendEnhancedLove(robot, target, now) {
-        const direction = {
-            x: target.x - robot.x,
-            z: target.z - robot.z
-        };
-        const length = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
-        direction.x /= length;
-        direction.z /= length;
-
-        createLoveProjectile(robot, direction);
-        robot.loves++;
-        robot.lastLove = now;
-        stats.totalShots++;
-
-        // Bonus pour charmer
-        if (robot.specialAbility === 'charmer') {
-            robot.happiness = Math.min(100, robot.happiness + 2);
-        }
-    }
-
-    function createLoveProjectile(robot, direction) {
-        const loveTypes = ['💖', '💕', '💗', '💓', '💝'];
-        const heart = {
-            x: robot.x, y: robot.y + 1, z: robot.z,
-            vx: direction.x * 2, vz: direction.z * 2,
-            owner: robot.id, love: CONFIG.LOVE, life: 120,
-            type: loveTypes[Math.floor(Math.random() * loveTypes.length)]
-        };
-        projectiles.push(heart);
-
-        // Cœur 3D avec texture émissive
-        const heartGeom = new THREE.SphereGeometry(0.4, 12, 12);
-        const heartMat = new THREE.MeshBasicMaterial({
-            color: 0xff69b4,
-            emissive: 0xff69b4,
-            emissiveIntensity: 0.8,
-            transparent: true,
-            opacity: 0.9
-        });
-        const mesh = new THREE.Mesh(heartGeom, heartMat);
-        mesh.position.set(robot.x, robot.y + 1, robot.z);
-
-        // Trail effect
-        const trailGeom = new THREE.SphereGeometry(0.2, 8, 8);
-        const trailMat = new THREE.MeshBasicMaterial({
-            color: 0xff69b4,
-            transparent: true,
-            opacity: 0.3
-        });
-        const trail = new THREE.Mesh(trailGeom, trailMat);
-        mesh.add(trail);
-
-        projectileMeshes.push(mesh);
-        scene.add(mesh);
-    }
-
-    function updateProjectiles() {
-        if (isPaused) return;
-
-        for (let i = projectiles.length - 1; i >= 0; i--) {
-            const heart = projectiles[i];
-            const mesh = projectileMeshes[i];
-            if (!heart || !mesh) continue;
-
-            heart.x += heart.vx;
-            heart.z += heart.vz;
-            heart.life--;
-
-            mesh.position.set(heart.x, heart.y + Math.sin(Date.now() * 0.01) * 0.2, heart.z);
-            mesh.rotation.y += 0.1;
-
-            if (heart.life <= 0 || Math.abs(heart.x) > CONFIG.ARENA_SIZE * 2.5 || Math.abs(heart.z) > CONFIG.ARENA_SIZE * 2.5) {
-                removeProjectile(i);
-                continue;
-            }
-
-            // Collision améliorée avec robots
-            for (const robot of robots) {
-                if (!robot.alive || robot.id === heart.owner) continue;
-
-                if (getDistance(robot, heart) < robot.size) {
-                    robot.hearts += heart.love;
-                    robot.happiness = Math.min(100, robot.happiness + 8);
-
-                    const sender = robots.find(r => r.id === heart.owner);
-                    if (sender) {
-                        sender.hearts++;
-                        sender.happiness = Math.min(100, sender.happiness + 3);
-                        stats.totalKills++;
+            // Chase, evade, group, flank, strafe
+            if (targetShip && targetShip.health > 0) {
+                const toTarget = targetShip.position.clone().sub(ship.position);
+                const distToTarget = toTarget.length();
+
+                // Update preferred range based on health
+                ship.ai.preferredRange = ship.health < 25 ? 400 :
+                    ship.health < 50 ? 300 :
+                        ship.health < 75 ? 200 : 100;
+
+                const allies = nearbyShips.filter(s => s !== targetShip);
+                const nearbyAllies = allies.filter(s => s.position.distanceTo(ship.position) < 200);
+
+                if (ship.ai.state === 'chase') {
+                    if (distToTarget > ship.ai.preferredRange) {
+                        // Move towards
+                        const vel = toTarget.normalize().multiplyScalar(SHIP_SPEED);
+                        ship.velocity.lerp(vel, 0.1);
+                    } else {
+                        // Orbit
+                        const cross = new THREE.Vector3().crossVectors(toTarget, new THREE.Vector3(0, 1, 0));
+                        const vel = cross.normalize().multiplyScalar(SHIP_SPEED);
+                        ship.velocity.lerp(vel, 0.1);
                     }
 
-                    createHealingEffect(robot);
-                    removeProjectile(i);
-                    showEncouragement();
-                    break;
+                    // Switch to evade if low health
+                    if (ship.health < 50 && nearbyAllies.length === 0) {
+                        ship.ai.state = 'evade';
+                    }
+                    // Switch to flank if multiple allies nearby
+                    else if (nearbyAllies.length > 1) {
+                        ship.ai.state = 'flank';
+                    }
+                }
+                else if (ship.ai.state === 'flank') {
+                    // Find flank position
+                    const flankAngle = 0.8 + (i % 2 === 0 ? 1 : -1) * 0.4;
+                    const flankDir = toTarget.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), flankAngle);
+                    const flankPos = targetShip.position.clone().add(flankDir.normalize().multiplyScalar(ship.ai.preferredRange));
+
+                    const toFlank = flankPos.clone().sub(ship.position);
+                    const vel = toFlank.normalize().multiplyScalar(SHIP_SPEED);
+                    ship.velocity.lerp(vel, 0.1);
+
+                    // Switch to chase if too far
+                    if (distToTarget > ship.ai.preferredRange * 2) {
+                        ship.ai.state = 'chase';
+                    }
+                    // Switch to group if no nearby allies
+                    else if (nearbyAllies.length === 0) {
+                        ship.ai.state = 'group';
+                    }
+                }
+                else if (ship.ai.state === 'group') {
+                    // Find nearest ally
+                    const nearestAlly = nearbyShips.reduce((nearest, ship) =>
+                        nearest.position.distanceTo(ship.position) < ship.position.distanceTo(nearest.position) ? nearest : ship
+                    );
+
+                    // Move towards ally
+                    const toAlly = nearestAlly.position.clone().sub(ship.position);
+                    const vel = toAlly.normalize().multiplyScalar(SHIP_SPEED);
+                    ship.velocity.lerp(vel, 0.1);
+
+                    // Switch to chase if ally is chasing
+                    if (nearestAlly.ai.state === 'chase' || nearestAlly.ai.state === 'flank') {
+                        ship.ai.target = nearestAlly.ai.target;
+                        ship.ai.state = 'chase';
+                    }
+                }
+                else if (ship.ai.state === 'evade') {
+                    // Move away
+                    const vel = toTarget.normalize().multiplyScalar(-SHIP_SPEED);
+                    ship.velocity.lerp(vel, 0.1);
+
+                    // Switch to group if allies nearby
+                    if (nearbyAllies.length > 0) {
+                        ship.ai.state = 'group';
+                    }
+                    // Switch to chase if high health and no allies
+                    else if (ship.health > 75) {
+                        ship.ai.state = 'chase';
+                    }
+                }
+
+                // Shoot missile if cooldown ready and in range
+                if (time - ship.lastMissileShot > MISSILE_COOLDOWN && distToTarget < MISSILE_LOCK_DISTANCE && ship.ai.state !== 'evade') {
+                    const missile = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+                    missile.position.copy(ship.position);
+                    missile.velocity = toTarget.clone().normalize().multiplyScalar(MISSILE_SPEED);
+                    missile.startTime = time;
+                    missile.damage = MISSILE_DAMAGE;
+                    projectiles.push(missile);
+                    scene.add(missile);
+
+                    ship.lastMissileShot = time;
+                }
+                // Shoot laser if cooldown ready
+                else if (time - ship.lastLaserShot > LASER_COOLDOWN) {
+                    const laser = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 50), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+                    laser.position.copy(ship.position);
+                    laser.lookAt(targetShip.position);
+                    laser.velocity = toTarget.clone().normalize().multiplyScalar(LASER_SPEED);
+                    laser.startTime = time;
+                    laser.damage = LASER_DAMAGE;
+                    projectiles.push(laser);
+                    scene.add(laser);
+
+                    ship.lastLaserShot = time;
                 }
             }
-        }
-    }
 
-    function createHealingEffect(robot) {
-        const healGeom = new THREE.RingGeometry(0.5, 2, 16);
-        const healMat = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
-            transparent: true,
-            opacity: 0.7
-        });
-        const healRing = new THREE.Mesh(healGeom, healMat);
-        healRing.position.set(robot.x, robot.y + 0.5, robot.z);
-        healRing.rotation.x = -Math.PI / 2;
-        scene.add(healRing);
+            // Apply velocity
+            ship.position.add(ship.velocity.clone().multiplyScalar(delta));
 
-        setTimeout(() => scene.remove(healRing), 1000);
-    }
-
-    function removeProjectile(index) {
-        projectiles.splice(index, 1);
-        if (projectileMeshes[index]) {
-            scene.remove(projectileMeshes[index]);
-            projectileMeshes.splice(index, 1);
-        }
-    }
-
-    // Fonctions utilitaires
-    function getDistance(obj1, obj2) {
-        return Math.sqrt((obj1.x - obj2.x) ** 2 + (obj1.z - obj2.z) ** 2);
-    }
-
-    function canSendLove(robot, now) {
-        const cooldown = robot.powerUps.some(p => p.type === 'speed') ? CONFIG.LOVE_COOLDOWN * 0.5 : CONFIG.LOVE_COOLDOWN;
-        return now - robot.lastLove > cooldown;
-    }
-
-    // Gestion de la bataille
-    function updateBattleZone() {
-        const timeElapsed = Date.now() - stats.startTime;
-        if (timeElapsed > 30000) {
-            currentArenaSize = Math.max(15, currentArenaSize - CONFIG.ZONE_SHRINK_RATE);
-            if (Math.floor(timeElapsed / 1000) % 4 === 0) updateArenaVisuals();
-        }
-    }
-
-    function updatePowerUps() {
-        powerUps.forEach((powerUp, index) => {
-            if (!powerUp.active) return;
-
-            powerUp.rotation += 0.05;
-            if (powerUpMeshes[index]) {
-                powerUpMeshes[index].rotation.y = powerUp.rotation;
-                powerUpMeshes[index].position.y = 2 + Math.sin(Date.now() * 0.003 + index) * 0.5;
+            // Point in velocity direction
+            if (ship.velocity.length() > 0.1) {
+                const tangent = new THREE.Vector3(0, 1, 0).cross(ship.velocity).normalize();
+                const angle = Math.acos(new THREE.Vector3(0, 1, 0).dot(ship.velocity.clone().normalize()));
+                ship.setRotationFromAxisAngle(tangent, angle);
             }
         });
-    }
 
-    function updateRobotMesh(robot, index) {
-        const mesh = robotMeshes[index];
-        if (!mesh) return;
+        // Update projectiles
+        projectiles.forEach((projectile, i) => {
+            projectile.position.add(projectile.velocity.clone().multiplyScalar(delta));
 
-        mesh.position.set(robot.x, 0, robot.z);
+            // Check collision with ships
+            ships.forEach((ship) => {
+                if (projectile.position.distanceTo(ship.position) < 20) {
+                    ship.health = Math.max(0, ship.health - projectile.damage);
 
-        // Orientation vers la cible
-        if (robot.target) {
-            const angle = Math.atan2(robot.target.z - robot.z, robot.target.x - robot.x);
-            mesh.rotation.y = angle - Math.PI / 2;
+                    projectiles.splice(i, 1);
+                    scene.remove(projectile);
+                }
+            });
+
+            // Check collision with asteroids
+            asteroids.forEach((asteroid) => {
+                if (projectile.position.distanceTo(asteroid.position) < asteroid.scale.x / 2) {
+                    projectiles.splice(i, 1);
+                    scene.remove(projectile);
+                }
+            });
+
+            // Remove if lifetime exceeded
+            if (time - projectile.startTime > 5000) {
+                projectiles.splice(i, 1);
+                scene.remove(projectile);
+            }
+        });
+
+        // Update camera
+        const alivePlayers = ships.filter((ship) => ship.health > 0);
+        if (alivePlayers.length > 0) {
+            const targetPosition = alivePlayers[0].position.clone();
+            const direction = targetPosition.clone().sub(camera
+
+                .position).normalize();
+            const distance = Math.min(targetPosition.distanceTo(camera.position), 500);
+            const newPosition = targetPosition.sub(direction.multiplyScalar(distance));
+
+            camera.position.lerp(newPosition, 0.02);
+            camera.lookAt(targetPosition);
         }
 
-        // Animation de marche améliorée
-        const isMoving = Math.abs(robot.vx) > 0.01 || Math.abs(robot.vz) > 0.01;
-        if (isMoving) {
-            const cycle = Date.now() * 0.008;
-            const intensity = Math.min(1, (Math.abs(robot.vx) + Math.abs(robot.vz)) * 5);
+        // Draw HUD
+        const hud = document.getElementById('hud');
+        hud.innerHTML = '';
+        ships.forEach((ship, i) => {
+            if (!ship.health) return;
 
-            // Animation des jambes
-            if (mesh.children[8]) mesh.children[8].rotation.x = Math.sin(cycle) * 0.4 * intensity;
-            if (mesh.children[10]) mesh.children[10].rotation.x = Math.sin(cycle + Math.PI) * 0.4 * intensity;
+            // Draw health bar
+            const barWidth = 50;
+            const barHeight = 5;
+            const barPosX = 10;
+            const barPosY = 10 + i * 15;
+            const healthBar = document.createElement('div');
+            healthBar.style.position = 'absolute';
+            healthBar.style.width = barWidth + 'px';
+            healthBar.style.height = barHeight + 'px';
+            healthBar.style.top = barPosY + 'px';
+            healthBar.style.left = barPosX + 'px';
+            healthBar.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+            const healthBarFill = document.createElement('div');
+            healthBarFill.style.width = (ship.health / MAX_HEALTH) * barWidth + 'px';
+            healthBarFill.style.height = barHeight + 'px';
+            healthBarFill.style.backgroundColor = 'rgba(0, 255, 0, 0.8)';
+            healthBar.appendChild(healthBarFill);
+            hud.appendChild(healthBar);
 
-            // Animation des bras
-            if (mesh.children[4]) mesh.children[4].rotation.x = Math.sin(cycle + Math.PI) * 0.3 * intensity;
-            if (mesh.children[6]) mesh.children[6].rotation.x = Math.sin(cycle) * 0.3 * intensity;
+            // Draw ship name
+            const shipName = document.createElement('div');
+            shipName.textContent = `Ship ${i + 1}`;
+            shipName.style.position = 'absolute';
+            shipName.style.top = barPosY + 'px';
+            shipName.style.left = barPosX + barWidth + 5 + 'px';
+            hud.appendChild(shipName);
 
-            // Balancement du corps
-            mesh.children[0].rotation.z = Math.sin(cycle) * 0.05 * intensity;
+            // Draw score
+            const score = document.createElement('div');
+            score.textContent = `Score: ${ship.score || 0}`;
+            score.style.position = 'absolute';
+            score.style.top = barPosY + barHeight + 10 + 'px';
+            score.style.left = barPosX + 'px';
+            hud.appendChild(score);
+        });
+
+        // Check game over
+        const aliveShips = ships.filter((ship) => ship.health > 0);
+        if (aliveShips.length <= 1) {
+            const gameOverText = document.createElement('div');
+            gameOverText.textContent = aliveShips.length === 1 ? 'Victory!' : 'Draw!';
+            gameOverText.style.position = 'absolute';
+            gameOverText.style.textAlign = 'center';
+            gameOverText.style.fontSize = '48px';
+            gameOverText.style.fontWeight = 'bold';
+            gameOverText.style.top = window.innerHeight / 2 - 24 + 'px';
+            gameOverText.style.width = '100%';
+            hud.appendChild(gameOverText);
+
+            const restartText = document.createElement('div');
+            restartText.textContent = 'Press R to Restart';
+            restartText.style.position = 'absolute';
+            restartText.style.textAlign = 'center';
+            restartText.style.fontSize = '24px';
+            restartText.style.top = window.innerHeight / 2 + 16 + 'px';
+            restartText.style.width = '100%';
+            hud.appendChild(restartText);
+
+            // Reset on keypress
+            const listener = (e) => {
+                if (e.key === 'r' || e.key === 'R') {
+                    ships.forEach((ship) => {
+                        ship.health = MAX_HEALTH;
+                        const pos = new THREE.Vector3(
+                            (Math.random() - 0.5) * ARENA_SIZE * 0.8,
+                            (Math.random() - 0.5) * ARENA_SIZE * 0.8,
+                            (Math.random() - 0.5) * ARENA_SIZE * 0.8
+                        );
+                        ship.position.copy(pos);
+                        ship.velocity.set(0, 0, 0);
+                    });
+                    projectiles.forEach((p) => scene.remove(p));
+                    projectiles = [];
+                    lastTime = performance.now();
+                }
+            };
+            window.addEventListener('keypress', listener);
         }
 
-        // Effet de bonheur
-        const happinessScale = 1 + (robot.happiness / 1000);
-        mesh.scale.set(happinessScale, happinessScale, happinessScale);
-
-        // Indicateur de capacité spéciale (clignotement)
-        if (mesh.children[11]) { // Anneau de capacité
-            const specialReady = Date.now() - robot.lastSpecialUse > 5000;
-            mesh.children[11].material.opacity = specialReady ? 0.8 : 0.3;
-        }
-    }
-
-    // Boucle de jeu principale
-    function gameLoop() {
-        if (gameState === 'battle' && !isPaused) {
-            updateRobots();
-            updateProjectiles();
-            updatePowerUps();
-            updateBattleZone();
-            updateTimer();
-            checkWinConditions();
-        }
-
-        // Animations d'environnement toujours actives
-        updateEnvironment();
-
-        updateUI();
         renderer.render(scene, camera);
-        requestAnimationFrame(gameLoop);
     }
 
-    function updateTimer() {
-        battleTimer--;
-        if (battleTimer <= 0) endBattle();
-        const minutes = Math.floor(battleTimer / 60);
-        const seconds = battleTimer % 60;
-        document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
+    // Start
+    let lastTime = performance.now();
+    init();
+    animate(lastTime);
 
-    function checkWinConditions() {
-        if (battleTimer <= 0) endBattle();
-    }
-
-    function endBattle() {
-        gameState = 'ended';
-        document.getElementById('timer').style.display = 'none';
-
-        const winner = robots.reduce((best, robot) => robot.hearts > best.hearts ? robot : best, robots[0]);
-
-        overallStats.totalBattles++;
-        if (winner.hearts > overallStats.recordKills) {
-            overallStats.recordKills = winner.hearts;
-            overallStats.recordHolder = winner.name;
-        }
-
-        showResults(winner);
-        if (CONFIG.AUTO_RESTART) setTimeout(() => startNewBattle(), CONFIG.RESTART_DELAY);
-    }
-
-    function showResults(winner) {
-        const div = document.createElement('div');
-        div.style.cssText = `
-                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(30px);
-                border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 30px;
-                padding: 40px; color: white; text-align: center; z-index: 300;
-                box-shadow: 0 20px 60px rgba(255, 107, 107, 0.4);
-                animation: resultsFadeIn 0.5s ease-out;
-            `;
-        div.innerHTML = `
-                <h2 style="color: ${winner.color}; margin-bottom: 25px; font-size: 32px; text-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                    🏆 ${winner.name} TRIOMPHE! 🏆
-                </h2>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
-                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px;">
-                        <p style="font-size: 14px; opacity: 0.8;">💖 Cœurs reçus</p>
-                        <p style="font-size: 24px; font-weight: bold;">${winner.hearts}</p>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px;">
-                        <p style="font-size: 14px; opacity: 0.8;">💌 Messages envoyés</p>
-                        <p style="font-size: 24px; font-weight: bold;">${winner.loves}</p>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px;">
-                        <p style="font-size: 14px; opacity: 0.8;">😊 Bonheur final</p>
-                        <p style="font-size: 24px; font-weight: bold;">${Math.round(winner.happiness)}%</p>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px;">
-                        <p style="font-size: 14px; opacity: 0.8;">⚡ Capacité</p>
-                        <p style="font-size: 18px; font-weight: bold;">${winner.specialAbility}</p>
-                    </div>
-                </div>
-                <p style="margin-top: 25px; font-size: 18px; color: #ffdd59;">🏆 Record: ${overallStats.recordKills} cœurs</p>
-                <p style="margin-top: 15px; opacity: 0.8; font-size: 16px;">Prochaine bataille dans ${CONFIG.RESTART_DELAY/1000}s...</p>
-            `;
-        document.body.appendChild(div);
-
-        // Feux d'artifice d'amour
-        for (let i = 0; i < 10; i++) {
-            setTimeout(() => {
-                createLoveExplosion(
-                    Math.random() * window.innerWidth,
-                    Math.random() * window.innerHeight
-                );
-            }, i * 200);
-        }
-
-        setTimeout(() => {
-            if (div.parentNode) document.body.removeChild(div);
-        }, CONFIG.RESTART_DELAY - 500);
-    }
-
-    function startNewBattle() {
-        battleNumber++;
-        gameState = 'battle';
-        battleTimer = CONFIG.BATTLE_TIME;
-        document.getElementById('timer').style.display = 'block';
-        document.getElementById('startBtn').textContent = `💕 BATAILLE #${battleNumber}`;
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('pauseBtn').disabled = false;
-        initGame();
-
-        // Réinitialisation des robots avec nouvelles capacités
-        robots.forEach(robot => {
-            robot.hearts = 0;
-            robot.loves = 0;
-            robot.happiness = 50 + Math.random() * 30;
-            robot.energy = 80 + Math.random() * 20;
-            robot.target = null;
-            robot.powerUps = [];
-            robot.lastSpecialUse = 0;
-
-            // Évolution des capacités
-            if (battleNumber > 5) {
-                robot.kindness = Math.min(100, robot.kindness + 2);
-                robot.charm = Math.min(100, robot.charm + 2);
-                robot.intelligence = Math.min(100, robot.intelligence + 1);
-            }
-        });
-
-        showEncouragement();
-    }
-
-    function updateUI() {
-        const aliveCount = robots.filter(r => r.alive).length;
-        const zonePercentage = Math.round((currentArenaSize / CONFIG.ARENA_SIZE) * 100);
-
-        document.getElementById('battleNumber').textContent = battleNumber;
-        document.getElementById('aliveRobots').textContent = aliveCount;
-        document.getElementById('zoneSize').textContent = zonePercentage;
-        document.getElementById('totalKills').textContent = stats.totalKills;
-        document.getElementById('recordKills').textContent = overallStats.recordKills;
-        document.getElementById('avgHappiness').textContent = stats.avgHappiness;
-
-        updateLeaderboard();
-    }
-
-    function updateLeaderboard() {
-        const leaderboard = document.getElementById('leaderboardContent');
-        const sorted = [...robots].sort((a, b) => b.hearts - a.hearts);
-
-        leaderboard.innerHTML = '';
-        sorted.slice(0, 10).forEach((r, i) => {
-            const happinessIcon = r.happiness > 80 ? '😊' : r.happiness > 60 ? '😐' : r.happiness > 40 ? '😔' : '😢';
-            const energyIcon = r.energy > 70 ? '⚡' : r.energy > 40 ? '🔋' : '🪫';
-            const abilityIcons = {
-                healer: '💚',
-                speedster: '💨',
-                charmer: '💖',
-                guardian: '🛡️',
-                lover: '💕'
-            };
-
-            const entry = document.createElement('div');
-            entry.className = 'robot-entry';
-            entry.innerHTML = `
-                    <div class="robot-info">
-                        <div class="robot-avatar" style="background: ${r.color};">${i + 1}</div>
-                        <div>
-                            <div style="font-weight: 600; font-size: 13px;">${r.name} ${abilityIcons[r.specialAbility]}</div>
-                            <div class="robot-stats">${happinessIcon} ${Math.round(r.happiness)}% | ${energyIcon} ${Math.round(r.energy)}%</div>
-                        </div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: bold; color: #ff69b4;">💖 ${r.hearts}</div>
-                        <div style="font-size: 10px; opacity: 0.7;">💌 ${r.loves}</div>
-                    </div>
-                `;
-            leaderboard.appendChild(entry);
-        });
-    }
-
-    // Contrôles améliorés
-    document.getElementById('startBtn').addEventListener('click', () => {
-        if (gameState === 'idle' || gameState === 'ended') {
-            startNewBattle();
-        }
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', () => {
-        gameState = 'idle';
-        battleNumber = 1;
-        isPaused = false;
-        overallStats = { totalBattles: 0, recordKills: 0, recordHolder: null };
-        document.getElementById('timer').style.display = 'none';
-        document.getElementById('startBtn').textContent = '💕 DÉMARRER L\'AMOUR';
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('pauseBtn').disabled = true;
-        document.getElementById('pauseBtn').textContent = '⏸️ PAUSE';
-        initGame();
-
-        // Message de réinitialisation
-        const resetMsg = document.createElement('div');
-        resetMsg.className = 'encouragement';
-        resetMsg.textContent = 'Nouveau départ! Que l\'amour renaisse! 🌱💕';
-        resetMsg.style.backgroundColor = 'rgba(76, 205, 196, 0.9)';
-        resetMsg.style.color = 'white';
-        document.body.appendChild(resetMsg);
-        setTimeout(() => {
-            if (resetMsg.parentNode) document.body.removeChild(resetMsg);
-        }, 3000);
-    });
-
-    document.getElementById('pauseBtn').addEventListener('click', () => {
-        if (gameState !== 'battle') return;
-
-        isPaused = !isPaused;
-        document.getElementById('pauseBtn').textContent = isPaused ? '▶️ REPRENDRE' : '⏸️ PAUSE';
-
-        if (isPaused) {
-            const pauseMsg = document.createElement('div');
-            pauseMsg.id = 'pauseMessage';
-            pauseMsg.style.cssText = `
-                    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                    background: rgba(0, 0, 0, 0.8); color: white; padding: 30px;
-                    border-radius: 20px; font-size: 24px; font-weight: bold;
-                    z-index: 250; text-align: center;
-                `;
-            pauseMsg.innerHTML = '⏸️ PAUSE<br><span style="font-size: 16px; opacity: 0.8;">L\'amour attend...</span>';
-            document.body.appendChild(pauseMsg);
-        } else {
-            const pauseMsg = document.getElementById('pauseMessage');
-            if (pauseMsg) document.body.removeChild(pauseMsg);
-        }
-    });
-
-    // Contrôles clavier
-    document.addEventListener('keydown', (e) => {
-        switch (e.key) {
-            case ' ':
-                e.preventDefault();
-                if (gameState === 'battle') {
-                    document.getElementById('pauseBtn').click();
-                } else if (gameState === 'idle' || gameState === 'ended') {
-                    document.getElementById('startBtn').click();
-                }
-                break;
-            case 'r':
-            case 'R':
-                document.getElementById('resetBtn').click();
-                break;
-            case 'n':
-            case 'N':
-                toggleNightMode();
-                break;
-            case 'p':
-            case 'P':
-                togglePopups();
-                break;
-        }
-    });
-
-    // Effets visuels supplémentaires
-    function createWeatherEffects() {
-        if (!CONFIG.WEATHER_EFFECTS) return;
-
-        // Pétales d'amour tombants
-        setInterval(() => {
-            if (gameState === 'battle' && Math.random() < 0.3) {
-                const petal = document.createElement('div');
-                petal.style.cssText = `
-                        position: fixed; top: -20px; left: ${Math.random() * 100}%;
-                        color: rgba(255, 182, 193, 0.7); font-size: ${12 + Math.random() * 8}px;
-                        pointer-events: none; z-index: 5;
-                        animation: float ${8 + Math.random() * 4}s linear infinite;
-                    `;
-                petal.textContent = ['🌸', '🌺', '🌼', '🌷', '🌹'][Math.floor(Math.random() * 5)];
-                document.body.appendChild(petal);
-
-                setTimeout(() => {
-                    if (petal.parentNode) document.body.removeChild(petal);
-                }, 12000);
-            }
-        }, 2000);
-    }
-
-    // Système de succès/achievements
-    const achievements = {
-        firstWin: { name: "Premier Amour", desc: "Remporter sa première bataille", unlocked: false },
-        speedster: { name: "Éclair d'Amour", desc: "Envoyer 50 messages en une bataille", unlocked: false },
-        beloved: { name: "Bien-Aimé", desc: "Recevoir 100 cœurs en une bataille", unlocked: false },
-        marathon: { name: "Marathon d'Amour", desc: "Survivre 10 batailles", unlocked: false },
-        perfectionist: { name: "Amour Parfait", desc: "Finir une bataille avec 100% de bonheur", unlocked: false }
-    };
-
-    function checkAchievements() {
-        const winner = robots.reduce((best, robot) => robot.hearts > best.hearts ? robot : best, robots[0]);
-
-        // Premier succès
-        if (!achievements.firstWin.unlocked && overallStats.totalBattles === 1) {
-            unlockAchievement('firstWin');
-        }
-
-        // Speedster
-        if (!achievements.speedster.unlocked && winner.loves >= 50) {
-            unlockAchievement('speedster');
-        }
-
-        // Bien-aimé
-        if (!achievements.beloved.unlocked && winner.hearts >= 100) {
-            unlockAchievement('beloved');
-        }
-
-        // Marathon
-        if (!achievements.marathon.unlocked && overallStats.totalBattles >= 10) {
-            unlockAchievement('marathon');
-        }
-
-        // Perfectionniste
-        if (!achievements.perfectionist.unlocked && winner.happiness >= 100) {
-            unlockAchievement('perfectionist');
-        }
-    }
-
-    function unlockAchievement(id) {
-        if (!showPopups) return;
-
-        achievements[id].unlocked = true;
-
-        const achievementDiv = document.createElement('div');
-        achievementDiv.style.cssText = `
-                position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-                background: linear-gradient(45deg, #ffd700, #ffed4e);
-                color: #333; padding: 20px; border-radius: 15px;
-                font-weight: bold; z-index: 400; text-align: center;
-                box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5);
-                animation: achievementSlide 4s ease-in-out;
-            `;
-        achievementDiv.innerHTML = `
-                <div style="font-size: 24px;">🏆 SUCCÈS DÉBLOQUÉ! 🏆</div>
-                <div style="font-size: 18px; margin-top: 5px;">${achievements[id].name}</div>
-                <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">${achievements[id].desc}</div>
-            `;
-
-        document.body.appendChild(achievementDiv);
-        setTimeout(() => {
-            if (achievementDiv.parentNode) document.body.removeChild(achievementDiv);
-        }, 4000);
-    }
-
-    // Styles CSS supplémentaires pour les animations
-    const additionalStyles = document.createElement('style');
-    additionalStyles.textContent = `
-            @keyframes resultsFadeIn {
-                0% { opacity: 0; transform: translate(-50%, -60%) scale(0.8); }
-                100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-            }
-
-            @keyframes achievementSlide {
-                0%, 100% { transform: translateX(-50%) translateY(-100px); opacity: 0; }
-                15%, 85% { transform: translateX(-50%) translateY(0); opacity: 1; }
-            }
-
-            @keyframes speedPulse {
-                0% { transform: scale(0) rotate(0deg); opacity: 1; }
-                100% { transform: scale(3) rotate(360deg); opacity: 0; }
-            }
-        `;
-    document.head.appendChild(additionalStyles);
-
-    // Initialisation finale
-    function initialize() {
-        createFloatingHearts();
-        initThreeJS();
-        initGame();
-        createWeatherEffects();
-
-        // Initialiser les pop-ups comme activées
-        document.body.classList.add('show-popups');
-
-        gameLoop();
-
-        // Message de bienvenue
-        setTimeout(() => {
-            if (!showPopups) return;
-
-            const welcomeMsg = document.createElement('div');
-            welcomeMsg.className = 'encouragement';
-            welcomeMsg.textContent = 'Bienvenue dans la Bataille d\'Amour Suprême! 💕✨';
-            welcomeMsg.style.fontSize = '20px';
-            welcomeMsg.style.background = 'rgba(255, 107, 107, 0.9)';
-            document.body.appendChild(welcomeMsg);
-            setTimeout(() => {
-                if (welcomeMsg.parentNode) document.body.removeChild(welcomeMsg);
-            }, 3000);
-        }, 1000);
-    }
-
-    // Démarrage
-    initialize();
 </script>
 </body>
 </html>

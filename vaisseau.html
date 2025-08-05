@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arena Battle Royale 3D - Vaisseaux Spatiaux</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        #hud {
+            position: absolute; top: 10px; left: 10px; z-index: 10;
+            color: #0ff; font-family: monospace; font-size: 14px;
+            background: rgba(0,0,0,0.5); padding: 8px; border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="hud"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r149/three.min.js"></script>
+<script>
+    // Config
+    const CONFIG = { ROBOTS: 6, PLAYER_HP: 120, ROBOT_HP: 100, SPEED: 40, BULLET_SPEED: 100, DAMAGE: 20 };
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000010);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0,50,150);
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x404040));
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(1,1,1);
+    scene.add(light);
+
+    // Obstacles
+    const obstacles=[];
+    for(let i=0;i<8;i++){
+        const geo = new THREE.BoxGeometry(20,20,20);
+        const mat = new THREE.MeshLambertMaterial({ color:0x333333 });
+        const cube = new THREE.Mesh(geo,mat);
+        cube.position.set((Math.random()-0.5)*200,(Math.random()-0.5)*200,(Math.random()-0.5)*200);
+        scene.add(cube);
+        obstacles.push(cube);
+    }
+
+    // Ship Class
+    class Ship {
+        constructor(name,color,isPlayer=false){
+            this.name = name; this.isPlayer=isPlayer;
+            this.health = isPlayer?CONFIG.PLAYER_HP:CONFIG.ROBOT_HP;
+            this.maxHealth=this.health; this.velocity=new THREE.Vector3();
+            this.mesh = new THREE.Mesh(new THREE.ConeGeometry(5,20,8), new THREE.MeshLambertMaterial({color}));
+            this.mesh.rotation.x=Math.PI/2;
+            this.mesh.position.set((Math.random()-0.5)*100, (Math.random()-0.5)*100, (Math.random()-0.5)*100);
+            scene.add(this.mesh);
+        }
+        update(dt){
+            this.mesh.position.add(this.velocity.clone().multiplyScalar(dt));
+        }
+    }
+
+    // Bullet Class
+    class Bullet {
+        constructor(pos, dir, owner){
+            this.owner = owner;
+            this.mesh = new THREE.Mesh(new THREE.SphereGeometry(1.5,8,8), new THREE.MeshBasicMaterial({color:0xffff00}));
+            this.velocity = dir.clone().multiplyScalar(CONFIG.BULLET_SPEED);
+            this.mesh.position.copy(pos);
+            scene.add(this.mesh);
+        }
+        update(dt){
+            this.mesh.position.add(this.velocity.clone().multiplyScalar(dt));
+        }
+    }
+
+    // Player + Robots
+    const ships=[]; const bullets=[];
+    const colors=[0x00ffff,0xff5555,0xffff55,0x9955ff,0x55ff55,0xffaa00];
+    const player=new Ship('JOUEUR',0x00ff00,true);ships.push(player);
+    for(let i=0;i<CONFIG.ROBOTS;i++){ ships.push(new Ship('BOT'+i,colors[i])); }
+
+    // Controls
+    const keys={};
+    window.addEventListener('keydown',e=>keys[e.code]=true);
+    window.addEventListener('keyup',e=>keys[e.code]=false);
+
+    function shoot(ship){
+        const dir = new THREE.Vector3(0,0,-1).applyQuaternion(ship.mesh.quaternion);
+        const pos = ship.mesh.position.clone();
+        bullets.push(new Bullet(pos,dir,ship));
+    }
+
+    // HUD
+    const hud=document.getElementById('hud');
+
+    // Loop
+    let last=performance.now();
+    function animate(t){
+        const dt=(t-last)/1000; last=t;
+        // Player movement
+        if(keys.KeyW) player.velocity.z=-CONFIG.SPEED;
+        else if(keys.KeyS) player.velocity.z=CONFIG.SPEED;
+        else player.velocity.z=0;
+        if(keys.KeyA) player.velocity.x=-CONFIG.SPEED;
+        else if(keys.KeyD) player.velocity.x=CONFIG.SPEED;
+        else player.velocity.x=0;
+        if(keys.Space) shoot(player);
+
+        // Update ships
+        ships.forEach(s=>s.update(dt));
+        // Update bullets
+        bullets.forEach(b=>b.update(dt));
+        // Check collisions
+        bullets.forEach(b=>{
+            ships.forEach(s=>{
+                if(s!==b.owner && s.health>0){
+                    const dist=b.mesh.position.distanceTo(s.mesh.position);
+                    if(dist<5){
+                        s.health-=CONFIG.DAMAGE;
+                        b.mesh.position.set(9999,9999,9999);
+                    }
+                }
+            });
+        });
+
+        hud.innerHTML=ships.map(s=>`${s.name}: ${s.health}/${s.maxHealth}`).join('<br>');
+        renderer.render(scene,camera);
+        requestAnimationFrame(animate);
+    }
+    animate();
+</script>
+</body>
+</html>

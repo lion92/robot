@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bataille d'Amour 3D</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #gameContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .hud, .leaderboard {
+            position: fixed;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            z-index: 100;
+        }
+
+        .hud { top: 20px; left: 20px; }
+        .hud h4 { margin-bottom: 10px; font-weight: 600; }
+        .hud div { font-size: 14px; margin: 5px 0; }
+
+        .leaderboard { top: 20px; right: 20px; min-width: 200px; }
+        .leaderboard h4 { margin-bottom: 10px; font-weight: 600; }
+        .leaderboard div { font-size: 11px; margin: 3px 0; }
+
+        .game-log {
+            position: fixed; bottom: 20px; left: 20px; width: 400px; height: 200px;
+            background: rgba(0, 0, 0, 0.2); backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 15px;
+            padding: 15px; z-index: 100; overflow-y: auto;
+        }
+        .game-log h4 { margin-bottom: 10px; font-weight: 600; color: #4ecdc4; }
+        .game-log .log-entry {
+            font-size: 11px; margin: 2px 0; opacity: 0.9;
+            animation: fadeIn 0.3s ease-in;
+        }
+        .log-entry.love { color: #ff69b4; }
+        .log-entry.birth { color: #26de81; font-weight: 600; }
+        .log-entry.system { color: #4ecdc4; }
+        .log-entry.battle { color: #ff6b6b; font-weight: 600; }
+
+        .robot-vision {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 0, 100, 0.1); backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 0, 100, 0.3); border-radius: 15px;
+            padding: 15px; z-index: 120; display: none;
+        }
+        .robot-vision h4 { color: #ff69b4; margin-bottom: 10px; text-align: center; }
+        .robot-vision .vision-info { font-size: 12px; margin: 3px 0; }
+        .robot-vision .target-info { color: #4ecdc4; font-weight: 600; }
+        .robot-vision .emotion-info { color: #feca57; }
+        .robot-vision .status-info { color: #26de81; }
+
+        .timer {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 64px; font-weight: 700;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            z-index: 200; display: none;
+        }
+
+        .controls {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 15px; z-index: 150;
+        }
+
+        .btn {
+            padding: 15px 30px; background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none; color: white; font-family: inherit; font-weight: 600;
+            border-radius: 50px; cursor: pointer; transition: all 0.3s ease;
+        }
+
+        .btn:hover { transform: translateY(-3px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .birth-effect {
+            position: fixed; pointer-events: none; font-size: 24px; z-index: 250;
+            animation: birthPop 2s ease-out forwards;
+        }
+
+        @keyframes birthPop {
+            0% { transform: scale(0); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+<div id="gameContainer"></div>
+
+<div class="hud">
+    <h4>🌳 BATAILLE AU PARC</h4>
+    <div>Bataille #<span id="battleNumber">1</span></div>
+    <div>Participants: <span id="aliveRobots">16</span></div>
+    <div>Cœurs: <span id="totalKills">0</span></div>
+    <div>Naissances: <span id="totalBirths">0</span></div>
+</div>
+
+<div class="timer" id="timer">3:00</div>
+
+<div class="leaderboard">
+    <h4>💖 CLASSEMENT</h4>
+    <div id="leaderboardContent"></div>
+</div>
+
+<div class="game-log">
+    <h4>📋 JOURNAL DE JEU</h4>
+    <div id="gameLog"></div>
+</div>
+
+<div class="robot-vision" id="robotVision">
+    <h4>👁️ VISION ROBOT</h4>
+    <div id="robotVisionContent"></div>
+</div>
+
+<div class="robot-crosshair" id="robotCrosshair"></div>
+
+<div class="controls">
+    <button class="btn" id="startBtn">🌸 DÉMARRER</button>
+    <button class="btn" id="resetBtn">🔄 RESET</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Configuration
+    const CONFIG = {
+        ROBOTS: 16, BATTLE_TIME: 3600, LOVE: 15, ROBOT_SPEED: 0.2,
+        LOVE_COOLDOWN: 800, ARENA_SIZE: 80, DETECTION_RANGE: 35,
+        REPRODUCTION_THRESHOLD: 4, MAX_ROBOTS: 100,
+        JEALOUSY_RANGE: 25, ATTACK_DAMAGE: 20, PROTECTION_RADIUS: 15
+    };
+
+    const ROBOT_TYPES = [
+        { name: 'Classique', body: 'sphere', head: 'sphere', color: '#ff6b6b', icon: '🤖' },
+        { name: 'Cubique', body: 'cube', head: 'cube', color: '#45b7d1', icon: '🔲' },
+        { name: 'Cylindrique', body: 'cylinder', head: 'sphere', color: '#feca57', icon: '🛸' },
+        { name: 'Pyramidal', body: 'cone', head: 'sphere', color: '#54a0ff', icon: '📡' },
+        { name: 'Octaèdre', body: 'octahedron', head: 'octahedron', color: '#00d2d3', icon: '💎' },
+        { name: 'Tonneau', body: 'cylinder', head: 'cylinder', color: '#10ac84', icon: '🚀' },
+        { name: 'Cristal', body: 'diamond', head: 'diamond', color: '#a55eea', icon: '💠' },
+        { name: 'Ovale', body: 'ellipsoid', head: 'ellipsoid', color: '#fd79a8', icon: '🥚' }
+    ];
+
+    const NAMES = ['Amour', 'Tendresse', 'Câlin', 'Bisou', 'Sourire', 'Joie', 'Bonheur', 'Rire', 'Espoir', 'Rêve', 'Magie', 'Charme', 'Douceur', 'Passion', 'Caresse', 'Émotion'];
+    const CHILD_SUFFIXES = [' Jr', ' II', ' Mini', ' Bébé', ' Petit'];
+
+    // Variables globales
+    let gameState = 'idle', battleTimer = CONFIG.BATTLE_TIME, battleNumber = 1;
+    let robots = [], projectiles = [], scene, camera, renderer;
+    let robotMeshes = [], projectileMeshes = [], nextRobotId = 0;
+    let stats = { totalKills: 0, totalBirths: 0, startTime: 0 };
+    let gameLog = [];
+    let robotVisionMode = false, currentViewedRobot = 0;
+    let originalCameraPosition = { x: 0, y: 60, z: 80 };
+    let originalCameraTarget = { x: 0, y: 0, z: 0 };
+
+    // Système de logs
+    function addLog(message, type = 'system') {
+        const timestamp = new Date().toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        gameLog.push({
+            time: timestamp,
+            message: message,
+            type: type
+        });
+
+        // Garder seulement les 50 derniers logs
+        if (gameLog.length > 50) {
+            gameLog.shift();
+        }
+
+        updateLogDisplay();
+        console.log(`[${timestamp}] ${message}`);
+    }
+
+    function updateLogDisplay() {
+        const logContainer = document.getElementById('gameLog');
+        logContainer.innerHTML = '';
+
+        // Afficher les logs les plus récents en premier
+        const recentLogs = gameLog.slice(-15).reverse();
+
+        recentLogs.forEach(log => {
+            const logDiv = document.createElement('div');
+            logDiv.className = `log-entry ${log.type}`;
+            logDiv.innerHTML = `<span style="opacity: 0.6;">[${log.time}]</span> ${log.message}`;
+            logContainer.appendChild(logDiv);
+        });
+
+        // Auto-scroll vers le bas
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // Initialisation
+    function init() {
+        initThreeJS();
+        initGame();
+        gameLoop();
+    }
+
+    function initThreeJS() {
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x87ceeb, 80, 200);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 60, 80);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.setClearColor(0x87ceeb);
+        document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+        // Éclairage
+        scene.add(new THREE.AmbientLight(0x404040, 0.8));
+        const light = new THREE.DirectionalLight(0xffffff, 1.2);
+        light.position.set(50, 100, 50);
+        light.castShadow = true;
+        scene.add(light);
+
+        // Sol
+        const floor = new THREE.Mesh(
+            new THREE.CircleGeometry(CONFIG.ARENA_SIZE, 64),
+            new THREE.MeshLambertMaterial({ color: 0x4a7c59 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        setupControls();
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    function setupControls() {
+        let mouseDown = false, angle = 0, height = 60;
+
+        document.addEventListener('mousedown', () => mouseDown = true);
+        document.addEventListener('mouseup', () => mouseDown = false);
+        document.addEventListener('mousemove', (e) => {
+            if (mouseDown && !robotVisionMode) {
+                angle += e.movementX * 0.01;
+                height = Math.max(30, Math.min(120, height - e.movementY * 0.5));
+                updateCamera();
+            }
+        });
+        document.addEventListener('wheel', (e) => {
+            if (!robotVisionMode) {
+                height = Math.max(25, Math.min(150, height + e.deltaY * 0.1));
+                updateCamera();
+            }
+        });
+
+        // Contrôle vision robot avec touche B
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'b') {
+                toggleRobotVision();
+            }
+            if (robotVisionMode) {
+                if (e.key === 'ArrowLeft' || e.key === 'a') {
+                    switchToRobot(-1);
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd') {
+                    switchToRobot(1);
+                }
+            }
+        });
+
+        function updateCamera() {
+            if (!robotVisionMode) {
+                const distance = 100;
+                camera.position.set(Math.sin(angle) * distance, height, Math.cos(angle) * distance);
+                camera.lookAt(0, 0, 0);
+                originalCameraPosition = { x: camera.position.x, y: camera.position.y, z: camera.position.z };
+            }
+        }
+    }
+
+    function toggleRobotVision() {
+        robotVisionMode = !robotVisionMode;
+        const visionPanel = document.getElementById('robotVision');
+        const crosshair = document.getElementById('robotCrosshair');
+
+        if (robotVisionMode) {
+            visionPanel.style.display = 'block';
+            crosshair.style.display = 'block';
+            currentViewedRobot = 0;
+            updateRobotVision();
+            addLog(`👁️ Mode vision robot activé ! Flèches ←/→ pour changer de robot`, 'system');
+        } else {
+            visionPanel.style.display = 'none';
+            crosshair.style.display = 'none';
+            // Retour à la vue normale
+            camera.position.set(originalCameraPosition.x, originalCameraPosition.y, originalCameraPosition.z);
+            camera.lookAt(0, 0, 0);
+            addLog(`👁️ Mode vision robot désactivé`, 'system');
+        }
+    }
+
+    function switchToRobot(direction) {
+        if (robots.length === 0) return;
+
+        currentViewedRobot += direction;
+        if (currentViewedRobot >= robots.length) currentViewedRobot = 0;
+        if (currentViewedRobot < 0) currentViewedRobot = robots.length - 1;
+
+        updateRobotVision();
+        addLog(`👁️ Vision: ${robots[currentViewedRobot].name}`, 'system');
+    }
+
+    function updateRobotVision() {
+        if (!robotVisionMode || robots.length === 0) return;
+
+        const robot = robots[currentViewedRobot];
+        if (!robot || !robot.alive) {
+            // Passer au robot suivant si celui-ci n'existe plus
+            switchToRobot(1);
+            return;
+        }
+
+        // Positionner la caméra derrière les yeux du robot
+        const robotHeight = 4; // Hauteur des yeux du robot
+        camera.position.set(robot.x, robotHeight, robot.z);
+
+        // Regarder vers la cible ou dans la direction de mouvement
+        let lookAtX = robot.x;
+        let lookAtZ = robot.z;
+
+        if (robot.target && robot.target.alive) {
+            lookAtX = robot.target.x;
+            lookAtZ = robot.target.z;
+        } else if (Math.abs(robot.vx) > 0.01 || Math.abs(robot.vz) > 0.01) {
+            lookAtX = robot.x + robot.vx * 10;
+            lookAtZ = robot.z + robot.vz * 10;
+        } else {
+            lookAtZ = robot.z + 10; // Regarder vers l'avant par défaut
+        }
+
+        camera.lookAt(lookAtX, robotHeight, lookAtZ);
+
+        // Mettre à jour l'interface de vision
+        updateRobotVisionUI(robot);
+    }
+
+    function updateRobotVisionUI(robot) {
+        const visionContent = document.getElementById('robotVisionContent');
+
+        // Calculer les informations sur l'environnement
+        const nearbyRobots = robots.filter(r =>
+            r.alive && r.id !== robot.id && getDistance(robot, r) < CONFIG.DETECTION_RANGE
+        ).sort((a, b) => getDistance(robot, a) - getDistance(robot, b));
+
+        const nearbyHearts = projectiles.filter(p => getDistance(robot, p) < 15);
+
+        // Déterminer l'émotion du robot
+        let emotion = '😐';
+        let emotionText = 'Neutre';
+
+        if (!robot.alive) {
+            emotion = '💀';
+            emotionText = 'Éliminé';
+        } else if (robot.protectiveMode) {
+            emotion = '😡';
+            emotionText = `Protège ${robot.partner ? robot.partner.name : 'partenaire'}`;
+        } else if (robot.hearts >= CONFIG.REPRODUCTION_THRESHOLD && !robot.hasReproduced) {
+            emotion = '🤰';
+            emotionText = 'Prêt à se reproduire';
+        } else if (robot.partner) {
+            const distanceToPartner = getDistance(robot, robot.partner);
+            if (distanceToPartner < 10) {
+                emotion = '😍';
+                emotionText = `Très proche de ${robot.partner.name}`;
+            } else if (distanceToPartner < 20) {
+                emotion = '😊';
+                emotionText = `Avec ${robot.partner.name}`;
+            } else {
+                emotion = '🥰';
+                emotionText = `Cherche ${robot.partner.name}`;
+            }
+        } else if (robot.target) {
+            const distanceToTarget = getDistance(robot, robot.target);
+            if (distanceToTarget < 10) {
+                emotion = '😍';
+                emotionText = 'Très intéressé';
+            } else {
+                emotion = '🥰';
+                emotionText = 'En séduction';
+            }
+        } else if (nearbyRobots.length === 0) {
+            emotion = '😔';
+            emotionText = 'Seul';
+        }
+
+        // Temps jusqu'au prochain tir
+        const now = Date.now();
+        const timeSinceLastLove = now - robot.lastLove;
+        const timeSinceLastAttack = now - robot.lastAttack;
+        const timeUntilNextLove = Math.max(0, CONFIG.LOVE_COOLDOWN - timeSinceLastLove);
+        const timeUntilNextAttack = Math.max(0, (CONFIG.LOVE_COOLDOWN * 0.6) - timeSinceLastAttack);
+        const canShoot = timeUntilNextLove === 0;
+        const canAttack = timeUntilNextAttack === 0;
+
+        visionContent.innerHTML = `
+                <div class="vision-info"><strong style="color: ${robot.type.color};">${robot.type.icon} ${robot.name}</strong> (Gen ${robot.generation})</div>
+                <div class="emotion-info">État: ${emotion} ${emotionText}</div>
+                <div class="status-info">💖 Cœurs: ${robot.hearts}/${CONFIG.REPRODUCTION_THRESHOLD} | ❤️ Vie: ${robot.health}/100</div>
+                <div class="vision-info">🎯 Amour: ${canShoot ? 'Prêt !' : `${Math.ceil(timeUntilNextLove/1000)}s`} | ⚔️ Attaque: ${canAttack ? 'Prêt !' : `${Math.ceil(timeUntilNextAttack/1000)}s`}</div>
+                ${robot.partner ?
+            `<div class="target-info">💑 Partenaire: ${robot.partner.name} (${Math.round(getDistance(robot, robot.partner))}m)</div>` :
+            robot.target ?
+                `<div class="target-info">💘 Cible: ${robot.target.name} (${Math.round(getDistance(robot, robot.target))}m)</div>` :
+                '<div class="vision-info">💔 Pas de cible</div>'
+        }
+                ${robot.protectiveMode ?
+            `<div class="vision-info" style="color: #ff4444;">😡 Mode protection activé ! Jalousie: ${robot.jealousyLevel}%</div>` :
+            ''
+        }
+                <div class="vision-info">👥 Robots proches: ${nearbyRobots.length}</div>
+                <div class="vision-info">💕 Projectiles: ${nearbyHearts.length}</div>
+                ${nearbyRobots.length > 0 ?
+            `<div class="vision-info">👀 Plus proche: ${nearbyRobots[0].name} (${Math.round(getDistance(robot, nearbyRobots[0]))}m)</div>` :
+            ''
+        }
+                <div style="margin-top: 10px; font-size: 10px; opacity: 0.7;">
+                    Robot ${currentViewedRobot + 1}/${robots.length} | ←/→ pour changer | B pour sortir
+                </div>
+            `;
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function initGame() {
+        robots = []; projectiles = []; nextRobotId = 0;
+        stats = { totalKills: 0, totalBirths: 0, startTime: Date.now() };
+        clearMeshes();
+        createRobots();
+        updateUI();
+        addLog(`🎮 Nouvelle partie initialisée avec ${CONFIG.ROBOTS} robots`, 'system');
+    }
+
+    function clearMeshes() {
+        [...robotMeshes, ...projectileMeshes].forEach(mesh => scene.remove(mesh));
+        robotMeshes = []; projectileMeshes = [];
+    }
+
+    function createRobots() {
+        addLog(`👥 Création de ${CONFIG.ROBOTS} robots dans le parc...`, 'system');
+        for (let i = 0; i < CONFIG.ROBOTS; i++) {
+            createRobot(i);
+        }
+        addLog(`✅ Tous les robots sont prêts ! Types: ${ROBOT_TYPES.map(t => t.icon).join(' ')}`, 'system');
+    }
+
+    function createRobot(index, parent = null) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = CONFIG.ARENA_SIZE * 0.7;
+        const type = parent ? parent.type : ROBOT_TYPES[index % ROBOT_TYPES.length];
+
+        const robot = {
+            id: nextRobotId++,
+            name: parent ? parent.name + CHILD_SUFFIXES[Math.floor(Math.random() * CHILD_SUFFIXES.length)] : NAMES[index % NAMES.length],
+            type: type,
+            x: parent ? parent.x + (Math.random() - 0.5) * 6 : Math.cos(angle) * radius,
+            z: parent ? parent.z + (Math.random() - 0.5) * 6 : Math.sin(angle) * radius,
+            vx: 0, vz: 0, hearts: 0, loves: 0, alive: true, health: 100,
+            target: null, lastLove: 0, generation: parent ? parent.generation + 1 : 0,
+            partner: null, firstPartner: null,
+            jealousyLevel: 0, protectiveMode: false, lastAttack: 0,
+            relationships: new Map() // Stocke les relations avec les autres robots
+        };
+
+        robots.push(robot);
+        createRobotMesh(robot);
+
+        if (parent) {
+            showBirthEffect(robot);
+            stats.totalBirths++;
+            addLog(`👶 ${parent.name} donne naissance à ${robot.name} (${robot.type.name}) ! Génération ${robot.generation}`, 'birth');
+        } else {
+            addLog(`🤖 ${robot.name} (${robot.type.name}) rejoint la bataille !`, 'system');
+        }
+
+        return robot;
+    }
+
+    function showBirthEffect(robot) {
+        const effect = document.createElement('div');
+        effect.className = 'birth-effect';
+        effect.textContent = '👶💕';
+        effect.style.color = robot.type.color;
+        effect.style.left = '50%';
+        effect.style.top = '50%';
+        document.body.appendChild(effect);
+        setTimeout(() => document.body.removeChild(effect), 2000);
+    }
+
+    function createRobotMesh(robot) {
+        const group = new THREE.Group();
+        const color = new THREE.Color(robot.type.color);
+        const scale = robot.generation > 0 ? 1.2 : 1.5;
+
+        // Corps
+        let bodyGeometry;
+        switch (robot.type.body) {
+            case 'cube':
+                bodyGeometry = new THREE.BoxGeometry(2 * scale, 2 * scale, 2 * scale);
+                break;
+            case 'cylinder':
+                bodyGeometry = new THREE.CylinderGeometry(1 * scale, 1 * scale, 2.5 * scale, 16);
+                break;
+            case 'cone':
+                bodyGeometry = new THREE.ConeGeometry(1.2 * scale, 2.5 * scale, 12);
+                break;
+            case 'octahedron':
+            case 'diamond':
+                bodyGeometry = new THREE.OctahedronGeometry(1.3 * scale);
+                break;
+            case 'ellipsoid':
+                bodyGeometry = new THREE.SphereGeometry(1.2 * scale, 16, 12);
+                break;
+            default: // sphere
+                bodyGeometry = new THREE.SphereGeometry(1.2 * scale, 16, 16);
+        }
+
+        const body = new THREE.Mesh(bodyGeometry, new THREE.MeshLambertMaterial({ color: color }));
+        body.position.y = 2.2 * scale;
+        body.castShadow = true;
+
+        if (robot.type.body === 'diamond') {
+            body.material.transparent = true;
+            body.material.opacity = 0.8;
+            body.material.emissive = color.clone().multiplyScalar(0.2);
+        }
+        if (robot.type.body === 'ellipsoid') {
+            body.scale.set(1, 0.7, 1.3);
+        }
+
+        group.add(body);
+
+        // Tête
+        let headGeometry;
+        switch (robot.type.head) {
+            case 'cube':
+                headGeometry = new THREE.BoxGeometry(1.2 * scale, 1.2 * scale, 1.2 * scale);
+                break;
+            case 'cylinder':
+                headGeometry = new THREE.CylinderGeometry(0.6 * scale, 0.6 * scale, 1.2 * scale, 16);
+                break;
+            case 'octahedron':
+            case 'diamond':
+                headGeometry = new THREE.OctahedronGeometry(0.6 * scale);
+                break;
+            case 'ellipsoid':
+                headGeometry = new THREE.SphereGeometry(0.8 * scale, 12, 10);
+                break;
+            default: // sphere
+                headGeometry = new THREE.SphereGeometry(0.8 * scale, 16, 16);
+        }
+
+        const head = new THREE.Mesh(headGeometry, new THREE.MeshLambertMaterial({
+            color: color.clone().multiplyScalar(1.2)
+        }));
+        head.position.y = 3.8 * scale;
+        head.castShadow = true;
+
+        if (robot.type.head === 'diamond') {
+            head.material.transparent = true;
+            head.material.opacity = 0.9;
+            head.material.emissive = color.clone().multiplyScalar(0.3);
+        }
+        if (robot.type.head === 'ellipsoid') {
+            head.scale.set(1.2, 0.8, 1);
+        }
+
+        group.add(head);
+
+        // Yeux
+        [-0.25, 0.25].forEach(x => {
+            const eye = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12 * scale, 8, 8),
+                new THREE.MeshBasicMaterial({
+                    color: 0x4ecdc4,
+                    emissive: 0x4ecdc4,
+                    emissiveIntensity: 0.8
+                })
+            );
+            eye.position.set(x * scale, 3.9 * scale, 0.6 * scale);
+            group.add(eye);
+        });
+
+        // Accessoires
+        if (robot.type.body === 'cone') {
+            const antenna = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05 * scale, 0.05 * scale, 0.8 * scale, 6),
+                new THREE.MeshLambertMaterial({ color: 0xffff00 })
+            );
+            antenna.position.set(0, 4.6 * scale, 0);
+            group.add(antenna);
+        }
+
+        group.position.set(robot.x, 0, robot.z);
+        robotMeshes.push(group);
+        scene.add(group);
+    }
+
+    // IA et gameplay
+    function updateRobots() {
+        if (gameState !== 'battle') return;
+
+        robots.forEach((robot, index) => {
+            if (!robot.alive) return;
+
+            updateRobotAI(robot);
+            updateRobotMesh(robot, index);
+            checkReproduction(robot);
+        });
+    }
+
+    function checkReproduction(robot) {
+        while (robot.hearts >= CONFIG.REPRODUCTION_THRESHOLD &&
+        robots.length < CONFIG.MAX_ROBOTS) {
+
+            // Retirer les cœurs nécessaires
+            robot.hearts -= CONFIG.REPRODUCTION_THRESHOLD;
+
+            // Créer un enfant
+            createRobot(robots.length, robot);
+            stats.totalBirths++;
+            addLog(`💕 ${robot.name} se reproduit ! Il reste ${robot.hearts} cœurs.`, 'birth');
+        }
+    }
+
+    function updateRobotAI(robot) {
+        const now = Date.now();
+
+        // Trouver des amis et des rivaux
+        const nearbyRobots = robots.filter(r =>
+            r.alive && r.id !== robot.id && getDistance(robot, r) < CONFIG.DETECTION_RANGE
+        ).sort((a, b) => getDistance(robot, a) - getDistance(robot, b));
+
+        // Établir ou maintenir le partenariat
+        managePartnership(robot, nearbyRobots, now);
+
+        // Détecter les menaces sur le partenaire
+        const threats = detectThreats(robot, nearbyRobots);
+
+        // Choisir l'action prioritaire
+        if (threats.length > 0 && robot.partner) {
+            // Mode protection : attaquer les rivaux
+            handleProtectiveMode(robot, threats, now);
+        } else if (robot.partner) {
+            // Mode amoureux : se rapprocher du partenaire et échanger des cœurs
+            handlePartnerInteraction(robot, now);
+        } else {
+            // Mode recherche : trouver un partenaire
+            handlePartnerSearch(robot, nearbyRobots, now);
+        }
+
+        // Mouvement de base
+        executeMovement(robot);
+    }
+
+    function managePartnership(robot, nearbyRobots, now) {
+        // Si pas encore de premier partenaire, choisir le plus proche
+        if (!robot.firstPartner && nearbyRobots.length > 0) {
+            robot.firstPartner = nearbyRobots[0];
+            robot.partner = robot.firstPartner;
+            robot.target = robot.partner;
+            addLog(`💑 ${robot.name} choisit ${robot.partner.name} comme premier partenaire !`, 'love');
+
+            // Établir la relation réciproque si l'autre n'a pas de partenaire
+            if (!robot.partner.firstPartner) {
+                robot.partner.firstPartner = robot;
+                robot.partner.partner = robot;
+                robot.partner.target = robot;
+                addLog(`💕 Relation mutuelle établie entre ${robot.name} et ${robot.partner.name} !`, 'love');
+            }
+        }
+
+        // Vérifier si le partenaire est toujours vivant
+        if (robot.partner && !robot.partner.alive) {
+            addLog(`💔 ${robot.name} perd son partenaire ${robot.partner.name}...`, 'love');
+            robot.partner = null;
+            robot.target = null;
+            robot.protectiveMode = false;
+            robot.jealousyLevel = Math.max(0, robot.jealousyLevel - 30);
+        }
+    }
+
+    function detectThreats(robot, nearbyRobots) {
+        if (!robot.partner) return [];
+
+        const threats = nearbyRobots.filter(r => {
+            const distanceToPartner = getDistance(r, robot.partner);
+            const isTargetingPartner = r.target && r.target.id === robot.partner.id;
+            const isTooClose = distanceToPartner < CONFIG.PROTECTION_RADIUS;
+
+            return (isTargetingPartner || isTooClose) && r.id !== robot.id;
+        });
+
+        if (threats.length > 0 && !robot.protectiveMode) {
+            robot.protectiveMode = true;
+            robot.jealousyLevel = Math.min(100, robot.jealousyLevel + 25);
+            addLog(`😡 ${robot.name} devient jaloux ! Il protège ${robot.partner.name} de ${threats.length} rival(x)`, 'love');
+        }
+
+        return threats;
+    }
+
+    function handleProtectiveMode(robot, threats, now) {
+        // Cibler la menace la plus proche
+        const primaryThreat = threats.sort((a, b) => getDistance(robot, a) - getDistance(robot, b))[0];
+        robot.target = primaryThreat;
+
+        // Se positionner entre la menace et le partenaire
+        const partnerX = robot.partner.x;
+        const partnerZ = robot.partner.z;
+        const threatX = primaryThreat.x;
+        const threatZ = primaryThreat.z;
+
+        // Position de protection (entre partenaire et menace)
+        const midX = (partnerX + threatX) / 2;
+        const midZ = (partnerZ + threatZ) / 2;
+        const protectionX = partnerX + (midX - partnerX) * 0.7;
+        const protectionZ = partnerZ + (midZ - partnerZ) * 0.7;
+
+        // Se déplacer vers la position de protection
+        const dx = protectionX - robot.x;
+        const dz = protectionZ - robot.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+
+        if (distance > 2) {
+            robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED * 1.2; // Plus rapide en mode protection
+            robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED * 1.2;
+        }
+
+        // Tirer sur la menace si à portée
+        const distanceToThreat = getDistance(robot, primaryThreat);
+        if (distanceToThreat < CONFIG.JEALOUSY_RANGE && now - robot.lastAttack > CONFIG.LOVE_COOLDOWN * 0.6) {
+            shootAttack(robot, primaryThreat, now);
+        }
+
+        // Continuer à envoyer de l'amour au partenaire
+        const distanceToPartner = getDistance(robot, robot.partner);
+        if (distanceToPartner < 20 && now - robot.lastLove > CONFIG.LOVE_COOLDOWN) {
+            sendLove(robot, robot.partner, now);
+        }
+    }
+
+    function handlePartnerInteraction(robot, now) {
+        robot.target = robot.partner;
+        robot.protectiveMode = false;
+
+        const distance = getDistance(robot, robot.partner);
+        const dx = robot.partner.x - robot.x;
+        const dz = robot.partner.z - robot.z;
+
+        // Se rapprocher du partenaire
+        if (distance > 8) { // Garder une distance intime
+            robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED;
+            robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED;
+        } else {
+            // Orbiter autour du partenaire
+            const angle = Math.atan2(dz, dx) + 0.02; // Rotation lente
+            robot.vx = Math.cos(angle) * CONFIG.ROBOT_SPEED * 0.3;
+            robot.vz = Math.sin(angle) * CONFIG.ROBOT_SPEED * 0.3;
+        }
+
+        // Échanger des cœurs fréquemment
+        if (distance < 15 && now - robot.lastLove > CONFIG.LOVE_COOLDOWN * 0.7) {
+            sendLove(robot, robot.partner, now);
+        }
+
+        // Diminuer la jalousie progressivement
+        robot.jealousyLevel = Math.max(0, robot.jealousyLevel - 1);
+    }
+
+    function handlePartnerSearch(robot, nearbyRobots, now) {
+        // Chercher un nouveau partenaire si le premier n'est plus disponible
+        if (nearbyRobots.length > 0) {
+            const oldTarget = robot.target ? robot.target.name : 'personne';
+            robot.target = nearbyRobots[0];
+            if (robot.target && robot.target.name !== oldTarget) {
+                addLog(`💘 ${robot.name} recherche un nouveau partenaire : ${robot.target.name}`, 'love');
+            }
+
+            const distance = getDistance(robot, robot.target);
+            const dx = robot.target.x - robot.x;
+            const dz = robot.target.z - robot.z;
+
+            robot.vx = (dx / distance) * CONFIG.ROBOT_SPEED;
+            robot.vz = (dz / distance) * CONFIG.ROBOT_SPEED;
+
+            // Essayer de séduire
+            if (distance < 20 && now - robot.lastLove > CONFIG.LOVE_COOLDOWN) {
+                sendLove(robot, robot.target, now);
+            }
+        } else {
+            // Mouvement aléatoire si seul
+            if (Math.random() < 0.01) {
+                addLog(`🚶 ${robot.name} se promène seul, cherchant l'amour...`, 'system');
+            }
+            robot.vx = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED * 0.5;
+            robot.vz = (Math.random() - 0.5) * CONFIG.ROBOT_SPEED * 0.5;
+        }
+    }
+
+    function executeMovement(robot) {
+        robot.x += robot.vx;
+        robot.z += robot.vz;
+
+        // Rester dans l'arène
+        const distance = Math.sqrt(robot.x * robot.x + robot.z * robot.z);
+        if (distance > CONFIG.ARENA_SIZE - 5) {
+            robot.x *= 0.9;
+            robot.z *= 0.9;
+        }
+    }
+
+    function shootAttack(robot, target, now) {
+        const dx = target.x - robot.x;
+        const dz = target.z - robot.z;
+        const length = Math.sqrt(dx * dx + dz * dz);
+
+        const attack = {
+            x: robot.x, y: 3, z: robot.z,
+            vx: (dx / length) * 2, vz: (dz / length) * 2, // Plus rapide que l'amour
+            owner: robot.id, damage: CONFIG.ATTACK_DAMAGE, life: 80,
+            type: 'attack'
+        };
+        projectiles.push(attack);
+
+        const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.3, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xff4444, emissive: 0xff4444, emissiveIntensity: 0.8 })
+        );
+        mesh.position.set(robot.x, 3, robot.z);
+        projectileMeshes.push(mesh);
+        scene.add(mesh);
+
+        robot.lastAttack = now;
+        addLog(`💥 ${robot.name} attaque ${target.name} pour protéger ${robot.partner.name} !`, 'battle');
+    }
+
+    function getDistance(obj1, obj2) {
+        return Math.sqrt((obj1.x - obj2.x) ** 2 + (obj1.z - obj2.z) ** 2);
+    }
+
+    function sendLove(robot, target, now) {
+        const dx = target.x - robot.x;
+        const dz = target.z - robot.z;
+        const length = Math.sqrt(dx * dx + dz * dz);
+
+        const heart = {
+            x: robot.x, y: 3, z: robot.z,
+            vx: (dx / length) * 1.5, vz: (dz / length) * 1.5,
+            owner: robot.id, love: CONFIG.LOVE, life: 100
+        };
+        projectiles.push(heart);
+
+        const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.4, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xff69b4, emissive: 0xff69b4, emissiveIntensity: 0.6 })
+        );
+        mesh.position.set(robot.x, 3, robot.z);
+        projectileMeshes.push(mesh);
+        scene.add(mesh);
+
+        robot.loves++;
+        robot.lastLove = now;
+        stats.totalKills++;
+
+        addLog(`💌 ${robot.name} envoie un cœur d'amour à ${target.name} !`, 'love');
+    }
+
+    function updateRobotMesh(robot, index) {
+        const mesh = robotMeshes[index];
+        if (!mesh) return;
+
+        mesh.position.set(robot.x, 0, robot.z);
+
+        if (robot.target) {
+            const angle = Math.atan2(robot.target.z - robot.z, robot.target.x - robot.x);
+            mesh.rotation.y = angle - Math.PI / 2;
+        }
+    }
+
+    function updateProjectiles() {
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const heart = projectiles[i];
+            const mesh = projectileMeshes[i];
+            if (!heart || !mesh) continue;
+
+            heart.x += heart.vx;
+            heart.z += heart.vz;
+            heart.life--;
+
+            mesh.position.set(heart.x, heart.y, heart.z);
+
+            if (heart.life <= 0 || Math.abs(heart.x) > CONFIG.ARENA_SIZE * 2) {
+                removeProjectile(i);
+                continue;
+            }
+
+            // Collision avec robots
+            for (const robot of robots) {
+                if (!robot.alive || robot.id === heart.owner) continue;
+
+                if (getDistance(robot, heart) < 2.5) {
+                    const sender = robots.find(r => r.id === heart.owner);
+
+                    if (heart.type === 'attack') {
+                        // C'est une attaque
+                        robot.health -= heart.damage;
+                        addLog(`💥 ${robot.name} subit ${heart.damage} dégâts de ${sender ? sender.name : 'quelqu\'un'} ! (Vie: ${robot.health})`, 'battle');
+
+                        if (robot.health <= 0) {
+                            robot.alive = false;
+                            addLog(`💀 ${robot.name} est éliminé par ${sender ? sender.name : 'quelqu\'un'} !`, 'battle');
+
+                            // Le partenaire devient furieux
+                            if (robot.partner && robot.partner.alive) {
+                                robot.partner.jealousyLevel = 100;
+                                robot.partner.protectiveMode = true;
+                                if (sender) robot.partner.target = sender;
+                                addLog(`😡💔 ${robot.partner.name} entre dans une rage vengeresse !`, 'battle');
+                            }
+                        }
+                    } else {
+                        // C'est de l'amour
+                        robot.hearts += heart.love;
+                        addLog(`💖 ${robot.name} reçoit un cœur de ${sender ? sender.name : 'quelqu\'un'} ! (Total: ${robot.hearts})`, 'love');
+
+                        // Renforcer le lien si c'est du partenaire
+                        if (sender && robot.partner && robot.partner.id === sender.id) {
+                            addLog(`💕 Lien renforcé entre ${robot.name} et ${sender.name} !`, 'love');
+                        }
+
+                        // Vérifier si c'est assez pour se reproduire
+                        if (robot.hearts >= CONFIG.REPRODUCTION_THRESHOLD && !robot.hasReproduced) {
+                            addLog(`🤰 ${robot.name} a maintenant ${robot.hearts} cœurs et peut se reproduire !`, 'birth');
+                        }
+                    }
+
+                    removeProjectile(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    function removeProjectile(index) {
+        projectiles.splice(index, 1);
+        scene.remove(projectileMeshes[index]);
+        projectileMeshes.splice(index, 1);
+    }
+
+    // Gestion du jeu
+    function gameLoop() {
+        if (gameState === 'battle') {
+            updateRobots();
+            updateProjectiles();
+            updateTimer();
+            checkWinConditions();
+        }
+        if (robotVisionMode) {
+            updateRobotVision();
+        }
+        updateUI();
+        renderer.render(scene, camera);
+        requestAnimationFrame(gameLoop);
+    }
+
+    function updateTimer() {
+        battleTimer--;
+        if (battleTimer <= 0) {
+            addLog(`⏰ Temps écoulé ! Fin de la bataille.`, 'battle');
+            endBattle();
+        }
+
+        // Logs d'événements temporels
+        if (battleTimer === 120) addLog(`⏰ 2 minutes restantes !`, 'system');
+        if (battleTimer === 60) addLog(`⏰ 1 minute restante !`, 'system');
+        if (battleTimer === 30) addLog(`⏰ 30 secondes restantes !`, 'system');
+        if (battleTimer === 10) addLog(`⏰ 10 secondes restantes !`, 'battle');
+
+        const minutes = Math.floor(battleTimer / 60);
+        const seconds = battleTimer % 60;
+        document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function checkWinConditions() {
+        if (battleTimer <= 0) endBattle();
+    }
+
+    function endBattle() {
+        gameState = 'ended';
+        document.getElementById('timer').style.display = 'none';
+
+        const winner = robots.reduce((best, robot) => robot.hearts > best.hearts ? robot : best, robots[0]);
+
+        addLog(`🏆 FIN DE LA BATAILLE ! ${winner.name} remporte la victoire !`, 'battle');
+        addLog(`📊 Résultats: ${winner.hearts} cœurs reçus, ${winner.loves} messages envoyés`, 'system');
+        addLog(`👶 ${stats.totalBirths} naissances pendant cette bataille`, 'birth');
+
+        const families = organizeFamilies();
+        const biggestFamily = families[0];
+        if (biggestFamily && biggestFamily.stats.totalMembers > 1) {
+            addLog(`👨‍👩‍👧‍👦 Plus grande famille: ${biggestFamily.founder.name} (${biggestFamily.stats.totalMembers} membres)`, 'birth');
+        }
+
+        showResults(winner);
+        setTimeout(() => showFamilyTree(), 2000);
+        setTimeout(() => startNewBattle(), 8000);
+    }
+
+    function showResults(winner) {
+        const div = document.createElement('div');
+        div.id = 'results';
+        div.style.cssText = `
+                position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%);
+                background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px;
+                padding: 30px; color: white; text-align: center; z-index: 300;
+            `;
+
+        div.innerHTML = `
+                <h2 style="color: ${winner.type.color}; margin-bottom: 20px;">${winner.type.icon} ${winner.name} GAGNE!</h2>
+                <p>💖 Cœurs reçus: ${winner.hearts}</p>
+                <p>💌 Messages envoyés: ${winner.loves}</p>
+                <p>👶 Naissances: ${stats.totalBirths}</p>
+                <p style="margin-top: 20px; opacity: 0.8;">Arbre généalogique dans 2s...</p>
+            `;
+        document.body.appendChild(div);
+    }
+
+    function showFamilyTree() {
+        // Supprimer les résultats précédents
+        const results = document.getElementById('results');
+        if (results) document.body.removeChild(results);
+
+        const treeDiv = document.createElement('div');
+        treeDiv.id = 'familyTree';
+        treeDiv.style.cssText = `
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.15); backdrop-filter: blur(25px);
+                border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 25px;
+                padding: 30px; color: white; z-index: 350; max-width: 90vw; max-height: 80vh;
+                overflow-y: auto; font-family: 'Poppins', sans-serif;
+            `;
+
+        let treeHTML = `
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h2 style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px;">
+                        🌳 ARBRE GÉNÉALOGIQUE
+                    </h2>
+                    <p style="opacity: 0.8; font-size: 14px;">Bataille #${battleNumber} - ${stats.totalBirths} naissances</p>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 25px; justify-content: center;">
+            `;
+
+        // Organiser les robots par familles
+        const families = organizeFamilies();
+
+        families.forEach(family => {
+            treeHTML += createFamilyHTML(family);
+        });
+
+        treeHTML += `
+                </div>
+                <div style="text-align: center; margin-top: 25px; opacity: 0.7; font-size: 12px;">
+                    <p>Prochaine bataille dans 3s...</p>
+                </div>
+            `;
+
+        treeDiv.innerHTML = treeHTML;
+        document.body.appendChild(treeDiv);
+
+        setTimeout(() => {
+            if (document.getElementById('familyTree')) {
+                document.body.removeChild(document.getElementById('familyTree'));
+            }
+        }, 6000);
+    }
+
+    function organizeFamilies() {
+        const families = [];
+        const processedRobots = new Set();
+
+        robots.forEach(robot => {
+            if (processedRobots.has(robot.id)) return;
+
+            // Si c'est un robot de génération 0 (fondateur)
+            if (robot.generation === 0) {
+                const family = {
+                    founder: robot,
+                    children: [],
+                    grandchildren: [],
+                    stats: {
+                        totalMembers: 1,
+                        totalHearts: robot.hearts,
+                        totalLoves: robot.loves,
+                        generations: 1
+                    }
+                };
+
+                // Trouver tous les enfants
+                const children = robots.filter(r => r.parent === robot.id);
+                family.children = children;
+                family.stats.totalMembers += children.length;
+                if (children.length > 0) family.stats.generations = 2;
+
+                children.forEach(child => {
+                    family.stats.totalHearts += child.hearts;
+                    family.stats.totalLoves += child.loves;
+                    processedRobots.add(child.id);
+
+                    // Trouver les petits-enfants
+                    const grandchildren = robots.filter(r => r.parent === child.id);
+                    family.grandchildren.push(...grandchildren);
+                    family.stats.totalMembers += grandchildren.length;
+                    if (grandchildren.length > 0) family.stats.generations = 3;
+
+                    grandchildren.forEach(grandchild => {
+                        family.stats.totalHearts += grandchild.hearts;
+                        family.stats.totalLoves += grandchild.loves;
+                        processedRobots.add(grandchild.id);
+                    });
+                });
+
+                family.stats.totalHearts += robot.hearts;
+                family.stats.totalLoves += robot.loves;
+                processedRobots.add(robot.id);
+                families.push(family);
+            }
+        });
+
+        // Trier les familles par nombre total de membres (plus grandes d'abord)
+        return families.sort((a, b) => b.stats.totalMembers - a.stats.totalMembers);
+    }
+
+    function createFamilyHTML(family) {
+        const founder = family.founder;
+        const familySize = family.stats.totalMembers;
+        const isLargeFamily = familySize > 1;
+
+        let familyHTML = `
+                <div style="
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 15px; padding: 20px; min-width: 250px;
+                    ${isLargeFamily ? 'border-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 20px rgba(255, 215, 0, 0.1);' : ''}
+                ">
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <h3 style="color: ${founder.type.color}; margin-bottom: 5px; font-size: 16px;">
+                            ${founder.type.icon} Famille ${founder.name}
+                        </h3>
+                        <div style="font-size: 11px; opacity: 0.7; display: flex; justify-content: space-between;">
+                            <span>👥 ${familySize} membres</span>
+                            <span>🏆 ${family.stats.generations} gen${family.stats.generations > 1 ? 's' : ''}</span>
+                        </div>
+                    </div>
+
+                    <!-- Fondateur -->
+                    <div style="margin-bottom: 12px;">
+                        <div style="
+                            background: rgba(${hexToRgb(founder.type.color)}, 0.2);
+                            border: 1px solid ${founder.type.color};
+                            border-radius: 8px; padding: 8px; font-size: 12px;
+                        ">
+                            <div style="font-weight: 600; color: ${founder.type.color};">
+                                👑 ${founder.name} (Fondateur)
+                            </div>
+                            <div style="opacity: 0.8; margin-top: 3px;">
+                                💖 ${founder.hearts} cœurs • 💌 ${founder.loves} messages
+                            </div>
+                        </div>
+                    </div>
+            `;
+
+        // Enfants (Génération 1)
+        if (family.children.length > 0) {
+            familyHTML += `
+                    <div style="margin-bottom: 10px;">
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 8px; text-align: center;">
+                            ↓ ENFANTS (${family.children.length})
+                        </div>
+                `;
+
+            family.children.forEach(child => {
+                familyHTML += `
+                        <div style="
+                            background: rgba(${hexToRgb(child.type.color)}, 0.15);
+                            border: 1px solid rgba(${hexToRgb(child.type.color)}, 0.3);
+                            border-radius: 6px; padding: 6px; margin-bottom: 5px; font-size: 11px;
+                        ">
+                            <div style="color: ${child.type.color}; font-weight: 500;">
+                                👶 ${child.name}
+                            </div>
+                            <div style="opacity: 0.7;">
+                                💖 ${child.hearts} • 💌 ${child.loves}
+                            </div>
+                        </div>
+                    `;
+            });
+
+            familyHTML += `</div>`;
+        }
+
+        // Petits-enfants (Génération 2)
+        if (family.grandchildren.length > 0) {
+            familyHTML += `
+                    <div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 8px; text-align: center;">
+                            ↓ PETITS-ENFANTS (${family.grandchildren.length})
+                        </div>
+                `;
+
+            family.grandchildren.forEach(grandchild => {
+                familyHTML += `
+                        <div style="
+                            background: rgba(${hexToRgb(grandchild.type.color)}, 0.1);
+                            border: 1px solid rgba(${hexToRgb(grandchild.type.color)}, 0.2);
+                            border-radius: 4px; padding: 4px; margin-bottom: 3px; font-size: 10px;
+                        ">
+                            <div style="color: ${grandchild.type.color};">
+                                👼 ${grandchild.name}
+                            </div>
+                            <div style="opacity: 0.6;">
+                                💖 ${grandchild.hearts} • 💌 ${grandchild.loves}
+                            </div>
+                        </div>
+                    `;
+            });
+
+            familyHTML += `</div>`;
+        }
+
+        // Statistiques de famille
+        familyHTML += `
+                    <div style="
+                        margin-top: 15px; padding-top: 10px;
+                        border-top: 1px solid rgba(255, 255, 255, 0.1);
+                        text-align: center; font-size: 10px; opacity: 0.8;
+                    ">
+                        <div>💕 Total: ${family.stats.totalHearts} cœurs • ${family.stats.totalLoves} messages</div>
+                        ${isLargeFamily ? '<div style="color: gold; margin-top: 3px;">🏆 Grande Famille !</div>' : ''}
+                    </div>
+                </div>
+            `;
+
+        return familyHTML;
+    }
+
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ?
+            `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` :
+            '255, 255, 255';
+    }
+
+    function startNewBattle() {
+        battleNumber++;
+        gameState = 'battle';
+        battleTimer = CONFIG.BATTLE_TIME;
+        document.getElementById('timer').style.display = 'block';
+        document.getElementById('startBtn').textContent = `🌸 BATAILLE #${battleNumber}`;
+        document.getElementById('startBtn').disabled = true;
+
+        addLog(`⚔️ DÉBUT DE LA BATAILLE #${battleNumber} !`, 'battle');
+        addLog(`⏰ Durée: ${CONFIG.BATTLE_TIME} secondes`, 'system');
+        addLog(`🎯 Objectif: Recevoir ${CONFIG.REPRODUCTION_THRESHOLD} cœurs pour se reproduire`, 'system');
+
+        initGame();
+
+        robots.forEach(robot => {
+            robot.hearts = 0;
+            robot.loves = 0;
+            robot.target = null;
+            robot.hasReproduced = false;
+            robot.partner = null;
+            robot.firstPartner = null;
+            robot.jealousyLevel = 0;
+            robot.protectiveMode = false;
+            robot.lastAttack = 0;
+            robot.health = 100;
+            robot.alive = true;
+            robot.relationships.clear();
+        });
+    }
+
+    function updateUI() {
+        document.getElementById('battleNumber').textContent = battleNumber;
+        document.getElementById('aliveRobots').textContent = robots.filter(r => r.alive).length;
+        document.getElementById('totalKills').textContent = stats.totalKills;
+        document.getElementById('totalBirths').textContent = stats.totalBirths;
+
+        const leaderboard = document.getElementById('leaderboardContent');
+        const sorted = [...robots].sort((a, b) => b.hearts - a.hearts);
+
+        leaderboard.innerHTML = '';
+        sorted.slice(0, 8).forEach((r, i) => {
+            const reproductionIcon = r.hearts >= CONFIG.REPRODUCTION_THRESHOLD && !r.hasReproduced ? '🤰' : '';
+
+            leaderboard.innerHTML +=
+                `<div style="color:${r.type.color}; margin: 3px 0;">
+                        ${i + 1}. ${r.type.icon} ${r.name} ${reproductionIcon}<br>
+                        💖 ${r.hearts} | 💌 ${r.loves}
+                    </div>`;
+        });
+    }
+
+    // Contrôles
+    document.getElementById('startBtn').addEventListener('click', () => {
+        if (gameState === 'idle' || gameState === 'ended') startNewBattle();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        gameState = 'idle';
+        battleNumber = 1;
+        document.getElementById('timer').style.display = 'none';
+        document.getElementById('startBtn').textContent = '🌸 DÉMARRER';
+        document.getElementById('startBtn').disabled = false;
+        initGame();
+    });
+
+    // Démarrage
+    init();
+    addLog(`🎮 Bataille d'Amour 3D initialisée !`, 'system');
+    addLog(`🌳 Bienvenue dans le parc de l'amour !`, 'system');
+    addLog(`📖 Règles: Les robots s'envoient des cœurs. 4 cœurs = reproduction !`, 'system');
+</script>
+</body>
+</html>

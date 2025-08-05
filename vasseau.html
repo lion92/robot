@@ -1,0 +1,330 @@
+<document>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>3D Space Battle Game</title>
+        <style>
+            body { margin: 0; overflow: hidden; }
+            #hud {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                pointer-events: none; font-family: Arial, sans-serif; color: #0F0;
+            }
+        </style>
+    </head>
+    <body>
+    <div id="hud"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        const SHIP_COUNT = 4;
+        const ARENA_SIZE = 1000;
+        const ASTEROID_COUNT = 100;
+        const MAX_HEALTH = 100;
+        const SHIP_SPEED = 1;
+        const LASER_SPEED = 5;
+        const LASER_COOLDOWN = 1000;
+        const LASER_DAMAGE = 10;
+        const MISSILE_SPEED = 3;
+        const MISSILE_COOLDOWN = 5000;
+        const MISSILE_DAMAGE = 30;
+        const MISSILE_LOCK_DISTANCE = 200;
+
+        let scene, camera, renderer, ships = [], projectiles = [], asteroids = [];
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xcccccc, 0.4);
+            scene.add(ambientLight);
+            const pointLight1 = new THREE.PointLight(0xffffff, 1);
+            pointLight1.position.set(ARENA_SIZE, ARENA_SIZE, ARENA_SIZE);
+            scene.add(pointLight1);
+            const pointLight2 = new THREE.PointLight(0xffffff, 1);
+            pointLight2.position.set(-ARENA_SIZE, -ARENA_SIZE, -ARENA_SIZE);
+            scene.add(pointLight2);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, ARENA_SIZE * 2);
+            camera.position.set(0, ARENA_SIZE * 0.2, ARENA_SIZE * 0.2);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Handle window resizing
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Loaders
+            const loader = new THREE.GLTFLoader();
+
+            // Skybox
+            const skyboxGeometry = new THREE.BoxGeometry(ARENA_SIZE * 2, ARENA_SIZE * 2, ARENA_SIZE * 2);
+            const skyboxMaterial = new THREE.MeshBasicMaterial({
+                map: new THREE.TextureLoader().load('space_skybox.png'),
+                side: THREE.BackSide
+            });
+            const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+            scene.add(skybox);
+
+            // Asteroids
+            const asteroidGeometry = new THREE.SphereGeometry(1, 6, 6);
+            const asteroidMaterial = new THREE.MeshStandardMaterial({
+                map: new THREE.TextureLoader().load('asteroid_texture.jpg'),
+                roughness: 0.7
+            });
+            asteroids = [...Array(ASTEROID_COUNT)].map(() => {
+                const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+                const pos = new THREE.Vector3(
+                    (Math.random() - 0.5) * ARENA_SIZE * 1.5,
+                    (Math.random() - 0.5) * ARENA_SIZE * 1.5,
+                    (Math.random() - 0.5) * ARENA_SIZE * 1.5
+                );
+                asteroid.position.copy(pos);
+                asteroid.scale.setScalar(10 + Math.random() * 40);
+                asteroid.setRotationFromAxisAngle(new THREE.Vector3(Math.random(), Math.random(), Math.random()).normalize(), Math.random() * Math.PI * 2);
+                scene.add(asteroid);
+                return asteroid;
+            });
+
+            // Ships
+            ships = [...Array(SHIP_COUNT)].map(async (_, i) => {
+                let model;
+                await loader.loadAsync(`fighter_${i % 3}.glb`).then((gltf) => model = gltf.scene);
+
+                model.scale.setScalar(10);
+
+                const pos = new THREE.Vector3(
+                    (Math.random() - 0.5) * ARENA_SIZE * 0.8,
+                    (Math.random() - 0.5) * ARENA_SIZE * 0.8,
+                    (Math.random() - 0.5) * ARENA_SIZE * 0.8
+                );
+                model.position.copy(pos);
+                model.velocity = new THREE.Vector3(0, 0, 0);
+
+                model.traverse(object => {
+                    if (object.isMesh) {
+                        object.material = new THREE.MeshPhongMaterial({
+                            color: i === 0 ? 0x00ff00 : 0xcccccc,
+                            shininess: 80,
+                        });
+                    }
+                });
+
+                model.health = MAX_HEALTH;
+                model.ai = {
+                    state: 'idle', // idle, chase, evade, group, flank, strafe
+                    target: null,
+                    preferredRange: 100 + Math.random() * 200,
+                };
+                model.lastLaserShot = model.lastMissileShot = 0;
+
+                scene.add(model);
+                return model;
+            });
+
+            Promise.all(ships).then(resolvedShips => ships = resolvedShips);
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            const delta = (time - lastTime) / 1000;
+            lastTime = time;
+
+            // Update AI
+            ships.forEach((ship, i) => {
+                if (!ship.health) return;
+
+                const targetShip = ship.ai.target;
+                const nearbyShips = ships.filter(s => s !== ship && s.health > 0 && s.position.distanceTo(ship.position) < 500);
+
+                // Check alive
+                if (!targetShip || !targetShip.health) {
+                    ship.ai.state = 'idle';
+                    ship.ai.target = null;
+                }
+
+                // Find new target if idle
+                if (ship.ai.state === 'idle') {
+                    const viableTargets = nearbyShips.filter(s => s.position.distanceTo(ship.position) < ship.ai.preferredRange * 2);
+                    if (viableTargets.length > 0) {
+                        ship.ai.state = 'chase';
+                        ship.ai.target = viableTargets[Math.floor(Math.random() * viableTargets.length)];
+                    } else {
+                        // Wander
+                        ship.velocity.add(new THREE.Vector3(
+                            (Math.random() - 0.5) * SHIP_SPEED * 0.02,
+                            (Math.random() - 0.5) * SHIP_SPEED * 0.02,
+                            (Math.random() - 0.5) * SHIP_SPEED * 0.02
+                        ));
+                    }
+                }
+
+                // Chase, evade, group, flank, strafe
+                if (targetShip && targetShip.health > 0) {
+                    const toTarget = targetShip.position.clone().sub(ship.position);
+                    const distToTarget = toTarget.length();
+
+                    // Update preferred range based on health
+                    ship.ai.preferredRange = ship.health < 25 ? 400 :
+                        ship.health < 50 ? 300 :
+                            ship.health < 75 ? 200 : 100;
+
+                    const allies = nearbyShips.filter(s => s !== targetShip);
+                    const nearbyAllies = allies.filter(s => s.position.distanceTo(ship.position) < 200);
+
+                    if (ship.ai.state === 'chase') {
+                        if (distToTarget > ship.ai.preferredRange) {
+                            // Move towards
+                            const vel = toTarget.normalize().multiplyScalar(SHIP_SPEED);
+                            ship.velocity.lerp(vel, 0.1);
+                        } else {
+                            // Orbit
+                            const cross = new THREE.Vector3().crossVectors(toTarget, new THREE.Vector3(0, 1, 0));
+                            const vel = cross.normalize().multiplyScalar(SHIP_SPEED);
+                            ship.velocity.lerp(vel, 0.1);
+                        }
+
+                        // Switch to evade if low health
+                        if (ship.health < 50 && nearbyAllies.length === 0) {
+                            ship.ai.state = 'evade';
+                        }
+                        // Switch to flank if multiple allies nearby
+                        else if (nearbyAllies.length > 1) {
+                            ship.ai.state = 'flank';
+                        }
+                    }
+                    else if (ship.ai.state === 'flank') {
+                        // Find flank position
+                        const flankAngle = 0.8 + (i % 2 === 0 ? 1 : -1) * 0.4;
+                        const flankDir = toTarget.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), flankAngle);
+                        const flankPos = targetShip.position.clone().add(flankDir.normalize().multiplyScalar(ship.ai.preferredRange));
+
+                        const toFlank = flankPos.clone().sub(ship.position);
+                        const vel = toFlank.normalize().multiplyScalar(SHIP_SPEED);
+                        ship.velocity.lerp(vel, 0.1);
+
+                        // Switch to chase if too far
+                        if (distToTarget > ship.ai.preferredRange * 2) {
+                            ship.ai.state = 'chase';
+                        }
+                        // Switch to group if no nearby allies
+                        else if (nearbyAllies.length === 0) {
+                            ship.ai.state = 'group';
+                        }
+                    }
+                    else if (ship.ai.state === 'group') {
+                        // Find nearest ally
+                        const nearestAlly = nearbyShips.reduce((nearest, ship) =>
+                            nearest.position.distanceTo(ship.position) < ship.position.distanceTo(nearest.position) ? nearest : ship
+                        );
+
+                        // Move towards ally
+                        const toAlly = nearestAlly.position.clone().sub(ship.position);
+                        const vel = toAlly.normalize().multiplyScalar(SHIP_SPEED);
+                        ship.velocity.lerp(vel, 0.1);
+
+                        // Switch to chase if ally is chasing
+                        if (nearestAlly.ai.state === 'chase' || nearestAlly.ai.state === 'flank') {
+                            ship.ai.target = nearestAlly.ai.target;
+                            ship.ai.state = 'chase';
+                        }
+                    }
+                    else if (ship.ai.state === 'evade') {
+                        // Move away
+                        const vel = toTarget.normalize().multiplyScalar(-SHIP_SPEED);
+                        ship.velocity.lerp(vel, 0.1);
+
+                        // Switch to group if allies nearby
+                        if (nearbyAllies.length > 0) {
+                            ship.ai.state = 'group';
+                        }
+                        // Switch to chase if high health and no allies
+                        else if (ship.health > 75) {
+                            ship.ai.state = 'chase';
+                        }
+                    }
+
+                    // Shoot missile if cooldown ready and in range
+                    if (time - ship.lastMissileShot > MISSILE_COOLDOWN && distToTarget < MISSILE_LOCK_DISTANCE && ship.ai.state !== 'evade') {
+                        const missile = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+                        missile.position.copy(ship.position);
+                        missile.velocity = toTarget.clone().normalize().multiplyScalar(MISSILE_SPEED);
+                        missile.startTime = time;
+                        missile.damage = MISSILE_DAMAGE;
+                        projectiles.push(missile);
+                        scene.add(missile);
+
+                        ship.lastMissileShot = time;
+                    }
+                    // Shoot laser if cooldown ready
+                    else if (time - ship.lastLaserShot > LASER_COOLDOWN) {
+                        const laser = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 50), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+                        laser.position.copy(ship.position);
+                        laser.lookAt(targetShip.position);
+                        laser.velocity = toTarget.clone().normalize().multiplyScalar(LASER_SPEED);
+                        laser.startTime = time;
+                        laser.damage = LASER_DAMAGE;
+                        projectiles.push(laser);
+                        scene.add(laser);
+
+                        ship.lastLaserShot = time;
+                    }
+                }
+
+                // Apply velocity
+                ship.position.add(ship.velocity.clone().multiplyScalar(delta));
+
+                // Point in velocity direction
+                if (ship.velocity.length() > 0.1) {
+                    const tangent = new THREE.Vector3(0, 1, 0).cross(ship.velocity).normalize();
+                    const angle = Math.acos(new THREE.Vector3(0, 1, 0).dot(ship.velocity.clone().normalize()));
+                    ship.setRotationFromAxisAngle(tangent, angle);
+                }
+            });
+
+            // Update projectiles
+            projectiles.forEach((projectile, i) => {
+                projectile.position.add(projectile.velocity.clone().multiplyScalar(delta));
+
+                // Check collision with ships
+                ships.forEach((ship) => {
+                    if (projectile.position.distanceTo(ship.position) < 20) {
+                        ship.health = Math.max(0, ship.health - projectile.damage);
+
+                        projectiles.splice(i, 1);
+                        scene.remove(projectile);
+                    }
+                });
+
+                // Check collision with asteroids
+                asteroids.forEach((asteroid) => {
+                    if (projectile.position.distanceTo(asteroid.position) < asteroid.scale.x / 2) {
+                        projectiles.splice(i, 1);
+                        scene.remove(projectile);
+                    }
+                });
+
+                // Remove if lifetime exceeded
+                if (time - projectile.startTime > 5000) {
+                    projectiles.splice(i, 1);
+                    scene.remove(projectile);
+                }
+            });
+
+            // Update camera
+            const alivePlayers = ships.filter((ship) => ship.health > 0);
+            if (alivePlayers.length > 0) {
+                const targetPosition = alivePlayers[0].position.clone();
+                const direction = targetPosition.clone().sub(camera
