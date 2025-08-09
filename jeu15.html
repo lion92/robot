@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sky & Sea Battle 3D - Epic Naval Air Combat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Orbitron', monospace;
+            background: #000;
+            cursor: crosshair;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Main Menu */
+        .main-menu {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            backdrop-filter: blur(20px);
+        }
+
+        .menu-content {
+            text-align: center;
+            animation: menuFadeIn 0.5s ease-out;
+        }
+
+        @keyframes menuFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .game-title {
+            font-size: 72px;
+            font-weight: 900;
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
+        }
+
+        .menu-subtitle {
+            font-size: 24px;
+            color: #888;
+            margin-bottom: 50px;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .menu-btn {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 20px 60px;
+            font-size: 24px;
+            font-family: 'Orbitron', monospace;
+            cursor: pointer;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-btn:hover {
+            background: linear-gradient(145deg, #16213e, #1a1a2e);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.5);
+        }
+
+        .btn-desc {
+            display: block;
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .controls-info {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: left;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .controls-info h3 {
+            color: #00ffff;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .control-item {
+            color: #aaa;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        /* HUD */
+        .hud {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ffff;
+            border-radius: 20px;
+            padding: 15px 30px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+
+        .hud-content {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .stat-item {
+            text-align: center;
+            color: #fff;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        /* Player HUD */
+        .player-hud {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            min-width: 300px;
+        }
+
+        .player-stats {
+            margin-bottom: 20px;
+        }
+
+        .health-bar, .shield-bar {
+            margin-bottom: 15px;
+        }
+
+        .bar-label {
+            color: #aaa;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .bar-container {
+            width: 250px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #444;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .health-fill {
+            background: linear-gradient(90deg, #00ff00, #00cc00);
+        }
+
+        .shield-fill {
+            background: linear-gradient(90deg, #00ffff, #0099cc);
+        }
+
+        .weapon-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .weapon-name {
+            color: #00ff00;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .special-weapon {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff0000;
+            border-radius: 10px;
+        }
+
+        .special-status {
+            color: #ff0000;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .special-ready {
+            color: #00ff00;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        .player-score {
+            text-align: center;
+            border-top: 1px solid #444;
+            padding-top: 15px;
+        }
+
+        .score-label {
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        .score-value {
+            font-size: 36px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00ff00, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Winner */
+        .winner-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            backdrop-filter: blur(10px);
+        }
+
+        .winner-content {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border: 3px solid #ffd700;
+            border-radius: 30px;
+            padding: 50px;
+            text-align: center;
+            box-shadow:
+                    0 0 100px rgba(255, 215, 0, 0.5),
+                    inset 0 0 50px rgba(255, 215, 0, 0.1);
+        }
+
+        .winner-title {
+            font-size: 56px;
+            color: #ffd700;
+            margin-bottom: 20px;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+        }
+
+        .menu-btn-small {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 10px 30px;
+            margin: 0 10px;
+            font-size: 16px;
+            font-family: 'Orbitron', monospace;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-btn-small:hover {
+            background: linear-gradient(145deg, #16213e, #1a1a2e);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ffff;
+            font-size: 24px;
+            z-index: 300;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            padding: 15px 30px;
+            color: #00ffff;
+            font-size: 18px;
+            z-index: 500;
+            animation: notifSlide 0.3s ease-out;
+        }
+
+        @keyframes notifSlide {
+            from {
+                transform: translateX(-50%) translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="loading" id="loading">Initializing 3D System...</div>
+
+<!-- Menu Principal -->
+<div class="main-menu" id="mainMenu">
+    <div class="menu-content">
+        <h1 class="game-title">SKY & SEA BATTLE</h1>
+        <div class="menu-subtitle">Epic Naval Air Combat</div>
+
+        <div class="menu-buttons">
+            <button class="menu-btn" onclick="startPlayerMode()">
+                🎮 PLAYER MODE
+                <span class="btn-desc">Pilot your own fighter jet</span>
+            </button>
+
+            <button class="menu-btn" onclick="startMixedMode()">
+                🎮+🤖 PLAYER + AI
+                <span class="btn-desc">Battle against AI opponents</span>
+            </button>
+
+            <button class="menu-btn" onclick="startAIMode()">
+                🤖 AI ONLY MODE
+                <span class="btn-desc">Watch AI battles evolve</span>
+            </button>
+        </div>
+
+        <div class="controls-info">
+            <h3>Player Controls:</h3>
+            <div class="control-item">↑↓ - Pitch (up/down)</div>
+            <div class="control-item">←→ - Roll & Turn</div>
+            <div class="control-item">SPACE - Fire weapon</div>
+            <div class="control-item">SHIFT - Boost</div>
+            <div class="control-item">E - Nuclear Missile ☢️</div>
+            <div class="control-item">Q - Switch weapon</div>
+        </div>
+    </div>
+</div>
+
+<!-- Player HUD -->
+<div class="player-hud" id="playerHUD" style="display: none;">
+    <div class="player-stats">
+        <div class="health-bar">
+            <div class="bar-label">HEALTH</div>
+            <div class="bar-container">
+                <div class="bar-fill health-fill" id="playerHealthBar"></div>
+            </div>
+        </div>
+        <div class="shield-bar">
+            <div class="bar-label">SHIELD</div>
+            <div class="bar-container">
+                <div class="bar-fill shield-fill" id="playerShieldBar"></div>
+            </div>
+        </div>
+        <div class="weapon-info">
+            <div class="weapon-name" id="playerWeapon">PLASMA</div>
+            <div class="ammo-count" id="playerAmmo">100/100</div>
+        </div>
+        <div class="special-weapon">
+            <div class="special-status" id="specialStatus">
+                <span style="font-size: 20px;">☢️</span> NUCLEAR MISSILE
+                <span class="special-ready" id="specialReady">READY</span>
+            </div>
+        </div>
+    </div>
+    <div class="player-score">
+        <div class="score-label">SCORE</div>
+        <div class="score-value" id="playerScore">0</div>
+    </div>
+</div>
+
+<!-- HUD -->
+<div class="hud" id="hud" style="display: none;">
+    <div class="hud-content">
+        <div class="stat-item">
+            <div class="stat-value" id="aliveCount">0</div>
+            <div class="stat-label">Survivors</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="timer">0:00</div>
+            <div class="stat-label">Time</div>
+        </div>
+    </div>
+</div>
+
+<!-- Winner Overlay -->
+<div class="winner-overlay" id="winnerOverlay">
+    <div class="winner-content">
+        <div class="winner-title">🏆 VICTORY 🏆</div>
+        <div id="winnerName" style="font-size: 42px; margin-bottom: 20px;"></div>
+        <div id="winnerStats" style="font-size: 20px; color: #00ffff; margin-bottom: 20px;"></div>
+        <div style="color: #888;">
+            <span id="restartText">New battle in <span id="countdown">5</span>...</span>
+            <div id="menuButtons" style="display: none; margin-top: 20px;">
+                <button class="menu-btn-small" onclick="restartBattle()">Play Again</button>
+                <button class="menu-btn-small" onclick="returnToMenu()">Main Menu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Configuration
+    const CONFIG = {
+        SHIPS: 2,
+        ARENA_SIZE: 500,
+        SHIP_SPEED: 8,
+        BOOST_SPEED: 15,
+        LASER_SPEED: 25,
+        SHIP_HP: 100,
+        SHIELD_HP: 50,
+        DAMAGE: 20,
+        MIN_HEIGHT: 20,
+        MAX_HEIGHT: 300,
+        BATTLE_TIME: 180,
+        BOOST_DRAIN: 1,
+        BOOST_RECHARGE: 0.5
+    };
+
+    // Global variables
+    let scene, camera, renderer;
+    let ships = [];
+    let lasers = [];
+    let missiles = [];
+    let powerups = [];
+    let birds = [];
+    let killFeed = [];
+    let gameState = 'menu';
+    let gameMode = 'ai';
+    let playerShip = null;
+    let timer = CONFIG.BATTLE_TIME;
+    let isPaused = false;
+    let soundEnabled = true;
+    let showPerf = false;
+    let cameraMode = 0;
+    let cameraModes = ['follow', 'orbit', 'free'];
+    let lastTime = 0;
+    let fps = 0;
+    let combo = 0;
+    let comboTimer = null;
+
+    // Audio Context for sound effects
+    let audioContext;
+    let sounds = {};
+
+    // Initialize Audio
+    function initAudio() {
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Create basic sound effects
+            sounds.shoot = createSound(200, 0.1, 'square');
+            sounds.explosion = createSound(50, 0.3, 'sawtooth');
+            sounds.hit = createSound(150, 0.1, 'triangle');
+            sounds.powerup = createSound(400, 0.2, 'sine');
+            sounds.boost = createSound(100, 0.2, 'sawtooth');
+        } catch (e) {
+            console.log('Audio not supported');
+            soundEnabled = false;
+        }
+    }
+
+    // Create sound effect
+    function createSound(frequency, duration, type) {
+        return () => {
+            if (!soundEnabled || !audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        };
+    }
+
+    // Play sound
+    function playSound(soundName) {
+        if (sounds[soundName]) {
+            sounds[soundName]();
+        }
+    }
+
+    // Initialize Three.js
+    function init() {
+        // Show loading screen
+        updateLoadingProgress(10, 'Loading 3D Engine...');
+
+        // Scene setup
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0xB0E0E6, 100, 2000);
+
+        // Camera setup - Further back for bigger ships
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+        camera.position.set(0, 300, 600);
+        camera.lookAt(0, 100, 0);
+
+        // Renderer setup
+        renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+
+        updateLoadingProgress(30, 'Creating Environment...');
+
+        // Environment
+        createEnvironment();
+
+        updateLoadingProgress(60, 'Setting up Lighting...');
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404080, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.5);
+        sunLight.position.set(500, 800, 300);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+
+        updateLoadingProgress(80, 'Initializing Audio...');
+
+        // Initialize audio
+        initAudio();
+
+        updateLoadingProgress(100, 'Ready!');
+
+        // Hide loading and show menu
+        setTimeout(() => {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('mainMenu').style.display = 'flex';
+        }, 500);
+
+        // Start animation
+        animate();
+    }
+
+    // Update loading progress
+    function updateLoadingProgress(percent, text) {
+        const loading = document.getElementById('loading');
+        if (loading) loading.textContent = text;
+    }
+
+    // Show notification
+    function showNotification(text) {
+        const notif = document.createElement('div');
+        notif.className = 'notification';
+        notif.textContent = text;
+        document.body.appendChild(notif);
+
+        setTimeout(() => {
+            notif.style.opacity = '0';
+            setTimeout(() => notif.remove(), 500);
+        }, 2000);
+    }
+
+    // Create environment
+    function createEnvironment() {
+        // Ocean - smaller area
+        const oceanGeometry = new THREE.PlaneGeometry(1500, 1500, 128, 128);
+        const oceanMaterial = new THREE.MeshPhongMaterial({
+            color: 0x006994,
+            transparent: true,
+            opacity: 0.8,
+            shininess: 100
+        });
+        const ocean = new THREE.Mesh(oceanGeometry, oceanMaterial);
+        ocean.rotation.x = -Math.PI / 2;
+        ocean.position.z = -750;
+        ocean.receiveShadow = true;
+        scene.add(ocean);
+
+        // Land/Ground
+        const groundGeometry = new THREE.PlaneGeometry(3000, 1500, 10, 10);
+        const groundMaterial = new THREE.MeshPhongMaterial({
+            color: 0x3a5f3a,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.z = 750;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Beach transition
+        const beachGeometry = new THREE.PlaneGeometry(3000, 200, 20, 5);
+        const beachMaterial = new THREE.MeshPhongMaterial({
+            color: 0xC2B280,
+            roughness: 0.9
+        });
+        const beach = new THREE.Mesh(beachGeometry, beachMaterial);
+        beach.rotation.x = -Math.PI / 2;
+        beach.position.y = 0.5;
+        beach.receiveShadow = true;
+        scene.add(beach);
+
+        // Create city
+        createCity();
+
+        // Create roads
+        createRoads();
+
+        // Sky
+        const skyGeometry = new THREE.SphereGeometry(2000, 32, 32);
+        const skyMaterial = new THREE.MeshBasicMaterial({
+            color: 0x87CEEB,
+            side: THREE.BackSide
+        });
+        const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(sky);
+
+        // Splendid Cross in the sky
+        createSplendidCross();
+
+        // ERASME 2025 in the sky
+        createErasmeText();
+
+        // Birds in the sky
+        createBirds();
+
+        // Clouds
+        for (let i = 0; i < 20; i++) {
+            const cloudGeometry = new THREE.SphereGeometry(30 + Math.random() * 50, 8, 6);
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.7
+            });
+            const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            cloud.position.set(
+                (Math.random() - 0.5) * 2000,
+                350 + Math.random() * 200,
+                (Math.random() - 0.5) * 2000
+            );
+            scene.add(cloud);
+        }
+    }
+
+    // Create city with buildings
+    function createCity() {
+        const buildingCount = 50;
+        const cityArea = { x: 1200, z: 800 };
+
+        for (let i = 0; i < buildingCount; i++) {
+            // Building base
+            const width = 40 + Math.random() * 60;
+            const depth = 40 + Math.random() * 60;
+            const height = 80 + Math.random() * 300;
+
+            const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+            const buildingColor = new THREE.Color(
+                0.3 + Math.random() * 0.3,
+                0.3 + Math.random() * 0.3,
+                0.3 + Math.random() * 0.3
+            );
+
+            const buildingMaterial = new THREE.MeshPhongMaterial({
+                color: buildingColor,
+                emissive: buildingColor,
+                emissiveIntensity: 0.1
+            });
+
+            const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+
+            // Position buildings on land
+            let positionValid = false;
+            let attempts = 0;
+
+            while (!positionValid && attempts < 50) {
+                building.position.x = (Math.random() - 0.5) * cityArea.x;
+                building.position.y = height / 2;
+                building.position.z = 200 + Math.random() * cityArea.z;
+
+                // Check distance from other buildings
+                positionValid = true;
+                for (let j = 0; j < scene.children.length; j++) {
+                    const child = scene.children[j];
+                    if (child !== building && child.isMesh && child.geometry.type === 'BoxGeometry') {
+                        const distance = building.position.distanceTo(child.position);
+                        if (distance < 100) {
+                            positionValid = false;
+                            break;
+                        }
+                    }
+                }
+                attempts++;
+            }
+
+            building.castShadow = true;
+            building.receiveShadow = true;
+            scene.add(building);
+
+            // Add windows (emissive strips)
+            const windowRows = Math.floor(height / 20);
+            for (let row = 0; row < windowRows; row++) {
+                if (Math.random() > 0.3) {
+                    const windowGeometry = new THREE.PlaneGeometry(width * 0.9, 5);
+                    const windowMaterial = new THREE.MeshBasicMaterial({
+                        color: 0xffff88,
+                        emissive: 0xffff88,
+                        emissiveIntensity: 0.5,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+
+                    // Front windows
+                    const windowFront = new THREE.Mesh(windowGeometry, windowMaterial);
+                    windowFront.position.set(0, -height/2 + row * 20 + 10, depth/2 + 0.1);
+                    building.add(windowFront);
+
+                    // Back windows
+                    const windowBack = new THREE.Mesh(windowGeometry, windowMaterial);
+                    windowBack.position.set(0, -height/2 + row * 20 + 10, -depth/2 - 0.1);
+                    windowBack.rotation.y = Math.PI;
+                    building.add(windowBack);
+                }
+            }
+
+            // Add antenna/spire to tall buildings
+            if (height > 200 && Math.random() > 0.5) {
+                const antennaGeometry = new THREE.CylinderGeometry(1, 2, 30);
+                const antennaMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x666666,
+                    emissive: 0xff0000,
+                    emissiveIntensity: 0.5
+                });
+                const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+                antenna.position.y = height/2 + 15;
+                building.add(antenna);
+
+                // Blinking light
+                const lightGeometry = new THREE.SphereGeometry(2);
+                const lightMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    emissive: 0xff0000
+                });
+                const light = new THREE.Mesh(lightGeometry, lightMaterial);
+                light.position.y = height/2 + 30;
+                building.add(light);
+
+                // Animate blinking
+                setInterval(() => {
+                    light.visible = !light.visible;
+                }, 1000 + Math.random() * 1000);
+            }
+        }
+
+        // Add some special landmark buildings
+        createLandmarks();
+    }
+
+    // Create special landmark buildings
+    function createLandmarks() {
+        // Cylindrical tower
+        const towerGeometry = new THREE.CylinderGeometry(40, 50, 400, 16);
+        const towerMaterial = new THREE.MeshPhongMaterial({
+            color: 0x4169e1,
+            emissive: 0x4169e1,
+            emissiveIntensity: 0.2,
+            metalness: 0.8,
+            roughness: 0.2
+        });
+        const tower = new THREE.Mesh(towerGeometry, towerMaterial);
+        tower.position.set(-300, 200, 500);
+        tower.castShadow = true;
+        scene.add(tower);
+
+        // Add rotating top
+        const topGeometry = new THREE.CylinderGeometry(45, 45, 20, 16);
+        const topMaterial = new THREE.MeshPhongMaterial({
+            color: 0xffd700,
+            emissive: 0xffd700,
+            emissiveIntensity: 0.3
+        });
+        const top = new THREE.Mesh(topGeometry, topMaterial);
+        top.position.y = 210;
+        tower.add(top);
+
+        // Animate rotation
+        setInterval(() => {
+            top.rotation.y += 0.01;
+        }, 16);
+
+        // Pyramid building
+        const pyramidGeometry = new THREE.ConeGeometry(80, 250, 4);
+        const pyramidMaterial = new THREE.MeshPhongMaterial({
+            color: 0x228b22,
+            emissive: 0x228b22,
+            emissiveIntensity: 0.1,
+            metalness: 0.6,
+            roughness: 0.3
+        });
+        const pyramid = new THREE.Mesh(pyramidGeometry, pyramidMaterial);
+        pyramid.position.set(300, 125, 600);
+        pyramid.rotation.y = Math.PI / 4;
+        pyramid.castShadow = true;
+        scene.add(pyramid);
+    }
+
+    // Create roads
+    function createRoads() {
+        // Main roads
+        const roadMaterial = new THREE.MeshPhongMaterial({
+            color: 0x333333,
+            roughness: 0.9
+        });
+
+        // North-South roads
+        for (let i = -2; i <= 2; i++) {
+            const roadGeometry = new THREE.PlaneGeometry(40, 1000);
+            const road = new THREE.Mesh(roadGeometry, roadMaterial);
+            road.rotation.x = -Math.PI / 2;
+            road.position.x = i * 250;
+            road.position.y = 0.1;
+            road.position.z = 500;
+            scene.add(road);
+
+            // Road lines
+            const lineGeometry = new THREE.PlaneGeometry(2, 1000);
+            const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const line = new THREE.Mesh(lineGeometry, lineMaterial);
+            line.rotation.x = -Math.PI / 2;
+            line.position.x = i * 250;
+            line.position.y = 0.2;
+            line.position.z = 500;
+            scene.add(line);
+        }
+
+        // East-West roads
+        for (let i = 0; i <= 3; i++) {
+            const roadGeometry = new THREE.PlaneGeometry(1200, 40);
+            const road = new THREE.Mesh(roadGeometry, roadMaterial);
+            road.rotation.x = -Math.PI / 2;
+            road.position.y = 0.1;
+            road.position.z = 200 + i * 200;
+            scene.add(road);
+        }
+
+        // Add some cars
+        createTraffic();
+    }
+
+    // Create moving traffic
+    function createTraffic() {
+        const cars = [];
+        const carCount = 20;
+
+        for (let i = 0; i < carCount; i++) {
+            const carGroup = new THREE.Group();
+
+            // Car body
+            const bodyGeometry = new THREE.BoxGeometry(8, 3, 15);
+            const bodyColor = new THREE.Color(Math.random(), Math.random(), Math.random());
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: bodyColor });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 2;
+            carGroup.add(body);
+
+            // Car roof
+            const roofGeometry = new THREE.BoxGeometry(6, 2, 10);
+            const roof = new THREE.Mesh(roofGeometry, bodyMaterial);
+            roof.position.y = 4.5;
+            carGroup.add(roof);
+
+            // Headlights
+            const lightGeometry = new THREE.SphereGeometry(0.5);
+            const lightMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+
+            const headlight1 = new THREE.Mesh(lightGeometry, lightMaterial);
+            headlight1.position.set(-3, 2, -7.5);
+            carGroup.add(headlight1);
+
+            const headlight2 = new THREE.Mesh(lightGeometry, lightMaterial);
+            headlight2.position.set(3, 2, -7.5);
+            carGroup.add(headlight2);
+
+            // Random position on roads
+            const roadIndex = Math.floor(Math.random() * 5);
+            carGroup.position.x = (roadIndex - 2) * 250;
+            carGroup.position.z = Math.random() * 800 + 100;
+            carGroup.position.y = 0;
+
+            // Random direction
+            if (Math.random() > 0.5) {
+                carGroup.rotation.y = Math.PI;
+            }
+
+            carGroup.userData = {
+                speed: 0.5 + Math.random() * 1,
+                direction: carGroup.rotation.y === 0 ? 1 : -1
+            };
+
+            scene.add(carGroup);
+            cars.push(carGroup);
+        }
+
+        // Animate traffic
+        function animateTraffic() {
+            cars.forEach(car => {
+                car.position.z += car.userData.speed * car.userData.direction;
+
+                // Wrap around
+                if (car.position.z > 1000) {
+                    car.position.z = 0;
+                } else if (car.position.z < 0) {
+                    car.position.z = 1000;
+                }
+            });
+
+            requestAnimationFrame(animateTraffic);
+        }
+        animateTraffic();
+    }
+
+    // Create splendid cross
+    function createSplendidCross() {
+        const crossGroup = new THREE.Group();
+
+        // Cross dimensions
+        const verticalHeight = 300;
+        const horizontalWidth = 200;
+        const thickness = 20;
+
+        // Material with golden glow
+        const crossMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffd700,
+            emissive: 0xffd700,
+            emissiveIntensity: 1,
+            transparent: true,
+            opacity: 0.9
+        });
+
+        // Vertical beam
+        const verticalGeometry = new THREE.BoxGeometry(thickness, verticalHeight, thickness);
+        const verticalBeam = new THREE.Mesh(verticalGeometry, crossMaterial);
+        crossGroup.add(verticalBeam);
+
+        // Horizontal beam
+        const horizontalGeometry = new THREE.BoxGeometry(horizontalWidth, thickness, thickness);
+        const horizontalBeam = new THREE.Mesh(horizontalGeometry, crossMaterial);
+        horizontalBeam.position.y = verticalHeight / 4;
+        crossGroup.add(horizontalBeam);
+
+        // Position cross in the sky
+        crossGroup.position.set(0, 500, -800);
+        crossGroup.rotation.x = -0.2;
+
+        // Add glow effect
+        const glowLight = new THREE.PointLight(0xffd700, 3, 1000);
+        glowLight.position.copy(crossGroup.position);
+        scene.add(glowLight);
+
+        // Radiant beams
+        for (let i = 0; i < 8; i++) {
+            const rayGeometry = new THREE.PlaneGeometry(10, 400);
+            const rayMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.DoubleSide
+            });
+            const ray = new THREE.Mesh(rayGeometry, rayMaterial);
+            ray.position.copy(crossGroup.position);
+            ray.rotation.z = (i / 8) * Math.PI * 2;
+            scene.add(ray);
+        }
+
+        // Halo effect
+        const haloGeometry = new THREE.RingGeometry(100, 200, 32);
+        const haloMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.2,
+            side: THREE.DoubleSide
+        });
+        const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+        halo.position.copy(crossGroup.position);
+        halo.position.y += verticalHeight / 4;
+        scene.add(halo);
+
+        scene.add(crossGroup);
+
+        // Animate the cross
+        function animateCross() {
+            crossGroup.rotation.y += 0.001;
+            halo.rotation.z += 0.002;
+
+            // Pulsing glow
+            const pulse = Math.sin(Date.now() * 0.001) * 0.2 + 0.8;
+            glowLight.intensity = 3 * pulse;
+            crossMaterial.opacity = 0.9 * pulse;
+
+            requestAnimationFrame(animateCross);
+        }
+        animateCross();
+    }
+
+    // Create ERASME 2025 text in the sky
+    function createErasmeText() {
+        const textGroup = new THREE.Group();
+
+        // Create each letter using basic geometries - MUCH BIGGER
+        const letters = [
+            { char: 'E', x: -700 },
+            { char: 'R', x: -500 },
+            { char: 'A', x: -300 },
+            { char: 'S', x: -100 },
+            { char: 'M', x: 100 },
+            { char: 'E', x: 300 },
+            { char: ' ', x: 500 },
+            { char: '2', x: 600 },
+            { char: '0', x: 700 },
+            { char: '2', x: 800 },
+            { char: '5', x: 900 }
+        ];
+
+        letters.forEach(letter => {
+            const letterMesh = createLetter(letter.char);
+            letterMesh.position.x = letter.x;
+            textGroup.add(letterMesh);
+        });
+
+        // Position the text in the sky - BIGGER AND HIGHER
+        textGroup.position.set(0, 900, -1500);
+        textGroup.scale.set(5, 5, 5);
+
+        // Add multiple glow effects for the massive text - WHITE/GOLD for contrast
+        const textLight1 = new THREE.PointLight(0xffffff, 8, 1000);
+        textLight1.position.copy(textGroup.position);
+        scene.add(textLight1);
+
+        const textLight2 = new THREE.PointLight(0xffd700, 6, 800);
+        textLight2.position.set(textGroup.position.x, textGroup.position.y + 100, textGroup.position.z);
+        scene.add(textLight2);
+
+        // Add more particles for the bigger text
+        createTextParticles(textGroup.position);
+        createTextParticles(textGroup.position);
+
+        // Add light beams from text
+        createTextBeams(textGroup.position);
+
+        scene.add(textGroup);
+
+        // Animate the text
+        function animateText() {
+            // Gentle floating motion
+            textGroup.position.y = 900 + Math.sin(Date.now() * 0.0005) * 30;
+
+            // Slight rotation
+            textGroup.rotation.y = Math.sin(Date.now() * 0.0003) * 0.05;
+
+            // Pulsing glow
+            const pulse = Math.sin(Date.now() * 0.002) * 0.3 + 0.7;
+            textLight1.intensity = 8 * pulse;
+            textLight2.intensity = 6 * pulse;
+
+            // Update each letter's glow
+            textGroup.children.forEach((letter, index) => {
+                if (letter.material) {
+                    letter.material.emissiveIntensity = 0.3 + Math.sin(Date.now() * 0.003 + index) * 0.1;
+                }
+            });
+
+            requestAnimationFrame(animateText);
+        }
+        animateText();
+    }
+
+    // Create light beams emanating from text
+    function createTextBeams(position) {
+        const beamCount = 6;
+
+        for (let i = 0; i < beamCount; i++) {
+            const beamGeometry = new THREE.CylinderGeometry(5, 50, 1000, 8);
+            const beamMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffd700,
+                transparent: true,
+                opacity: 0.15
+            });
+
+            const beam = new THREE.Mesh(beamGeometry, beamMaterial);
+            beam.position.copy(position);
+            beam.position.y -= 500;
+
+            // Random angles for beams
+            beam.rotation.x = (Math.random() - 0.5) * 0.5;
+            beam.rotation.z = (Math.random() - 0.5) * 0.5;
+
+            scene.add(beam);
+
+            // Animate beam
+            function animateBeam() {
+                beam.material.opacity = 0.1 + Math.sin(Date.now() * 0.001 + i) * 0.05;
+                requestAnimationFrame(animateBeam);
+            }
+            animateBeam();
+        }
+    }
+
+    // Create individual letters using geometries - BIGGER
+    function createLetter(char) {
+        const group = new THREE.Group();
+        const material = new THREE.MeshPhongMaterial({
+            color: 0x000000,
+            emissive: 0x222222,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: 0.95,
+            metalness: 0.8,
+            roughness: 0.2
+        });
+
+        const thickness = 20;
+        const height = 150;
+        const width = 100;
+
+        switch(char) {
+            case 'E':
+                // Vertical bar
+                const eVert = new THREE.BoxGeometry(thickness, height, thickness);
+                const eVertMesh = new THREE.Mesh(eVert, material);
+                eVertMesh.position.x = -width/2 + thickness/2;
+                group.add(eVertMesh);
+
+                // Three horizontal bars
+                for (let i = 0; i < 3; i++) {
+                    const eHoriz = new THREE.BoxGeometry(width, thickness, thickness);
+                    const eHorizMesh = new THREE.Mesh(eHoriz, material);
+                    eHorizMesh.position.y = (i - 1) * height/2;
+                    group.add(eHorizMesh);
+                }
+                break;
+
+            case 'R':
+                // Vertical bar
+                const rVert = new THREE.BoxGeometry(thickness, height, thickness);
+                const rVertMesh = new THREE.Mesh(rVert, material);
+                rVertMesh.position.x = -width/2 + thickness/2;
+                group.add(rVertMesh);
+
+                // Top curve (simplified as box)
+                const rTop = new THREE.BoxGeometry(width * 0.8, thickness, thickness);
+                const rTopMesh = new THREE.Mesh(rTop, material);
+                rTopMesh.position.y = height/2 - thickness/2;
+                rTopMesh.position.x = width * 0.1;
+                group.add(rTopMesh);
+
+                // Middle bar
+                const rMid = new THREE.BoxGeometry(width * 0.8, thickness, thickness);
+                const rMidMesh = new THREE.Mesh(rMid, material);
+                rMidMesh.position.x = width * 0.1;
+                group.add(rMidMesh);
+
+                // Right vertical
+                const rRight = new THREE.BoxGeometry(thickness, height/2, thickness);
+                const rRightMesh = new THREE.Mesh(rRight, material);
+                rRightMesh.position.x = width/2;
+                rRightMesh.position.y = height/4;
+                group.add(rRightMesh);
+
+                // Diagonal
+                const rDiag = new THREE.BoxGeometry(width * 0.7, thickness, thickness);
+                const rDiagMesh = new THREE.Mesh(rDiag, material);
+                rDiagMesh.rotation.z = -Math.PI / 4;
+                rDiagMesh.position.y = -height/4;
+                rDiagMesh.position.x = width * 0.2;
+                group.add(rDiagMesh);
+                break;
+
+            case 'A':
+                // Left diagonal
+                const aLeft = new THREE.BoxGeometry(thickness, height * 1.2, thickness);
+                const aLeftMesh = new THREE.Mesh(aLeft, material);
+                aLeftMesh.rotation.z = Math.PI / 8;
+                aLeftMesh.position.x = -width/3;
+                group.add(aLeftMesh);
+
+                // Right diagonal
+                const aRight = new THREE.BoxGeometry(thickness, height * 1.2, thickness);
+                const aRightMesh = new THREE.Mesh(aRight, material);
+                aRightMesh.rotation.z = -Math.PI / 8;
+                aRightMesh.position.x = width/3;
+                group.add(aRightMesh);
+
+                // Middle bar
+                const aMid = new THREE.BoxGeometry(width * 0.6, thickness, thickness);
+                const aMidMesh = new THREE.Mesh(aMid, material);
+                aMidMesh.position.y = -height/6;
+                group.add(aMidMesh);
+                break;
+
+            case 'S':
+                // Create S with multiple segments
+                const sSegments = [
+                    { w: width, h: thickness, x: 0, y: height/2 - thickness/2 },
+                    { w: thickness, h: height/3, x: -width/2 + thickness/2, y: height/3 },
+                    { w: width * 0.8, h: thickness, x: 0, y: 0 },
+                    { w: thickness, h: height/3, x: width/2 - thickness/2, y: -height/3 },
+                    { w: width, h: thickness, x: 0, y: -height/2 + thickness/2 }
+                ];
+
+                sSegments.forEach(seg => {
+                    const geom = new THREE.BoxGeometry(seg.w, seg.h, thickness);
+                    const mesh = new THREE.Mesh(geom, material);
+                    mesh.position.x = seg.x;
+                    mesh.position.y = seg.y;
+                    group.add(mesh);
+                });
+                break;
+
+            case 'M':
+                // Two vertical bars
+                const mLeft = new THREE.BoxGeometry(thickness, height, thickness);
+                const mLeftMesh = new THREE.Mesh(mLeft, material);
+                mLeftMesh.position.x = -width/2;
+                group.add(mLeftMesh);
+
+                const mRight = new THREE.BoxGeometry(thickness, height, thickness);
+                const mRightMesh = new THREE.Mesh(mRight, material);
+                mRightMesh.position.x = width/2;
+                group.add(mRightMesh);
+
+                // Two diagonals meeting in middle
+                const mDiag1 = new THREE.BoxGeometry(thickness, height * 0.7, thickness);
+                const mDiag1Mesh = new THREE.Mesh(mDiag1, material);
+                mDiag1Mesh.rotation.z = Math.PI / 6;
+                mDiag1Mesh.position.x = -width/4;
+                mDiag1Mesh.position.y = height/4;
+                group.add(mDiag1Mesh);
+
+                const mDiag2 = new THREE.BoxGeometry(thickness, height * 0.7, thickness);
+                const mDiag2Mesh = new THREE.Mesh(mDiag2, material);
+                mDiag2Mesh.rotation.z = -Math.PI / 6;
+                mDiag2Mesh.position.x = width/4;
+                mDiag2Mesh.position.y = height/4;
+                group.add(mDiag2Mesh);
+                break;
+
+            case '2':
+                // Top curve (simplified)
+                const twoTop = new THREE.BoxGeometry(width, thickness, thickness);
+                const twoTopMesh = new THREE.Mesh(twoTop, material);
+                twoTopMesh.position.y = height/2 - thickness/2;
+                group.add(twoTopMesh);
+
+                // Right vertical
+                const twoRight = new THREE.BoxGeometry(thickness, height/3, thickness);
+                const twoRightMesh = new THREE.Mesh(twoRight, material);
+                twoRightMesh.position.x = width/2 - thickness/2;
+                twoRightMesh.position.y = height/3;
+                group.add(twoRightMesh);
+
+                // Diagonal
+                const twoDiag = new THREE.BoxGeometry(width * 1.2, thickness, thickness);
+                const twoDiagMesh = new THREE.Mesh(twoDiag, material);
+                twoDiagMesh.rotation.z = Math.PI / 4;
+                group.add(twoDiagMesh);
+
+                // Bottom
+                const twoBottom = new THREE.BoxGeometry(width, thickness, thickness);
+                const twoBottomMesh = new THREE.Mesh(twoBottom, material);
+                twoBottomMesh.position.y = -height/2 + thickness/2;
+                group.add(twoBottomMesh);
+                break;
+
+            case '0':
+                // Create oval with segments
+                const segments = 16;
+                for (let i = 0; i < segments; i++) {
+                    const angle = (i / segments) * Math.PI * 2;
+                    const x = Math.cos(angle) * width/2;
+                    const y = Math.sin(angle) * height/2;
+
+                    const segGeom = new THREE.BoxGeometry(thickness * 1.5, thickness * 1.5, thickness);
+                    const segMesh = new THREE.Mesh(segGeom, material);
+                    segMesh.position.x = x;
+                    segMesh.position.y = y;
+                    group.add(segMesh);
+                }
+                break;
+
+            case '5':
+                // Top
+                const fiveTop = new THREE.BoxGeometry(width, thickness, thickness);
+                const fiveTopMesh = new THREE.Mesh(fiveTop, material);
+                fiveTopMesh.position.y = height/2 - thickness/2;
+                group.add(fiveTopMesh);
+
+                // Left vertical (top half)
+                const fiveLeft = new THREE.BoxGeometry(thickness, height/2, thickness);
+                const fiveLeftMesh = new THREE.Mesh(fiveLeft, material);
+                fiveLeftMesh.position.x = -width/2 + thickness/2;
+                fiveLeftMesh.position.y = height/4;
+                group.add(fiveLeftMesh);
+
+                // Middle
+                const fiveMid = new THREE.BoxGeometry(width, thickness, thickness);
+                const fiveMidMesh = new THREE.Mesh(fiveMid, material);
+                group.add(fiveMidMesh);
+
+                // Right vertical (bottom half)
+                const fiveRight = new THREE.BoxGeometry(thickness, height/2, thickness);
+                const fiveRightMesh = new THREE.Mesh(fiveRight, material);
+                fiveRightMesh.position.x = width/2 - thickness/2;
+                fiveRightMesh.position.y = -height/4;
+                group.add(fiveRightMesh);
+
+                // Bottom
+                const fiveBottom = new THREE.BoxGeometry(width, thickness, thickness);
+                const fiveBottomMesh = new THREE.Mesh(fiveBottom, material);
+                fiveBottomMesh.position.y = -height/2 + thickness/2;
+                group.add(fiveBottomMesh);
+                break;
+
+            case ' ':
+                // Space - no geometry
+                break;
+        }
+
+        // Add massive glow sphere behind each letter - WHITE for contrast with black text
+        const glowGeometry = new THREE.SphereGeometry(width * 1.5, 32, 32);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.z = -20;
+        group.add(glow);
+
+        // Add outer glow ring - GOLD
+        const ringGeometry = new THREE.RingGeometry(width * 1.2, width * 1.8, 32);
+        const ringMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffd700,
+            transparent: true,
+            opacity: 0.2,
+            side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.position.z = -30;
+        group.add(ring);
+
+        return group;
+    }
+
+    // Create particles around the text - MORE AND BIGGER
+    function createTextParticles(position) {
+        const particleCount = 200;
+
+        for (let i = 0; i < particleCount; i++) {
+            const particleGeometry = new THREE.SphereGeometry(4, 16, 16);
+            const particleMaterial = new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? 0xffd700 : 0xffffff,
+                transparent: true,
+                opacity: Math.random() * 0.5 + 0.5
+            });
+
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+
+            // Random position around text - wider spread
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 400 + Math.random() * 600;
+            particle.position.x = position.x + Math.cos(angle) * radius;
+            particle.position.y = position.y + (Math.random() - 0.5) * 200;
+            particle.position.z = position.z + Math.sin(angle) * radius;
+
+            // Store animation data
+            particle.userData = {
+                angle: angle,
+                radius: radius,
+                speed: 0.001 + Math.random() * 0.002,
+                yOffset: Math.random() * Math.PI * 2,
+                baseY: particle.position.y
+            };
+
+            scene.add(particle);
+
+            // Animate particle
+            function animateParticle() {
+                particle.userData.angle += particle.userData.speed;
+
+                particle.position.x = position.x + Math.cos(particle.userData.angle) * particle.userData.radius;
+                particle.position.z = position.z + Math.sin(particle.userData.angle) * particle.userData.radius;
+                particle.position.y = particle.userData.baseY + Math.sin(Date.now() * 0.001 + particle.userData.yOffset) * 40;
+
+                // Twinkling effect
+                particle.material.opacity = 0.3 + Math.sin(Date.now() * 0.005 + i) * 0.3;
+
+                // Scale pulsing
+                const scale = 1 + Math.sin(Date.now() * 0.003 + i) * 0.3;
+                particle.scale.setScalar(scale);
+
+                requestAnimationFrame(animateParticle);
+            }
+            animateParticle();
+        }
+    }
+
+    // Create birds
+    function createBirds() {
+        const birdCount = 15;
+
+        for (let i = 0; i < birdCount; i++) {
+            const birdGroup = new THREE.Group();
+
+            // Bird body
+            const bodyGeometry = new THREE.ConeGeometry(1, 3, 4);
+            const bodyMaterial = new THREE.MeshBasicMaterial({
+                color: 0x000000
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.z = Math.PI / 2;
+            birdGroup.add(body);
+
+            // Left wing
+            const wingGeometry = new THREE.PlaneGeometry(6, 1);
+            const wingMaterial = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                side: THREE.DoubleSide
+            });
+            const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            leftWing.position.z = 1;
+            birdGroup.add(leftWing);
+
+            // Right wing
+            const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            rightWing.position.z = -1;
+            birdGroup.add(rightWing);
+
+            // Bird properties
+            const bird = {
+                mesh: birdGroup,
+                leftWing: leftWing,
+                rightWing: rightWing,
+                speed: 1 + Math.random() * 2,
+                radius: 200 + Math.random() * 400,
+                angle: Math.random() * Math.PI * 2,
+                height: 100 + Math.random() * 200,
+                verticalPhase: Math.random() * Math.PI * 2,
+                flapSpeed: 8 + Math.random() * 4,
+                pattern: Math.random() < 0.5 ? 'circle' : 'wave'
+            };
+
+            // Initial position
+            birdGroup.position.x = Math.cos(bird.angle) * bird.radius;
+            birdGroup.position.y = bird.height;
+            birdGroup.position.z = Math.sin(bird.angle) * bird.radius;
+
+            scene.add(birdGroup);
+            birds.push(bird);
+        }
+
+        // Create a flock of smaller birds
+        createBirdFlock();
+    }
+
+    // Create a flock of birds flying together
+    function createBirdFlock() {
+        const flockSize = 20;
+        const flockCenter = {
+            x: -300,
+            y: 250,
+            z: -300,
+            angle: 0
+        };
+
+        for (let i = 0; i < flockSize; i++) {
+            const birdGroup = new THREE.Group();
+
+            // Smaller bird body
+            const bodyGeometry = new THREE.ConeGeometry(0.5, 1.5, 4);
+            const bodyMaterial = new THREE.MeshBasicMaterial({
+                color: 0x333333
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.z = Math.PI / 2;
+            birdGroup.add(body);
+
+            // Wings
+            const wingGeometry = new THREE.PlaneGeometry(3, 0.5);
+            const wingMaterial = new THREE.MeshBasicMaterial({
+                color: 0x333333,
+                side: THREE.DoubleSide
+            });
+
+            const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            leftWing.position.z = 0.5;
+            birdGroup.add(leftWing);
+
+            const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            rightWing.position.z = -0.5;
+            birdGroup.add(rightWing);
+
+            // Flock bird properties
+            const bird = {
+                mesh: birdGroup,
+                leftWing: leftWing,
+                rightWing: rightWing,
+                flock: true,
+                flockCenter: flockCenter,
+                offset: {
+                    x: (Math.random() - 0.5) * 50,
+                    y: (Math.random() - 0.5) * 20,
+                    z: (Math.random() - 0.5) * 50
+                },
+                flapSpeed: 10,
+                flapPhase: Math.random() * Math.PI * 2
+            };
+        }
+    }
+    </script>

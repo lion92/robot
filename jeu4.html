@@ -3,24 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Battle 3D - Epic Cosmic Arena</title>
+    <title>Battle 3D - Ciel Terre Mer (Final Corrected)</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
             margin: 0;
             overflow: hidden;
-            font-family: 'Orbitron', monospace;
-            background: #000;
-            cursor: crosshair;
+            background: #87CEEB;
         }
-
         #canvas {
             position: fixed;
             top: 0;
@@ -28,260 +17,11 @@
             width: 100%;
             height: 100%;
         }
-
-        /* HUD */
-        .hud {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #00ffff;
-            border-radius: 20px;
-            padding: 15px 30px;
-            backdrop-filter: blur(10px);
-            z-index: 100;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
-        }
-
-        .hud-content {
-            display: flex;
-            gap: 40px;
-            align-items: center;
-        }
-
-        .stat-item {
-            text-align: center;
-            color: #fff;
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: bold;
-            background: linear-gradient(45deg, #00ffff, #ff00ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #888;
-            text-transform: uppercase;
-        }
-
-        /* AI Training Panel */
-        .ai-panel {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #ff00ff;
-            border-radius: 15px;
-            padding: 20px;
-            width: 300px;
-            backdrop-filter: blur(10px);
-            z-index: 100;
-        }
-
-        .ai-title {
-            color: #ff00ff;
-            font-size: 18px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .ai-stat {
-            margin: 10px 0;
-            padding: 8px;
-            background: rgba(255, 0, 255, 0.1);
-            border-radius: 8px;
-            font-size: 12px;
-            color: #fff;
-        }
-
-        .ai-progress {
-            height: 4px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
-            margin-top: 5px;
-            overflow: hidden;
-        }
-
-        .ai-progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #ff00ff, #00ffff);
-            transition: width 0.3s;
-        }
-
-        /* Battle Info */
-        .battle-info {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #ffd700;
-            border-radius: 15px;
-            padding: 15px 30px;
-            backdrop-filter: blur(10px);
-            z-index: 100;
-            text-align: center;
-            color: #ffd700;
-        }
-
-        /* Camera Controls */
-        .camera-controls {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #00ff00;
-            border-radius: 15px;
-            padding: 15px;
-            backdrop-filter: blur(10px);
-            z-index: 100;
-        }
-
-        /* UI Toggle Controls */
-        .ui-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 150;
-        }
-
-        .toggle-btn {
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #ffffff;
-            color: #ffffff;
-            padding: 10px;
-            margin: 5px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: 'Orbitron', monospace;
-            font-size: 12px;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-        }
-
-        .toggle-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.05);
-        }
-
-        .toggle-btn.hidden {
-            opacity: 0.5;
-            text-decoration: line-through;
-        }
-
-        /* Hide/Show transitions */
-        .hud, .ai-panel, .battle-info, .camera-controls {
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        }
-
-        .ui-hidden {
-            opacity: 0 !important;
-            transform: translateY(-20px) !important;
-            pointer-events: none !important;
-        }
-
-        .camera-btn {
-            background: linear-gradient(145deg, #0a4a0a, #0d5f0d);
-            border: 2px solid #00ff00;
-            color: #00ff00;
-            padding: 10px 15px;
-            margin: 5px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: 'Orbitron', monospace;
-            font-size: 12px;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-        }
-
-        .camera-btn:hover {
-            background: linear-gradient(145deg, #0d5f0d, #10801);
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
-            transform: translateY(-2px);
-        }
-
-        .camera-btn.active {
-            background: linear-gradient(145deg, #10801, #15a015);
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
-        }
-
-        .camera-title {
-            color: #00ff00;
-            font-size: 14px;
-            margin-bottom: 10px;
-            text-align: center;
-            text-transform: uppercase;
-        }
-
-        /* Winner */
-        .winner-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.9);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-            backdrop-filter: blur(10px);
-        }
-
-        .winner-content {
-            background: linear-gradient(145deg, #1a1a2e, #16213e);
-            border: 3px solid #ffd700;
-            border-radius: 30px;
-            padding: 50px;
-            text-align: center;
-            box-shadow: 0 0 100px rgba(255, 215, 0, 0.5),
-            inset 0 0 50px rgba(255, 215, 0, 0.1);
-            animation: winnerPulse 2s ease-in-out infinite;
-        }
-
-        @keyframes winnerPulse {
-            0%, 100% {
-                transform: scale(1);
-                box-shadow: 0 0 100px rgba(255, 215, 0, 0.5);
-            }
-            50% {
-                transform: scale(1.05);
-                box-shadow: 0 0 150px rgba(255, 215, 0, 0.8);
-            }
-        }
-
-        .winner-title {
-            font-size: 56px;
-            color: #ffd700;
-            margin-bottom: 20px;
-            text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
-        }
-
-        .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #00ffff;
-            font-size: 24px;
-            z-index: 300;
-        }
-
-        /* Help text */
-        .help-text {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            color: #666;
-            font-size: 10px;
-            text-align: right;
-            z-index: 50;
-        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+
 
 <canvas id="canvas"></canvas>
 
@@ -352,7 +92,7 @@
     // Configuration
     const CONFIG = {
         SHIPS: 8,
-        ARENA_SIZE: 600,
+        ARENA_SIZE: 500,
         SHIP_SPEED: 6,
         BOOST_SPEED: 12,
         LASER_SPEED: 20,
@@ -371,14 +111,14 @@
 
     // Ship configurations with AI personalities
     const SHIP_CONFIGS = [
-        {name: 'PHOENIX', color: 0xff0000, emissive: 0xff0000, personality: 'aggressive', weapon: 'plasma'},
-        {name: 'NEBULA', color: 0x00ffff, emissive: 0x00ffff, personality: 'defensive', weapon: 'shield'},
-        {name: 'QUANTUM', color: 0xff00ff, emissive: 0xff00ff, personality: 'balanced', weapon: 'quantum'},
-        {name: 'STELLAR', color: 0xffd700, emissive: 0xffd700, personality: 'sniper', weapon: 'railgun'},
-        {name: 'VORTEX', color: 0x00ff00, emissive: 0x00ff00, personality: 'flanker', weapon: 'spread'},
-        {name: 'COSMIC', color: 0x9400d3, emissive: 0x9400d3, personality: 'hunter', weapon: 'missile'},
-        {name: 'AURORA', color: 0xff69b4, emissive: 0xff69b4, personality: 'tactical', weapon: 'emp'},
-        {name: 'ECLIPSE', color: 0x1e90ff, emissive: 0x1e90ff, personality: 'adaptive', weapon: 'adaptive'}
+        { name: 'PHOENIX', color: 0xff0000, emissive: 0xff0000, personality: 'aggressive', weapon: 'plasma' },
+        { name: 'NEBULA', color: 0x00ffff, emissive: 0x00ffff, personality: 'defensive', weapon: 'shield' },
+        { name: 'QUANTUM', color: 0xff00ff, emissive: 0xff00ff, personality: 'balanced', weapon: 'quantum' },
+        { name: 'STELLAR', color: 0xffd700, emissive: 0xffd700, personality: 'sniper', weapon: 'railgun' },
+        { name: 'VORTEX', color: 0x00ff00, emissive: 0x00ff00, personality: 'flanker', weapon: 'spread' },
+        { name: 'COSMIC', color: 0x9400d3, emissive: 0x9400d3, personality: 'hunter', weapon: 'missile' },
+        { name: 'AURORA', color: 0xff69b4, emissive: 0xff69b4, personality: 'tactical', weapon: 'emp' },
+        { name: 'ECLIPSE', color: 0x1e90ff, emissive: 0x1e90ff, personality: 'adaptive', weapon: 'adaptive' }
     ];
 
     // Global variables
@@ -392,7 +132,7 @@
     let battleNumber = 0;
     let timer = CONFIG.BATTLE_TIME;
     let gameState = 'loading';
-    let stats = {totalShots: 0, totalHits: 0, totalDodges: 0};
+    let stats = { totalShots: 0, totalHits: 0, totalDodges: 0 };
     let cameraMode = 'orbital';
     let followTarget = null;
     let cameraAngle = 0;
@@ -456,7 +196,7 @@
 
     // Keyboard shortcuts for UI toggle
     document.addEventListener('keydown', (e) => {
-        switch (e.key.toLowerCase()) {
+        switch(e.key.toLowerCase()) {
             case 'h':
                 toggleUI('hud');
                 break;
@@ -686,7 +426,7 @@
         }
 
         setupPersonality() {
-            switch (this.config.personality) {
+            switch(this.config.personality) {
                 case 'aggressive':
                     this.aggressiveness = 0.9;
                     this.caution = 0.3;
@@ -954,7 +694,7 @@
             this.shots++;
             stats.totalShots++;
 
-            switch (this.weaponType) {
+            switch(this.weaponType) {
                 case 'plasma':
                     this.firePlasma();
                     break;
@@ -1136,7 +876,7 @@
         useSpecialAbility() {
             this.lastSpecial = Date.now();
 
-            switch (this.config.personality) {
+            switch(this.config.personality) {
                 case 'aggressive':
                     // Berserker mode
                     this.activateBerserkerMode();
@@ -1320,21 +1060,14 @@
         getFireRate() {
             const baseRate = 200;
 
-            switch (this.weaponType) {
-                case 'railgun':
-                    return 2000;
-                case 'spread':
-                    return 400;
-                case 'missile':
-                    return 800;
-                case 'plasma':
-                    return 300;
-                case 'quantum':
-                    return 500;
-                case 'emp':
-                    return 3000;
-                default:
-                    return baseRate;
+            switch(this.weaponType) {
+                case 'railgun': return 2000;
+                case 'spread': return 400;
+                case 'missile': return 800;
+                case 'plasma': return 300;
+                case 'quantum': return 500;
+                case 'emp': return 3000;
+                default: return baseRate;
             }
         }
 
@@ -1643,8 +1376,6 @@
                 if (ship !== this.owner && ship.alive) {
                     const distance = this.mesh.position.distanceTo(ship.mesh.position);
                     if (distance < 10 + this.size) {
-
-
                         ship.takeDamage(this.damage);
                         ship.lastAttacker = this.owner;
                         this.owner.hits++;
@@ -1807,7 +1538,7 @@
 
             // Missile fins
             const finGeometry = new THREE.BoxGeometry(3, 0.1, 1);
-            const finMaterial = new THREE.MeshPhongMaterial({color: 0x444444});
+            const finMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
             for (let i = 0; i < 4; i++) {
                 const fin = new THREE.Mesh(finGeometry, finMaterial);
                 fin.position.z = -2;
@@ -1930,19 +1661,13 @@
         }
 
         getColorForType() {
-            switch (this.type) {
-                case 'health':
-                    return 0x00ff00;
-                case 'shield':
-                    return 0x00ffff;
-                case 'damage':
-                    return 0xff0000;
-                case 'speed':
-                    return 0xffff00;
-                case 'ammo':
-                    return 0xff00ff;
-                default:
-                    return 0xffffff;
+            switch(this.type) {
+                case 'health': return 0x00ff00;
+                case 'shield': return 0x00ffff;
+                case 'damage': return 0xff0000;
+                case 'speed': return 0xffff00;
+                case 'ammo': return 0xff00ff;
+                default: return 0xffffff;
             }
         }
 
@@ -1969,7 +1694,7 @@
         }
 
         applyEffect(ship) {
-            switch (this.type) {
+            switch(this.type) {
                 case 'health':
                     ship.health = Math.min(ship.health + 30, ship.maxHealth);
                     createPowerupEffect(ship.mesh.position, 0x00ff00, 'HEALTH+');
@@ -2098,7 +1823,7 @@
     function updateCamera() {
         const time = Date.now() * 0.0001;
 
-        switch (cameraMode) {
+        switch(cameraMode) {
             case 'orbital':
                 camera.position.x = Math.cos(time) * 400;
                 camera.position.z = Math.sin(time) * 400;
@@ -2151,42 +1876,42 @@
         }
     }
 
-    // Create epic space environment
+    // Create urban city environment
     function createEpicSpaceEnvironment() {
-        // Massive nebula background
-        const nebulaGeometry = new THREE.SphereGeometry(3000, 32, 32);
-        const nebulaMaterial = new THREE.MeshBasicMaterial({
-            map: createNebulaTexture(),
-            side: THREE.BackSide,
-            transparent: true,
-            opacity: 0.6
+        // Sky dome
+        const skyGeometry = new THREE.SphereGeometry(2000, 32, 32);
+        const skyMaterial = new THREE.MeshBasicMaterial({
+            map: createSkyTexture(),
+            side: THREE.BackSide
         });
-        const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
-        scene.add(nebula);
+        const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(sky);
 
-        // Create procedural nebula texture
-        function createNebulaTexture() {
+        // Create procedural sky texture
+        function createSkyTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
-            canvas.height = 1024;
+            canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
-            // Gradient background
-            const gradient = ctx.createRadialGradient(512, 512, 0, 512, 512, 512);
-            gradient.addColorStop(0, 'rgba(138, 43, 226, 0.4)');
-            gradient.addColorStop(0.5, 'rgba(30, 144, 255, 0.3)');
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            // Sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+            gradient.addColorStop(0, '#87CEEB'); // Sky blue at top
+            gradient.addColorStop(0.4, '#98D8E8'); // Lighter blue
+            gradient.addColorStop(0.7, '#F0E68C'); // Yellowish horizon
+            gradient.addColorStop(1, '#FFB6C1'); // Pink sunset at horizon
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 1024, 1024);
+            ctx.fillRect(0, 0, 1024, 512);
 
-            // Add nebula clouds
-            for (let i = 0; i < 50; i++) {
+            // Add clouds
+            ctx.globalAlpha = 0.4;
+            for (let i = 0; i < 20; i++) {
                 const x = Math.random() * 1024;
-                const y = Math.random() * 1024;
-                const radius = Math.random() * 200 + 50;
+                const y = Math.random() * 200;
+                const radius = Math.random() * 100 + 50;
                 const cloudGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-                cloudGradient.addColorStop(0, `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 0.3)`);
-                cloudGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                cloudGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+                cloudGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
                 ctx.fillStyle = cloudGradient;
                 ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
             }
@@ -2194,223 +1919,252 @@
             return new THREE.CanvasTexture(canvas);
         }
 
-        // Planetary system
-        const planets = [
-            {radius: 40, distance: 600, color: 0x8b4513, rings: false},
-            {radius: 60, distance: 900, color: 0x4169e1, rings: true},
-            {radius: 50, distance: 1200, color: 0xff6347, rings: false},
-            {radius: 80, distance: 1500, color: 0xdaa520, rings: true}
-        ];
+        // Ground plane
+        const groundGeometry = new THREE.PlaneGeometry(3000, 3000, 50, 50);
+        const groundMaterial = new THREE.MeshPhongMaterial({
+            color: 0x3a3a3a, // Dark asphalt
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -50;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
-        spaceElements.planets = [];
+        // Add street grid texture
+        const gridCanvas = document.createElement('canvas');
+        gridCanvas.width = 512;
+        gridCanvas.height = 512;
+        const gridCtx = gridCanvas.getContext('2d');
+        gridCtx.fillStyle = '#3a3a3a';
+        gridCtx.fillRect(0, 0, 512, 512);
+        gridCtx.strokeStyle = '#555555';
+        gridCtx.lineWidth = 2;
+        for (let i = 0; i < 512; i += 64) {
+            gridCtx.beginPath();
+            gridCtx.moveTo(i, 0);
+            gridCtx.lineTo(i, 512);
+            gridCtx.stroke();
+            gridCtx.beginPath();
+            gridCtx.moveTo(0, i);
+            gridCtx.lineTo(512, i);
+            gridCtx.stroke();
+        }
+        groundMaterial.map = new THREE.CanvasTexture(gridCanvas);
+        groundMaterial.map.repeat.set(10, 10);
+        groundMaterial.map.wrapS = THREE.RepeatWrapping;
+        groundMaterial.map.wrapT = THREE.RepeatWrapping;
 
-        planets.forEach((planetData, index) => {
-            const planetGroup = new THREE.Group();
+        // City buildings
+        spaceElements.buildings = [];
+        const buildingCount = 80;
 
-            // Planet
-            const planetGeometry = new THREE.SphereGeometry(planetData.radius, 32, 32);
-            const planetMaterial = new THREE.MeshPhongMaterial({
-                color: planetData.color,
-                emissive: planetData.color,
-                emissiveIntensity: 0.05,
-                shininess: 30
+        for (let i = 0; i < buildingCount; i++) {
+            const buildingGroup = new THREE.Group();
+
+            // Building dimensions
+            const width = 30 + Math.random() * 50;
+            const depth = 30 + Math.random() * 50;
+            const height = 50 + Math.random() * 200;
+
+            // Main building structure
+            const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+            const buildingMaterial = new THREE.MeshPhongMaterial({
+                color: new THREE.Color(0.2 + Math.random() * 0.3, 0.2 + Math.random() * 0.3, 0.2 + Math.random() * 0.3),
+                emissive: 0x111111,
+                specular: 0x333333,
+                shininess: 100
             });
-            const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-            planetGroup.add(planet);
+            const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+            building.position.y = height / 2;
+            building.castShadow = true;
+            building.receiveShadow = true;
+            buildingGroup.add(building);
 
-            // Atmosphere
-            const atmosGeometry = new THREE.SphereGeometry(planetData.radius * 1.02, 32, 32);
-            const atmosMaterial = new THREE.MeshBasicMaterial({
-                color: planetData.color,
-                transparent: true,
-                opacity: 0.2,
-                side: THREE.BackSide
-            });
-            const atmosphere = new THREE.Mesh(atmosGeometry, atmosMaterial);
-            planetGroup.add(atmosphere);
+            // Windows
+            const windowRows = Math.floor(height / 15);
+            const windowCols = Math.floor(width / 10);
 
-            // Rings
-            if (planetData.rings) {
-                const ringGeometry = new THREE.RingGeometry(
-                    planetData.radius * 1.5,
-                    planetData.radius * 2.5,
-                    64
-                );
-                const ringMaterial = new THREE.MeshBasicMaterial({
-                    color: planetData.color,
-                    transparent: true,
-                    opacity: 0.6,
-                    side: THREE.DoubleSide
-                });
-                const rings = new THREE.Mesh(ringGeometry, ringMaterial);
-                rings.rotation.x = Math.PI / 2 + (Math.random() - 0.5) * 0.3;
-                planetGroup.add(rings);
+            for (let row = 0; row < windowRows; row++) {
+                for (let col = 0; col < windowCols; col++) {
+                    if (Math.random() > 0.3) { // Some windows are lit
+                        const windowGeometry = new THREE.PlaneGeometry(6, 8);
+                        const windowMaterial = new THREE.MeshBasicMaterial({
+                            color: Math.random() > 0.5 ? 0xffff88 : 0x88ffff,
+                            emissive: Math.random() > 0.5 ? 0xffff88 : 0x88ffff,
+                            emissiveIntensity: 0.5
+                        });
+                        const window = new THREE.Mesh(windowGeometry, windowMaterial);
+                        window.position.set(
+                            -width/2 + col * 10 + 5,
+                            row * 15 - height/2 + 10,
+                            depth/2 + 0.1
+                        );
+                        buildingGroup.add(window);
+
+                        // Add window light
+                        if (Math.random() > 0.8) {
+                            const windowLight = new THREE.PointLight(windowMaterial.color, 0.3, 30);
+                            windowLight.position.copy(window.position);
+                            windowLight.position.z += 5;
+                            buildingGroup.add(windowLight);
+                        }
+                    }
+                }
             }
 
-            // Position planet
-            const angle = (index / planets.length) * Math.PI * 2;
-            planetGroup.position.x = Math.cos(angle) * planetData.distance;
-            planetGroup.position.z = Math.sin(angle) * planetData.distance;
-            planetGroup.position.y = (Math.random() - 0.5) * 200;
+            // Rooftop details
+            if (Math.random() > 0.5) {
+                // Antenna
+                const antennaGeometry = new THREE.CylinderGeometry(0.5, 0.5, 20);
+                const antennaMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
+                const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+                antenna.position.y = height + 10;
+                buildingGroup.add(antenna);
 
-            planetGroup.userData = {
-                rotationSpeed: 0.001 + Math.random() * 0.002,
-                orbitSpeed: 0.0001 + Math.random() * 0.0002,
-                orbitAngle: angle,
-                orbitDistance: planetData.distance
-            };
+                // Blinking red light
+                const lightGeometry = new THREE.SphereGeometry(1);
+                const lightMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    emissive: 0xff0000
+                });
+                const warningLight = new THREE.Mesh(lightGeometry, lightMaterial);
+                warningLight.position.y = height + 20;
+                buildingGroup.add(warningLight);
 
-            scene.add(planetGroup);
-            spaceElements.planets.push(planetGroup);
-        });
+                // Add actual light
+                const redLight = new THREE.PointLight(0xff0000, 1, 50);
+                redLight.position.copy(warningLight.position);
+                buildingGroup.add(redLight);
 
-        // Asteroid field
-        const asteroidCount = 150;
-        spaceElements.asteroids = [];
+                // Store for animation
+                buildingGroup.userData.warningLight = warningLight;
+                buildingGroup.userData.redLight = redLight;
+            }
 
-        for (let i = 0; i < asteroidCount; i++) {
-            const asteroidGeometry = new THREE.DodecahedronGeometry(1);
-            const asteroidMaterial = new THREE.MeshPhongMaterial({
-                color: 0x666666,
-                emissive: 0x111111,
-                shininess: 10
+            // Position building
+            let positionFound = false;
+            let attempts = 0;
+            while (!positionFound && attempts < 50) {
+                const x = (Math.random() - 0.5) * 1500;
+                const z = (Math.random() - 0.5) * 1500;
+
+                // Check distance from center (arena)
+                const distFromCenter = Math.sqrt(x * x + z * z);
+                if (distFromCenter > CONFIG.ARENA_SIZE + 100) {
+                    buildingGroup.position.set(x, -50, z);
+                    positionFound = true;
+                }
+                attempts++;
+            }
+
+            if (positionFound) {
+                scene.add(buildingGroup);
+                spaceElements.buildings.push(buildingGroup);
+            }
+        }
+
+        // Add some flying vehicles/drones for atmosphere
+        spaceElements.drones = [];
+        const droneCount = 20;
+
+        for (let i = 0; i < droneCount; i++) {
+            const droneGroup = new THREE.Group();
+
+            // Drone body
+            const droneGeometry = new THREE.BoxGeometry(5, 2, 5);
+            const droneMaterial = new THREE.MeshPhongMaterial({
+                color: 0x444444,
+                emissive: 0x111111
+            });
+            const drone = new THREE.Mesh(droneGeometry, droneMaterial);
+            droneGroup.add(drone);
+
+            // Drone lights
+            const lightPositions = [
+                { x: 2.5, z: 2.5 },
+                { x: -2.5, z: 2.5 },
+                { x: 2.5, z: -2.5 },
+                { x: -2.5, z: -2.5 }
+            ];
+
+            lightPositions.forEach(pos => {
+                const lightGeometry = new THREE.SphereGeometry(0.5);
+                const lightMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x00ff00,
+                    emissive: 0x00ff00
+                });
+                const light = new THREE.Mesh(lightGeometry, lightMaterial);
+                light.position.set(pos.x, -1, pos.z);
+                droneGroup.add(light);
             });
 
-            const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
-            const scale = 3 + Math.random() * 10;
-            asteroid.scale.set(scale, scale, scale);
-
-            // Position in belt
+            // Set drone path
             const angle = Math.random() * Math.PI * 2;
-            const distance = 1000 + Math.random() * 300;
-            const height = (Math.random() - 0.5) * 150;
+            const radius = 600 + Math.random() * 400;
+            const height = 200 + Math.random() * 300;
 
-            asteroid.position.x = Math.cos(angle) * distance;
-            asteroid.position.z = Math.sin(angle) * distance;
-            asteroid.position.y = height;
-
-            asteroid.rotation.set(
-                Math.random() * Math.PI,
-                Math.random() * Math.PI,
-                Math.random() * Math.PI
+            droneGroup.position.set(
+                Math.cos(angle) * radius,
+                height,
+                Math.sin(angle) * radius
             );
 
-            asteroid.userData = {
-                rotationSpeed: {
-                    x: (Math.random() - 0.5) * 0.01,
-                    y: (Math.random() - 0.5) * 0.01,
-                    z: (Math.random() - 0.5) * 0.01
-                },
-                orbitSpeed: 0.00005 + Math.random() * 0.0001,
+            droneGroup.userData = {
                 angle: angle,
-                distance: distance,
-                height: height
+                radius: radius,
+                height: height,
+                speed: 0.0005 + Math.random() * 0.001
             };
 
-            scene.add(asteroid);
-            spaceElements.asteroids.push(asteroid);
+            scene.add(droneGroup);
+            spaceElements.drones.push(droneGroup);
         }
 
-        // Enhanced starfield
-        const starfieldGeometry = new THREE.BufferGeometry();
-        const starCount = 15000;
-        const positions = new Float32Array(starCount * 3);
-        const colors = new Float32Array(starCount * 3);
-        const sizes = new Float32Array(starCount);
+        // Street lights
+        spaceElements.streetLights = [];
+        const streetLightCount = 30;
 
-        for (let i = 0; i < starCount; i++) {
-            const i3 = i * 3;
+        for (let i = 0; i < streetLightCount; i++) {
+            const lightPole = new THREE.Group();
 
-            // Create galaxy-like distribution
-            const angle = Math.random() * Math.PI * 2;
-            const distance = Math.pow(Math.random(), 0.5) * 4000;
-            const height = (Math.random() - 0.5) * 1000 * (1 - distance / 4000);
+            // Pole
+            const poleGeometry = new THREE.CylinderGeometry(1, 1, 40);
+            const poleMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+            pole.position.y = 20;
+            lightPole.add(pole);
 
-            positions[i3] = Math.cos(angle) * distance;
-            positions[i3 + 1] = height;
-            positions[i3 + 2] = Math.sin(angle) * distance;
+            // Light fixture
+            const fixtureGeometry = new THREE.ConeGeometry(5, 10, 6);
+            const fixtureMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
+            const fixture = new THREE.Mesh(fixtureGeometry, fixtureMaterial);
+            fixture.position.y = 40;
+            fixture.rotation.z = Math.PI;
+            lightPole.add(fixture);
 
-            // Star colors
-            const starType = Math.random();
-            if (starType < 0.2) {
-                colors[i3] = 0.8;
-                colors[i3 + 1] = 0.8;
-                colors[i3 + 2] = 1.0;
-            } else if (starType < 0.4) {
-                colors[i3] = 1.0;
-                colors[i3 + 1] = 1.0;
-                colors[i3 + 2] = 0.8;
-            } else if (starType < 0.6) {
-                colors[i3] = 1.0;
-                colors[i3 + 1] = 0.9;
-                colors[i3 + 2] = 0.7;
-            } else if (starType < 0.8) {
-                colors[i3] = 1.0;
-                colors[i3 + 1] = 0.6;
-                colors[i3 + 2] = 0.4;
-            } else {
-                colors[i3] = 0.4;
-                colors[i3 + 1] = 0.6;
-                colors[i3 + 2] = 1.0;
-            }
+            // Actual light
+            const streetLight = new THREE.SpotLight(0xffaa66, 1, 100, Math.PI / 4, 0.5);
+            streetLight.position.y = 40;
+            streetLight.target.position.set(0, 0, 0);
+            lightPole.add(streetLight);
+            lightPole.add(streetLight.target);
 
-            sizes[i] = Math.random() * 3 + 0.5;
+            // Position street light
+            const angle = (i / streetLightCount) * Math.PI * 2;
+            const distance = CONFIG.ARENA_SIZE + 50 + Math.random() * 200;
+            lightPole.position.set(
+                Math.cos(angle) * distance,
+                -50,
+                Math.sin(angle) * distance
+            );
+
+            scene.add(lightPole);
+            spaceElements.streetLights.push(lightPole);
         }
 
-        starfieldGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        starfieldGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        starfieldGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-        const starfieldMaterial = new THREE.PointsMaterial({
-            size: 2,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.8,
-            depthWrite: false
-        });
-
-        const starfield = new THREE.Points(starfieldGeometry, starfieldMaterial);
-        scene.add(starfield);
-        spaceElements.starfield = starfield;
-
-        // Space station
-        const stationGroup = new THREE.Group();
-
-        // Main hull
-        const hullGeometry = new THREE.CylinderGeometry(40, 40, 100, 8);
-        const hullMaterial = new THREE.MeshPhongMaterial({
-            color: 0x444444,
-            emissive: 0x222222,
-            metalness: 0.8
-        });
-        const hull = new THREE.Mesh(hullGeometry, hullMaterial);
-        stationGroup.add(hull);
-
-        // Rotating rings
-        for (let i = 0; i < 3; i++) {
-            const ringRadius = 60 + i * 20;
-            const ring = new THREE.TorusGeometry(ringRadius, 5, 8, 16);
-            const ringMesh = new THREE.Mesh(ring, hullMaterial);
-            ringMesh.position.y = -30 + i * 30;
-            ringMesh.userData = {rotationSpeed: 0.001 * (i + 1)};
-            stationGroup.add(ringMesh);
-        }
-
-        // Lights
-        for (let i = 0; i < 8; i++) {
-            const light = new THREE.PointLight(0x00ffff, 0.5, 100);
-            const angle = (i / 8) * Math.PI * 2;
-            light.position.x = Math.cos(angle) * 50;
-            light.position.z = Math.sin(angle) * 50;
-            light.position.y = (Math.random() - 0.5) * 80;
-            stationGroup.add(light);
-        }
-
-        stationGroup.position.set(-800, 100, 400);
-        scene.add(stationGroup);
-        spaceElements.station = stationGroup;
-
-        // Enhanced arena boundary
+        // Enhanced arena boundary (now like an energy dome)
         const boundaryGeometry = new THREE.SphereGeometry(CONFIG.ARENA_SIZE, 64, 64);
         const boundaryMaterial = new THREE.MeshBasicMaterial({
             color: 0x00ffff,
@@ -2420,53 +2174,36 @@
             side: THREE.BackSide
         });
         const boundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+        boundary.position.y = 50; // Raise it slightly above ground
         scene.add(boundary);
         spaceElements.boundary = boundary;
 
-        // Animated space elements
+        // Animated city elements
         function animateSpaceElements() {
             const time = Date.now() * 0.001;
 
-            // Animate planets
-            spaceElements.planets.forEach(planetGroup => {
-                // Rotate planet
-                planetGroup.children[0].rotation.y += planetGroup.userData.rotationSpeed;
-
-                // Orbit planet
-                planetGroup.userData.orbitAngle += planetGroup.userData.orbitSpeed;
-                planetGroup.position.x = Math.cos(planetGroup.userData.orbitAngle) * planetGroup.userData.orbitDistance;
-                planetGroup.position.z = Math.sin(planetGroup.userData.orbitAngle) * planetGroup.userData.orbitDistance;
+            // Animate building warning lights
+            spaceElements.buildings.forEach(building => {
+                if (building.userData.warningLight) {
+                    const intensity = (Math.sin(time * 3) + 1) / 2;
+                    building.userData.warningLight.material.emissiveIntensity = intensity;
+                    building.userData.redLight.intensity = intensity;
+                }
             });
 
-            // Animate asteroids
-            spaceElements.asteroids.forEach(asteroid => {
-                asteroid.rotation.x += asteroid.userData.rotationSpeed.x;
-                asteroid.rotation.y += asteroid.userData.rotationSpeed.y;
-                asteroid.rotation.z += asteroid.userData.rotationSpeed.z;
-
-                asteroid.userData.angle += asteroid.userData.orbitSpeed;
-                asteroid.position.x = Math.cos(asteroid.userData.angle) * asteroid.userData.distance;
-                asteroid.position.z = Math.sin(asteroid.userData.angle) * asteroid.userData.distance;
+            // Animate drones
+            spaceElements.drones.forEach(drone => {
+                drone.userData.angle += drone.userData.speed;
+                drone.position.x = Math.cos(drone.userData.angle) * drone.userData.radius;
+                drone.position.z = Math.sin(drone.userData.angle) * drone.userData.radius;
+                drone.position.y = drone.userData.height + Math.sin(time * 2) * 10;
+                drone.rotation.y = -drone.userData.angle + Math.PI / 2;
             });
-
-            // Animate starfield
-            if (spaceElements.starfield) {
-                spaceElements.starfield.rotation.y += 0.00005;
-            }
-
-            // Animate space station
-            if (spaceElements.station) {
-                spaceElements.station.rotation.y += 0.0005;
-                spaceElements.station.children.forEach(child => {
-                    if (child.userData && child.userData.rotationSpeed) {
-                        child.rotation.z += child.userData.rotationSpeed;
-                    }
-                });
-            }
 
             // Animate boundary
             if (spaceElements.boundary) {
                 spaceElements.boundary.material.opacity = 0.1 + Math.sin(time * 2) * 0.05;
+                spaceElements.boundary.rotation.y += 0.001;
             }
 
             requestAnimationFrame(animateSpaceElements);
@@ -2486,7 +2223,7 @@
         for (let i = 0; i < particleCount; i++) {
             const particle = new THREE.Mesh(
                 new THREE.SphereGeometry(0.5),
-                new THREE.MeshBasicMaterial({color: color})
+                new THREE.MeshBasicMaterial({ color: color })
             );
             particle.position.copy(position);
             const velocity = new THREE.Vector3(
@@ -3217,12 +2954,11 @@
         });
         const reticle = new THREE.Mesh(reticleGeometry, reticleMaterial);
 
-
         target.mesh.add(reticle);
 
         // Corner brackets
         const bracketGeometry = new THREE.BoxGeometry(3, 0.5, 0.5);
-        const bracketMaterial = new THREE.MeshBasicMaterial({color: 0xff0000});
+        const bracketMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
         for (let i = 0; i < 4; i++) {
             const bracket = new THREE.Mesh(bracketGeometry, bracketMaterial);
@@ -3298,10 +3034,10 @@
     function createMassiveExplosion(position, color) {
         // Multi-stage explosion
         const stages = [
-            {delay: 0, size: 10, color: 0xffffff},
-            {delay: 100, size: 20, color: color},
-            {delay: 200, size: 30, color: 0xff6600},
-            {delay: 300, size: 15, color: 0xffaa00}
+            { delay: 0, size: 10, color: 0xffffff },
+            { delay: 100, size: 20, color: color },
+            { delay: 200, size: 30, color: 0xff6600 },
+            { delay: 300, size: 15, color: 0xffaa00 }
         ];
 
         stages.forEach(stage => {
@@ -3601,3 +3337,83 @@
     // Start the game
     window.addEventListener('load', init);
 </script>
+<script>
+
+
+    let scene, camera, renderer, sea;
+    let time = 0; // Toujours défini AVANT animate()
+
+    init();
+    animate();
+
+    function init() {
+        scene = new THREE.Scene();
+
+        // Caméra
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+        camera.position.set(0, 50, 200);
+
+        // Rendu
+        renderer = new THREE.WebGLRenderer({canvas: document.getElementById('canvas'), antialias: true});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Ciel
+        const skyGeometry = new THREE.SphereGeometry(5000, 32, 32);
+        const skyMaterial = new THREE.MeshBasicMaterial({
+            color: 0x87CEEB,
+            side: THREE.BackSide
+        });
+        const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(sky);
+
+        // Mer (BufferGeometry pour vagues)
+        const seaGeometry = new THREE.PlaneGeometry(10000, 10000, 200, 200);
+        const seaMaterial = new THREE.MeshStandardMaterial({color: 0x1E90FF, flatShading: true});
+        sea = new THREE.Mesh(seaGeometry, seaMaterial);
+        sea.rotation.x = -Math.PI / 2;
+        scene.add(sea);
+
+        // Terre
+        const landGeometry = new THREE.PlaneGeometry(5000, 5000);
+        const landMaterial = new THREE.MeshStandardMaterial({color: 0x228B22});
+        const land = new THREE.Mesh(landGeometry, landMaterial);
+        land.rotation.x = -Math.PI / 2;
+        land.position.y = -1;
+        land.position.z = -300;
+        scene.add(land);
+
+        // Lumières
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(100, 200, 100);
+        scene.add(directionalLight);
+
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        time += 0.02;
+
+        // Animation vagues mer
+        const positions = sea.geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i];
+            const y = positions[i + 1];
+            positions[i + 2] = Math.sin((x + time * 10) * 0.02) * 2 + Math.cos((y + time * 10) * 0.02) * 2;
+        }
+        sea.geometry.attributes.position.needsUpdate = true;
+
+        renderer.render(scene, camera);
+    }
+</script>
+</body>
+</html>

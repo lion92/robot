@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sky & Sea Battle 3D - Ultimate Naval Air Combat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Orbitron', monospace;
+            background: #000;
+            cursor: crosshair;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Main Menu Enhanced */
+        .main-menu {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.98) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            backdrop-filter: blur(30px);
+        }
+
+        .menu-content {
+            text-align: center;
+            animation: menuFadeIn 0.8s ease-out;
+        }
+
+        @keyframes menuFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .game-title {
+            font-size: clamp(48px, 8vw, 96px);
+            font-weight: 900;
+            background: linear-gradient(135deg, #00ffff, #ff00ff, #ffff00, #00ff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 0 80px rgba(0, 255, 255, 0.8);
+            animation: titlePulse 3s ease-in-out infinite;
+            letter-spacing: 3px;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .menu-subtitle {
+            font-size: 28px;
+            background: linear-gradient(90deg, #888, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 60px;
+            animation: subtitleSlide 2s ease-in-out infinite;
+        }
+
+        @keyframes subtitleSlide {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            margin-bottom: 50px;
+        }
+
+        .menu-btn {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border: 2px solid transparent;
+            background-image: linear-gradient(145deg, #1a1a2e, #16213e),
+            linear-gradient(90deg, #00ffff, #ff00ff);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            color: #00ffff;
+            padding: 25px 80px;
+            font-size: 26px;
+            font-family: 'Orbitron', monospace;
+            cursor: pointer;
+            border-radius: 20px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .menu-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, rgba(0,255,255,0.3) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .menu-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .menu-btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0, 255, 255, 0.6),
+            0 0 80px rgba(255, 0, 255, 0.3);
+            color: #ffffff;
+        }
+
+        .btn-desc {
+            display: block;
+            font-size: 16px;
+            color: #999;
+            margin-top: 8px;
+            font-weight: 400;
+            letter-spacing: 1px;
+        }
+
+        /* Enhanced Controls Info */
+        .controls-info {
+            background: linear-gradient(145deg, rgba(0,0,0,0.9), rgba(10,10,20,0.9));
+            border: 2px solid #444;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: left;
+            max-width: 500px;
+            margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.2);
+        }
+
+        .controls-info h3 {
+            color: #00ffff;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 24px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+        }
+
+        .control-item {
+            color: #ccc;
+            margin: 12px 0;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 15px;
+            background: rgba(0, 255, 255, 0.05);
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .control-item:hover {
+            background: rgba(0, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .control-key {
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        /* Enhanced HUD */
+        .hud {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(0,20,40,0.9));
+            border: 2px solid #00ffff;
+            border-radius: 25px;
+            padding: 20px 40px;
+            backdrop-filter: blur(15px);
+            z-index: 100;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.6),
+            inset 0 0 30px rgba(0, 255, 255, 0.1);
+        }
+
+        .hud-content {
+            display: flex;
+            gap: 50px;
+            align-items: center;
+        }
+
+        .stat-item {
+            text-align: center;
+            color: #fff;
+            transition: transform 0.3s;
+        }
+
+        .stat-item:hover {
+            transform: scale(1.1);
+        }
+
+        .stat-value {
+            font-size: 42px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px currentColor;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        /* Enhanced Player HUD */
+        .player-hud {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(0,40,0,0.95));
+            border: 2px solid #00ff00;
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(20px);
+            z-index: 100;
+            min-width: 350px;
+            box-shadow: 0 0 60px rgba(0, 255, 0, 0.5),
+            inset 0 0 40px rgba(0, 255, 0, 0.1);
+        }
+
+        .player-stats {
+            margin-bottom: 25px;
+        }
+
+        .health-bar, .shield-bar, .boost-bar {
+            margin-bottom: 20px;
+        }
+
+        .bar-label {
+            color: #ccc;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .bar-container {
+            width: 300px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #444;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: barShine 2s infinite;
+        }
+
+        @keyframes barShine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .health-fill {
+            background: linear-gradient(90deg, #00ff00, #00cc00);
+            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .shield-fill {
+            background: linear-gradient(90deg, #00ffff, #0099cc);
+            box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .boost-fill {
+            background: linear-gradient(90deg, #ff6600, #ffaa00);
+            box-shadow: inset 0 0 10px rgba(255, 102, 0, 0.5);
+        }
+
+        .weapon-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+        }
+
+        .weapon-name {
+            color: #00ff00;
+            font-size: 22px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+
+        .ammo-count {
+            font-size: 20px;
+            color: #00ffff;
+        }
+
+        .special-weapon {
+            margin-top: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.1), rgba(255, 100, 0, 0.1));
+            border: 2px solid #ff6600;
+            border-radius: 15px;
+        }
+
+        .special-status {
+            color: #ff6600;
+            font-size: 18px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .special-ready {
+            color: #00ff00;
+            animation: pulse 1s infinite;
+            text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        .player-score {
+            text-align: center;
+            border-top: 2px solid #444;
+            padding-top: 20px;
+            margin-top: 20px;
+        }
+
+        .score-label {
+            color: #aaa;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .score-value {
+            font-size: 48px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #00ff00, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+        }
+
+        /* Enhanced Winner Overlay */
+        .winner-overlay {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 100%);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            backdrop-filter: blur(20px);
+        }
+
+        .winner-content {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border: 3px solid #ffd700;
+            border-radius: 40px;
+            padding: 60px 80px;
+            text-align: center;
+            box-shadow:
+                    0 0 150px rgba(255, 215, 0, 0.6),
+                    inset 0 0 80px rgba(255, 215, 0, 0.2),
+                    0 20px 60px rgba(0, 0, 0, 0.8);
+            animation: winnerEntrance 0.8s ease-out;
+        }
+
+        @keyframes winnerEntrance {
+            from {
+                transform: scale(0.5) rotate(180deg);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .winner-title {
+            font-size: 72px;
+            color: #ffd700;
+            margin-bottom: 30px;
+            text-shadow: 0 0 50px rgba(255, 215, 0, 0.9);
+            animation: victorySpin 3s ease-in-out infinite;
+        }
+
+        @keyframes victorySpin {
+            0%, 100% { transform: rotateY(0deg); }
+            50% { transform: rotateY(180deg); }
+        }
+
+        #winnerName {
+            font-size: 56px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        #winnerStats {
+            font-size: 24px;
+            color: #00ffff;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+
+        .menu-btn-small {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 15px 40px;
+            margin: 0 15px;
+            font-size: 18px;
+            font-family: 'Orbitron', monospace;
+            cursor: pointer;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .menu-btn-small:hover {
+            background: linear-gradient(145deg, #16213e, #1a1a2e);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.6);
+            color: #ffffff;
+        }
+
+        /* Loading Screen Enhanced */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 400;
+        }
+
+        .loading-text {
+            color: #00ffff;
+            font-size: 32px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+        }
+
+        .loading-bar {
+            width: 400px;
+            height: 10px;
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            width: 0%;
+            animation: loadingAnimation 2s ease-out forwards;
+        }
+
+        @keyframes loadingAnimation {
+            to { width: 100%; }
+        }
+
+        /* Notifications Enhanced */
+        .notification {
+            position: fixed;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(0,40,60,0.95));
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            padding: 20px 40px;
+            color: #00ffff;
+            font-size: 20px;
+            z-index: 500;
+            animation: notifSlide 0.5s ease-out;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        @keyframes notifSlide {
+            from {
+                transform: translateX(-50%) translateY(-30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* AI Generation Display Enhanced */
+        .ai-generation {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(40,0,40,0.9));
+            border: 2px solid #ff00ff;
+            border-radius: 15px;
+            padding: 15px 30px;
+            color: #ff00ff;
+            font-size: 18px;
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #genNumber {
+            font-weight: bold;
+            font-size: 24px;
+            text-shadow: 0 0 20px rgba(255, 0, 255, 0.8);
+        }
+
+        /* Radar System */
+        .radar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(0,255,0,0.1) 0%, rgba(0,0,0,0.8) 100%);
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            z-index: 100;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+        }
+
+        .radar-sweep {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00ff00);
+            transform-origin: left center;
+            animation: radarSweep 3s linear infinite;
+        }
+
+        @keyframes radarSweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .radar-blip {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #ff0000;
+            border-radius: 50%;
+            animation: blipPulse 1s ease-out infinite;
+        }
+
+        @keyframes blipPulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        /* Combat Effects */
+        .damage-indicator {
+            position: fixed;
+            pointer-events: none;
+            animation: damageFlash 0.3s;
+            z-index: 90;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(255,0,0,0.3) 100%);
+            inset: 0;
+        }
+
+        @keyframes damageFlash {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Power-up Indicators */
+        .powerup-notification {
+            position: fixed;
+            top: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(60,60,0,0.9));
+            border: 2px solid #ffff00;
+            border-radius: 20px;
+            padding: 20px 50px;
+            color: #ffff00;
+            font-size: 24px;
+            z-index: 500;
+            animation: powerupBounce 0.6s ease-out;
+            box-shadow: 0 0 50px rgba(255, 255, 0, 0.7);
+        }
+
+        @keyframes powerupBounce {
+            0% { transform: translateX(-50%) translateY(-50px) scale(0.5); opacity: 0; }
+            60% { transform: translateX(-50%) translateY(10px) scale(1.1); }
+            100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+        }
+
+        /* Combo Counter */
+        .combo-counter {
+            position: fixed;
+            top: 150px;
+            right: 30px;
+            background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(60,0,0,0.9));
+            border: 2px solid #ff0000;
+            border-radius: 20px;
+            padding: 20px 30px;
+            z-index: 100;
+            display: none;
+        }
+
+        .combo-text {
+            color: #ff0000;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .combo-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #ff6600;
+            text-shadow: 0 0 30px rgba(255, 102, 0, 0.8);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 48px;
+            }
+
+            .menu-btn {
+                padding: 20px 50px;
+                font-size: 20px;
+            }
+
+            .player-hud {
+                bottom: 20px;
+                left: 20px;
+                min-width: 280px;
+                padding: 20px;
+            }
+
+            .bar-container {
+                width: 240px;
+            }
+
+            .radar {
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<!-- Loading Screen -->
+<div class="loading" id="loading">
+    <div class="loading-text">Initializing Advanced Combat Systems...</div>
+    <div class="loading-bar">
+        <div class="loading-progress"></div>
+    </div>
+</div>
+
+<!-- Main Menu -->
+<div class="main-menu" id="mainMenu" style="display: none;">
+    <div class="menu-content">
+        <h1 class="game-title">SKY & SEA BATTLE</h1>
+        <div class="menu-subtitle">Ultimate Naval Air Combat</div>
+
+        <div class="menu-buttons">
+            <button class="menu-btn" id="btnPlayerMode">
+                🎮 PLAYER MODE
+                <span class="btn-desc">Pilot your own advanced fighter jet</span>
+            </button>
+
+            <button class="menu-btn" id="btnMixedMode">
+                🎮+🤖 PLAYER VS AI
+                <span class="btn-desc">Battle against elite AI squadrons</span>
+            </button>
+
+            <button class="menu-btn" id="btnAIMode">
+                🤖 AI BATTLE ROYALE
+                <span class="btn-desc">Watch AI battles with 5000 generations</span>
+            </button>
+        </div>
+
+        <div class="controls-info">
+            <h3>🎮 Player Controls</h3>
+            <div class="control-item">
+                <span class="control-key">↑↓</span>
+                <span>Pitch Control</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">←→</span>
+                <span>Roll & Turn</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">SPACE</span>
+                <span>Fire Weapon</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">SHIFT</span>
+                <span>Afterburner Boost</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">E</span>
+                <span>Nuclear Missile ☢️</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">Q</span>
+                <span>Cycle Weapons</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">R</span>
+                <span>Repair Drone 🔧</span>
+            </div>
+            <div class="control-item">
+                <span class="control-key">TAB</span>
+                <span>Target Lock 🎯</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Radar System -->
+<div class="radar" id="radar" style="display: none;">
+    <div class="radar-sweep"></div>
+    <div id="radarBlips"></div>
+</div>
+
+<!-- Player HUD -->
+<div class="player-hud" id="playerHUD" style="display: none;">
+    <div class="player-stats">
+        <div class="health-bar">
+            <div class="bar-label">
+                <span>HULL INTEGRITY</span>
+                <span id="healthValue">100%</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-fill health-fill" id="playerHealthBar" style="width: 100%;"></div>
+            </div>
+        </div>
+        <div class="shield-bar">
+            <div class="bar-label">
+                <span>SHIELD ENERGY</span>
+                <span id="shieldValue">100%</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-fill shield-fill" id="playerShieldBar" style="width: 100%;"></div>
+            </div>
+        </div>
+        <div class="boost-bar">
+            <div class="bar-label">
+                <span>AFTERBURNER</span>
+                <span id="boostValue">100%</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-fill boost-fill" id="playerBoostBar" style="width: 100%;"></div>
+            </div>
+        </div>
+        <div class="weapon-info">
+            <div class="weapon-name" id="playerWeapon">PLASMA CANNON</div>
+            <div class="ammo-count" id="playerAmmo">∞</div>
+        </div>
+        <div class="special-weapon">
+            <div class="special-status" id="specialStatus">
+                <span style="font-size: 24px;">☢️</span> NUCLEAR ARSENAL
+                <div class="special-ready" id="specialReady">ARMED</div>
+            </div>
+        </div>
+    </div>
+    <div class="player-score">
+        <div class="score-label">Combat Score</div>
+        <div class="score-value" id="playerScore">0</div>
+    </div>
+</div>
+
+<!-- HUD -->
+<div class="hud" id="hud" style="display: none;">
+    <div class="hud-content">
+        <div class="stat-item">
+            <div class="stat-value" id="aliveCount">0</div>
+            <div class="stat-label">Survivors</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="timer">0:00</div>
+            <div class="stat-label">Battle Time</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="killCount">0</div>
+            <div class="stat-label">Eliminations</div>
+        </div>
+    </div>
+</div>
+
+<!-- Combo Counter -->
+<div class="combo-counter" id="comboCounter">
+    <div class="combo-text">COMBO</div>
+    <div class="combo-number" id="comboNumber">x2</div>
+</div>
+
+<!-- Winner Overlay -->
+<div class="winner-overlay" id="winnerOverlay">
+    <div class="winner-content">
+        <div class="winner-title">🏆 VICTORY 🏆</div>
+        <div id="winnerName"></div>
+        <div id="winnerStats"></div>
+        <div style="color: #888; margin-top: 30px;">
+            <span id="restartText">New battle in <span id="countdown">5</span>...</span>
+            <div id="menuButtons" style="display: none; margin-top: 30px;">
+                <button class="menu-btn-small" id="btnRestart">Play Again</button>
+                <button class="menu-btn-small" id="btnMenu">Main Menu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Generation Display -->
+<div class="ai-generation" id="aiGeneration" style="display: none;">
+    AI Generation: <span id="genNumber">5000</span>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // ========================
+    // OPTIMIZED GAME SYSTEM
+    // ========================
+
+    window.addEventListener('load', function() {
+        // Optimized Configuration
+        const CONFIG = {
+            SHIPS: 6,
+            ARENA_SIZE: 600,
+            SHIP_SPEED: 10,
+            BOOST_SPEED: 18,
+            BOOST_MAX: 100,
+            LASER_SPEED: 30,
+            SHIP_HP: 100,
+            SHIELD_HP: 50,
+            SHIELD_REGEN: 0.1,
+            DAMAGE: 20,
+            MIN_HEIGHT: 30,
+            MAX_HEIGHT: 400,
+            BATTLE_TIME: 600,
+            BOOST_DRAIN: 2,
+            BOOST_RECHARGE: 0.5,
+            AI_DIFFICULTY: 'EXTREME',
+            GRAVITY: 0.3,
+            DRAG: 0.92,
+            POWERUP_SPAWN_TIME: 10000,
+            COMBO_TIMEOUT: 3000,
+            // Optimization settings
+            MAX_PARTICLES: 200,
+            MAX_LASERS: 50,
+            MAX_DEBRIS: 30,
+            PARTICLE_POOL_SIZE: 300,
+            LOD_DISTANCE: 500
+        };
+
+        // Global variables
+        let scene, camera, renderer;
+        let ships = [];
+        let lasers = [];
+        let missiles = [];
+        let powerups = [];
+        let particles = [];
+        let gameState = 'menu';
+        let gameMode = 'ai';
+        let playerShip = null;
+        let timer = CONFIG.BATTLE_TIME;
+        let soundEnabled = true;
+        let totalKills = 0;
+        let comboKills = 0;
+        let lastKillTime = 0;
+
+        // Particle pool for optimization
+        let particlePool = [];
+        let particlePoolIndex = 0;
+
+        // Simplified Audio System
+        let audioContext;
+        let sounds = {};
+        let masterVolume = 0.5;
+
+        // Simplified Weather System
+        let weather = {
+            fog: 0.002,
+            rain: false,
+            lightning: false,
+            wind: new THREE.Vector3(0, 0, 0)
+        };
+
+        // Initialize Audio (simplified)
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Create basic sounds only
+                sounds.shoot = createSound(200, 0.1, 'square');
+                sounds.explosion = createSound(50, 0.5, 'sawtooth');
+                sounds.hit = createSound(300, 0.15, 'triangle');
+                sounds.powerup = createSound(400, 0.3, 'sine');
+                sounds.boost = createSound(150, 0.4, 'sawtooth');
+                sounds.missile = createSound(80, 0.6, 'sawtooth');
+                sounds.shield = createSound(500, 0.2, 'sine');
+                sounds.alarm = createSound(440, 0.3, 'square');
+            } catch (e) {
+                console.log('Audio not supported');
+                soundEnabled = false;
+            }
+        }
+
+        // Simplified sound creation
+        function createSound(frequency, duration, type) {
+            return () => {
+                if (!soundEnabled || !audioContext) return;
+
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.type = type;
+                oscillator.frequency.value = frequency;
+
+                gainNode.gain.setValueAtTime(0.3 * masterVolume, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            };
+        }
+
+        // Play sound
+        function playSound(soundName) {
+            if (sounds[soundName]) {
+                sounds[soundName]();
+            }
+        }
+
+        // Notification system
+        function showNotification(text, type = 'normal') {
+            const notif = document.createElement('div');
+            notif.className = type === 'powerup' ? 'powerup-notification' : 'notification';
+            notif.innerHTML = text;
+            document.body.appendChild(notif);
+
+            setTimeout(() => {
+                notif.style.opacity = '0';
+                notif.style.transform = 'translateX(-50%) translateY(-20px)';
+                setTimeout(() => notif.remove(), 500);
+            }, 2500);
+        }
+
+        // Show damage indicator
+        function showDamageIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'damage-indicator';
+            document.body.appendChild(indicator);
+            setTimeout(() => indicator.remove(), 300);
+        }
+
+        // Update combo counter
+        function updateCombo() {
+            const now = Date.now();
+            if (now - lastKillTime < CONFIG.COMBO_TIMEOUT) {
+                comboKills++;
+                document.getElementById('comboCounter').style.display = 'block';
+                document.getElementById('comboNumber').textContent = `x${comboKills}`;
+
+                if (comboKills >= 3) {
+                    showNotification(`🔥 ${comboKills}x COMBO! +${comboKills * 50} POINTS`, 'powerup');
+                    if (playerShip) {
+                        playerShip.score += comboKills * 50;
+                    }
+                }
+            } else {
+                comboKills = 1;
+            }
+            lastKillTime = now;
+        }
+
+        // Hide combo counter
+        function hideCombo() {
+            setTimeout(() => {
+                if (Date.now() - lastKillTime > CONFIG.COMBO_TIMEOUT) {
+                    document.getElementById('comboCounter').style.display = 'none';
+                    comboKills = 0;
+                }
+            }, CONFIG.COMBO_TIMEOUT);
+        }
+
+        // Update radar
+        function updateRadar() {
+            if (!playerShip || !playerShip.alive) return;
+
+            const radarBlips = document.getElementById('radarBlips');
+            radarBlips.innerHTML = '';
+
+            ships.forEach(ship => {
+                if (ship !== playerShip && ship.alive) {
+                    const dx = ship.mesh.position.x - playerShip.mesh.position.x;
+                    const dz = ship.mesh.position.z - playerShip.mesh.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+
+                    if (distance < 500) {
+                        const scale = 90 / 500;
+                        const blipX = 100 + dx * scale;
+                        const blipY = 100 + dz * scale;
+
+                        const blip = document.createElement('div');
+                        blip.className = 'radar-blip';
+                        blip.style.left = blipX + 'px';
+                        blip.style.top = blipY + 'px';
+                        blip.style.background = ship.isHostile ? '#ff0000' : '#00ff00';
+                        radarBlips.appendChild(blip);
+                    }
+                }
+            });
+        }
+
+        // Simplified AI System
+        class SimpleAI {
+            constructor(ship) {
+                this.ship = ship;
+                this.state = 'searching';
+                this.dodgeTime = 0;
+                this.fireDelay = 0;
+            }
+
+            update() {
+                this.fireDelay--;
+
+                // Find target
+                if (!this.ship.target || !this.ship.target.alive) {
+                    this.findTarget();
+                }
+
+                if (this.ship.target) {
+                    const toTarget = new THREE.Vector3().subVectors(
+                        this.ship.target.mesh.position,
+                        this.ship.mesh.position
+                    );
+                    const distance = toTarget.length();
+                    toTarget.normalize();
+
+                    // Simple combat logic
+                    if (distance < 300) {
+                        // Attack
+                        this.ship.mesh.lookAt(this.ship.target.mesh.position);
+
+                        if (distance > 150) {
+                            this.ship.velocity.add(toTarget.multiplyScalar(0.5));
+                        } else if (distance < 100) {
+                            this.ship.velocity.add(toTarget.multiplyScalar(-0.3));
+                        }
+
+                        // Simple dodge
+                        if (Math.random() < 0.02) {
+                            const dodge = new THREE.Vector3(
+                                (Math.random() - 0.5) * 10,
+                                (Math.random() - 0.5) * 5,
+                                (Math.random() - 0.5) * 10
+                            );
+                            this.ship.velocity.add(dodge);
+                        }
+
+                        // Fire
+                        if (this.fireDelay <= 0 && Math.random() < 0.1) {
+                            this.ship.fire();
+                            this.fireDelay = 30;
+                        }
+                    } else {
+                        // Pursue
+                        this.ship.velocity.add(toTarget.multiplyScalar(0.8));
+                    }
+                } else {
+                    // Search pattern
+                    const time = Date.now() * 0.001;
+                    const searchVel = new THREE.Vector3(
+                        Math.sin(time) * 0.5,
+                        Math.cos(time * 0.7) * 0.3,
+                        Math.cos(time) * 0.5
+                    );
+                    this.ship.velocity.add(searchVel);
+                }
+
+                // Height maintenance
+                if (this.ship.mesh.position.y < 100) {
+                    this.ship.velocity.y += 1;
+                } else if (this.ship.mesh.position.y > 300) {
+                    this.ship.velocity.y -= 0.5;
+                }
+            }
+
+            findTarget() {
+                let nearest = null;
+                let nearestDist = Infinity;
+
+                ships.forEach(other => {
+                    if (other !== this.ship && other.alive) {
+                        const dist = this.ship.mesh.position.distanceTo(other.mesh.position);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearest = other;
+                        }
+                    }
+                });
+
+                this.ship.target = nearest;
+            }
+        }
+
+        // Initialize Three.js (Optimized)
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x88BBDD, weather.fog);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
+            camera.position.set(0, 300, 600);
+            camera.lookAt(0, 100, 0);
+
+            // Renderer setup (optimized)
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('canvas'),
+                antialias: false, // Disable for performance
+                alpha: false,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.BasicShadowMap; // Simpler shadows
+
+            // Create simplified environment
+            createOptimizedEnvironment();
+
+            // Simplified lighting
+            createOptimizedLighting();
+
+            // Initialize audio
+            initAudio();
+
+            // Initialize particle pool
+            initParticlePool();
+
+            // Loading complete
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('mainMenu').style.display = 'flex';
+            }, 1500);
+
+            // Start animation
+            animate();
+        }
+
+        // Create optimized environment
+        function createOptimizedEnvironment() {
+            // Simple ocean
+            const oceanGeometry = new THREE.PlaneGeometry(2000, 2000, 32, 32);
+            const oceanMaterial = new THREE.MeshPhongMaterial({
+                color: 0x006994,
+                flatShading: true
+            });
+
+            const ocean = new THREE.Mesh(oceanGeometry, oceanMaterial);
+            ocean.rotation.x = -Math.PI / 2;
+            ocean.position.z = -750;
+            ocean.receiveShadow = true;
+            scene.add(ocean);
+
+            // Simple terrain
+            const terrainGeometry = new THREE.PlaneGeometry(3000, 1500, 20, 10);
+            const terrainMaterial = new THREE.MeshPhongMaterial({
+                color: 0x3a5f3a,
+                flatShading: true
+            });
+
+            // Add simple terrain variation
+            const vertices = terrainGeometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                vertices[i + 2] = Math.random() * 50;
+            }
+            terrainGeometry.computeVertexNormals();
+
+            const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+            terrain.rotation.x = -Math.PI / 2;
+            terrain.position.z = 750;
+            terrain.receiveShadow = true;
+            terrain.castShadow = true;
+            scene.add(terrain);
+
+            // Simple sky
+            const skyGeometry = new THREE.SphereGeometry(2500, 16, 16);
+            const skyMaterial = new THREE.MeshBasicMaterial({
+                color: 0x87CEEB,
+                side: THREE.BackSide
+            });
+            const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+            scene.add(sky);
+
+            // Simple city (fewer buildings)
+            createSimpleCity();
+        }
+
+        // Create simple city
+        function createSimpleCity() {
+            const cityGroup = new THREE.Group();
+            const buildingMaterial = new THREE.MeshPhongMaterial({
+                color: 0x444444,
+                flatShading: true
+            });
+
+            // Create fewer buildings
+            for (let i = 0; i < 20; i++) {
+                const width = 50 + Math.random() * 50;
+                const depth = 50 + Math.random() * 50;
+                const height = 100 + Math.random() * 200;
+
+                const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+
+                building.position.x = (Math.random() - 0.5) * 1000;
+                building.position.y = height / 2;
+                building.position.z = 400 + Math.random() * 400;
+                building.castShadow = true;
+                building.receiveShadow = true;
+
+                cityGroup.add(building);
+            }
+
+            scene.add(cityGroup);
+        }
+
+        // Optimized lighting
+        function createOptimizedLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404080, 0.6);
+            scene.add(ambientLight);
+
+            // Single directional light
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            sunLight.position.set(300, 500, 200);
+            sunLight.castShadow = true;
+            sunLight.shadow.camera.left = -500;
+            sunLight.shadow.camera.right = 500;
+            sunLight.shadow.camera.top = 500;
+            sunLight.shadow.camera.bottom = -500;
+            sunLight.shadow.camera.near = 1;
+            sunLight.shadow.camera.far = 1500;
+            sunLight.shadow.mapSize.width = 1024;
+            sunLight.shadow.mapSize.height = 1024;
+            scene.add(sunLight);
+        }
+
+        // Initialize particle pool
+        function initParticlePool() {
+            const geometry = new THREE.SphereGeometry(5, 4, 4);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true
+            });
+
+            for (let i = 0; i < CONFIG.PARTICLE_POOL_SIZE; i++) {
+                const mesh = new THREE.Mesh(geometry, material.clone());
+                mesh.visible = false;
+                scene.add(mesh);
+                particlePool.push(mesh);
+            }
+        }
+
+        // Get particle from pool
+        function getPooledParticle() {
+            const particle = particlePool[particlePoolIndex];
+            particlePoolIndex = (particlePoolIndex + 1) % CONFIG.PARTICLE_POOL_SIZE;
+            return particle;
+        }
+
+        // Ship class (Optimized)
+        class Ship {
+            constructor(config, index) {
+                this.config = config || {
+                    name: 'AI Fighter',
+                    color: 0xff0000
+                };
+                this.name = this.config.name;
+                this.health = CONFIG.SHIP_HP;
+                this.shield = CONFIG.SHIELD_HP;
+                this.alive = true;
+                this.velocity = new THREE.Vector3();
+                this.target = null;
+                this.lastShot = 0;
+                this.score = 0;
+                this.kills = 0;
+                this.isPlayer = false;
+                this.boostEnergy = CONFIG.BOOST_MAX;
+                this.boost = false;
+                this.isHostile = true;
+                this.nuclearReady = true;
+                this.nuclearCooldown = 0;
+
+                // Use simple AI
+                if (!this.isPlayer) {
+                    this.ai = new SimpleAI(this);
+                }
+
+                this.createSimpleModel();
+
+                // Position ships
+                const angle = (Math.PI * 2 * index) / CONFIG.SHIPS;
+                this.mesh.position.x = Math.cos(angle) * CONFIG.ARENA_SIZE * 0.7;
+                this.mesh.position.z = Math.sin(angle) * CONFIG.ARENA_SIZE * 0.7;
+                this.mesh.position.y = 150 + (index % 3) * 50;
+
+                // Initial velocity
+                this.velocity.set(
+                    (Math.random() - 0.5) * 5,
+                    0,
+                    (Math.random() - 0.5) * 5
+                );
+            }
+
+            createSimpleModel() {
+                const group = new THREE.Group();
+
+                // Simple jet body
+                const bodyGeometry = new THREE.ConeGeometry(10, 80, 8);
+                const bodyMaterial = new THREE.MeshPhongMaterial({
+                    color: this.config.color,
+                    flatShading: true
+                });
+                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.rotation.x = Math.PI / 2;
+                group.add(body);
+
+                // Wings
+                const wingGeometry = new THREE.BoxGeometry(80, 2, 20);
+                const wings = new THREE.Mesh(wingGeometry, bodyMaterial);
+                wings.position.z = 10;
+                group.add(wings);
+
+                // Tail
+                const tailGeometry = new THREE.BoxGeometry(2, 30, 15);
+                const tail = new THREE.Mesh(tailGeometry, bodyMaterial);
+                tail.position.z = 35;
+                group.add(tail);
+
+                this.mesh = group;
+                this.mesh.castShadow = true;
+                this.mesh.receiveShadow = true;
+                scene.add(this.mesh);
+            }
+
+            update() {
+                if (!this.alive) return;
+
+                // AI movement
+                if (!this.isPlayer && this.ai) {
+                    this.ai.update();
+                }
+
+                // Apply physics
+                this.velocity.multiplyScalar(CONFIG.DRAG);
+
+                // Speed limits
+                const maxSpeed = this.boost ? CONFIG.BOOST_SPEED : CONFIG.SHIP_SPEED;
+                if (this.velocity.length() > maxSpeed) {
+                    this.velocity.normalize().multiplyScalar(maxSpeed);
+                }
+
+                // Update position
+                this.mesh.position.add(this.velocity.clone().multiplyScalar(0.1));
+
+                // Boundaries
+                const boundary = CONFIG.ARENA_SIZE;
+                ['x', 'z'].forEach(axis => {
+                    if (Math.abs(this.mesh.position[axis]) > boundary) {
+                        this.mesh.position[axis] = Math.sign(this.mesh.position[axis]) * boundary;
+                        this.velocity[axis] *= -0.5;
+                    }
+                });
+
+                // Height limits
+                if (this.mesh.position.y < CONFIG.MIN_HEIGHT) {
+                    this.mesh.position.y = CONFIG.MIN_HEIGHT;
+                    this.velocity.y = Math.abs(this.velocity.y) * 0.5;
+                }
+                if (this.mesh.position.y > CONFIG.MAX_HEIGHT) {
+                    this.mesh.position.y = CONFIG.MAX_HEIGHT;
+                    this.velocity.y = -Math.abs(this.velocity.y) * 0.5;
+                }
+
+                // Update systems
+                this.updateBoost();
+                this.updateShield();
+            }
+
+            updateBoost() {
+                if (this.boost && this.boostEnergy > 0) {
+                    this.boostEnergy -= CONFIG.BOOST_DRAIN;
+                } else {
+                    this.boost = false;
+                    this.boostEnergy = Math.min(CONFIG.BOOST_MAX, this.boostEnergy + CONFIG.BOOST_RECHARGE);
+                }
+
+                if (this.isPlayer) {
+                    const boostBar = document.getElementById('playerBoostBar');
+                    const boostValue = document.getElementById('boostValue');
+                    if (boostBar) {
+                        boostBar.style.width = (this.boostEnergy / CONFIG.BOOST_MAX * 100) + '%';
+                        boostValue.textContent = Math.round(this.boostEnergy) + '%';
+                    }
+                }
+            }
+
+            updateShield() {
+                if (this.shield < CONFIG.SHIELD_HP) {
+                    this.shield = Math.min(CONFIG.SHIELD_HP, this.shield + CONFIG.SHIELD_REGEN);
+                }
+
+                if (this.isPlayer) {
+                    const shieldBar = document.getElementById('playerShieldBar');
+                    const shieldValue = document.getElementById('shieldValue');
+                    if (shieldBar) {
+                        shieldBar.style.width = (this.shield / CONFIG.SHIELD_HP * 100) + '%';
+                        shieldValue.textContent = Math.round(this.shield) + '%';
+                    }
+                }
+            }
+
+            fire() {
+                if (Date.now() - this.lastShot < 200) return;
+
+                this.lastShot = Date.now();
+
+                const direction = new THREE.Vector3(0, 0, -1);
+                direction.applyQuaternion(this.mesh.quaternion);
+
+                const laser = new Laser(this.mesh.position, direction, this.config.color, this);
+                lasers.push(laser);
+
+                playSound('shoot');
+            }
+
+            takeDamage(amount, attacker) {
+                // Shield absorption
+                if (this.shield > 0) {
+                    const shieldDamage = Math.min(amount, this.shield);
+                    this.shield -= shieldDamage;
+                    amount -= shieldDamage;
+
+                    if (shieldDamage > 0) {
+                        playSound('shield');
+                    }
+                }
+
+                // Health damage
+                if (amount > 0) {
+                    this.health -= amount;
+                    playSound('hit');
+
+                    if (this.isPlayer) {
+                        showDamageIndicator();
+                    }
+                }
+
+                // Check death
+                if (this.health <= 0) {
+                    this.alive = false;
+                    if (attacker) {
+                        attacker.kills++;
+                        attacker.score += 100;
+
+                        totalKills++;
+                        updateCombo();
+                        hideCombo();
+
+                        if (this.isPlayer && attacker.ai) {
+                            attacker.score += 400;
+                            showNotification(`${attacker.name} eliminated PLAYER! +500`, 'powerup');
+                        }
+                    }
+                    this.destroy();
+                }
+
+                // Update UI
+                if (this.isPlayer) {
+                    const healthBar = document.getElementById('playerHealthBar');
+                    const healthValue = document.getElementById('healthValue');
+
+                    if (healthBar) {
+                        healthBar.style.width = (this.health / CONFIG.SHIP_HP * 100) + '%';
+                        healthValue.textContent = Math.round(this.health) + '%';
+                    }
+                }
+            }
+
+            destroy() {
+                // Simple explosion
+                this.createSimpleExplosion();
+
+                // Remove from scene
+                scene.remove(this.mesh);
+
+                playSound('explosion');
+
+                if (!this.isPlayer) {
+                    showNotification(`${this.name} eliminated!`);
+                }
+            }
+
+            createSimpleExplosion() {
+                // Use particle pool
+                for (let i = 0; i < Math.min(20, CONFIG.MAX_PARTICLES - particles.length); i++) {
+                    const particle = {
+                        position: this.mesh.position.clone(),
+                        velocity: new THREE.Vector3(
+                            (Math.random() - 0.5) * 30,
+                            Math.random() * 20,
+                            (Math.random() - 0.5) * 30
+                        ),
+                        life: 30,
+                        color: Math.random() > 0.5 ? 0xff6600 : 0xffaa00,
+                        size: 5 + Math.random() * 10
+                    };
+                    particles.push(particle);
+                }
+            }
+        }
+
+        // Player Ship class (Optimized)
+        class PlayerShip extends Ship {
+            constructor() {
+                const playerConfig = {
+                    name: 'PLAYER',
+                    color: 0x00ff00
+                };
+                super(playerConfig, -1);
+
+                this.mesh.position.set(0, 200, 400);
+                this.isPlayer = true;
+                this.isHostile = false;
+
+                this.keys = {
+                    up: false,
+                    down: false,
+                    left: false,
+                    right: false,
+                    fire: false,
+                    boost: false
+                };
+
+                this.weaponType = 'PLASMA CANNON';
+                this.currentWeaponIndex = 0;
+                this.weapons = ['PLASMA CANNON', 'LASER BEAM', 'ROCKET PODS'];
+            }
+
+            update() {
+                if (!this.alive) return;
+
+                // Movement
+                const rotationSpeed = 0.03;
+                const pitchSpeed = 0.02;
+
+                if (this.keys.up) {
+                    this.mesh.rotation.x = Math.max(this.mesh.rotation.x - pitchSpeed, -Math.PI / 3);
+                } else if (this.keys.down) {
+                    this.mesh.rotation.x = Math.min(this.mesh.rotation.x + pitchSpeed, Math.PI / 4);
+                } else {
+                    this.mesh.rotation.x *= 0.95;
+                }
+
+                if (this.keys.left) {
+                    this.mesh.rotation.z = Math.min(this.mesh.rotation.z + rotationSpeed * 1.5, Math.PI / 3);
+                    this.mesh.rotation.y += rotationSpeed;
+                } else if (this.keys.right) {
+                    this.mesh.rotation.z = Math.max(this.mesh.rotation.z - rotationSpeed * 1.5, -Math.PI / 3);
+                    this.mesh.rotation.y -= rotationSpeed;
+                } else {
+                    this.mesh.rotation.z *= 0.9;
+                }
+
+                // Forward thrust
+                const speed = this.keys.boost && this.boostEnergy > 0 ? CONFIG.BOOST_SPEED : CONFIG.SHIP_SPEED;
+                const forward = new THREE.Vector3(0, 0, -1);
+                forward.applyQuaternion(this.mesh.quaternion);
+
+                this.velocity = forward.multiplyScalar(speed);
+
+                // Boost
+                if (this.keys.boost && this.boostEnergy > 0) {
+                    this.boost = true;
+                } else {
+                    this.boost = false;
+                }
+
+                // Fire
+                if (this.keys.fire) {
+                    this.fire();
+                }
+
+                // Update UI
+                this.updateUI();
+
+                // Apply parent update
+                super.update();
+
+                // Update radar
+                updateRadar();
+            }
+
+            updateUI() {
+                this.score = this.kills * 100 + Math.floor(timer / 10);
+                document.getElementById('playerScore').textContent = this.score;
+                document.getElementById('healthValue').textContent = Math.round(this.health) + '%';
+                document.getElementById('killCount').textContent = totalKills;
+            }
+
+            destroy() {
+                super.destroy();
+
+                // Game over
+                document.getElementById('winnerName').textContent = 'MISSION FAILED';
+                document.getElementById('winnerName').style.color = '#ff0000';
+                document.getElementById('winnerStats').innerHTML =
+                    `Final Score: ${this.score}<br>` +
+                    `Eliminations: ${this.kills}<br>` +
+                    `Survival Time: ${CONFIG.BATTLE_TIME - timer}s`;
+                document.getElementById('restartText').style.display = 'none';
+                document.getElementById('menuButtons').style.display = 'block';
+                document.
