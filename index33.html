@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Combat - Tropical Islands</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, rgba(30,60,114,0.9), rgba(42,82,152,0.8));
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(135,206,235,0.8);
+            min-width: 250px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(31,38,135,0.37);
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 24px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 12px;
+            margin: 8px 0;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        #healthBar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcf7f);
+            transition: width 0.3s;
+            box-shadow: 0 0 20px rgba(107,207,127,0.6);
+        }
+
+        #shieldBar {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            transition: width 0.3s;
+            box-shadow: 0 0 20px rgba(0,242,254,0.6);
+        }
+
+        #score {
+            font-size: 28px;
+            color: #ffd93d;
+            margin: 15px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            font-weight: bold;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(30,60,114,0.9), rgba(42,82,152,0.8));
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(135,206,235,0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .control-key {
+            color: #00f2fe;
+            font-weight: bold;
+            background: rgba(0,242,254,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        #menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: linear-gradient(135deg, rgba(30,60,114,0.95), rgba(42,82,152,0.9));
+            padding: 50px;
+            border-radius: 30px;
+            border: 3px solid #00f2fe;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        }
+
+        #menu h1 {
+            font-size: 56px;
+            background: linear-gradient(45deg, #00f2fe, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            text-shadow: 0 0 30px rgba(0,242,254,0.5);
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .menu-button {
+            display: block;
+            width: 280px;
+            margin: 20px auto;
+            padding: 18px;
+            font-size: 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+
+        .menu-button:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(102,126,234,0.6);
+            background: linear-gradient(45deg, #764ba2, #667eea);
+        }
+
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: linear-gradient(135deg, rgba(30,60,114,0.95), rgba(42,82,152,0.9));
+            padding: 50px;
+            border-radius: 30px;
+            border: 3px solid #ff6b6b;
+            backdrop-filter: blur(20px);
+        }
+
+        #gameOver h2 {
+            font-size: 42px;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255,107,107,0.8);
+        }
+
+        #finalScore {
+            font-size: 32px;
+            color: #ffd93d;
+            margin: 25px 0;
+            font-weight: bold;
+        }
+
+        .notification {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(102,126,234,0.95), rgba(118,75,162,0.95));
+            padding: 25px 50px;
+            border-radius: 25px;
+            font-size: 26px;
+            border: 2px solid rgba(255,255,255,0.5);
+            pointer-events: none;
+            animation: fadeOut 2s forwards;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            70% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+        }
+
+        #enemyCount {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(255,107,107,0.9), rgba(255,154,0,0.8));
+            padding: 15px 25px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.5);
+            font-size: 22px;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 5px 20px rgba(255,107,107,0.4);
+        }
+
+        #ammoDisplay {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #ffd93d;
+        }
+
+        .missile-indicator {
+            display: inline-block;
+            margin: 0 3px;
+            color: #ff9a00;
+            text-shadow: 0 0 10px rgba(255,154,0,0.8);
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="menu">
+    <h1>🌴 DRONE COMBAT 🌊</h1>
+    <button class="menu-button" onclick="startSoloMode()">🎯 Mode Solo (Survie)</button>
+    <button class="menu-button" onclick="startGame()">⚔️ Mode Combat</button>
+    <button class="menu-button" onclick="setDifficulty('easy')">😊 Facile</button>
+    <button class="menu-button" onclick="setDifficulty('hard')">🔥 Difficile</button>
+    <button class="menu-button" onclick="setDifficulty('extreme')">💀 Extrême</button>
+</div>
+
+<div id="hud" style="display: none;">
+    <div>🚁 SANTÉ</div>
+    <div class="bar-container">
+        <div id="healthBar" style="width: 100%"></div>
+    </div>
+    <div>🛡️ BOUCLIER</div>
+    <div class="bar-container">
+        <div id="shieldBar" style="width: 100%"></div>
+    </div>
+    <div id="score">Score: 0</div>
+    <div id="ammoDisplay">
+        Missiles: <span id="missileCount"></span>
+    </div>
+    <div id="waveDisplay" style="display: none;">
+        🌊 Vague: <span id="waveNumber">1</span>
+    </div>
+</div>
+
+<div id="enemyCount" style="display: none;">
+    ⚔️ Ennemis: <span id="enemies">0</span>
+</div>
+
+<div id="controls" style="display: none;">
+    <div><span class="control-key">ZQSD/↑↓←→</span> Déplacer</div>
+    <div><span class="control-key">ESPACE</span> Tirer</div>
+    <div><span class="control-key">SHIFT</span> Boost</div>
+    <div><span class="control-key">E</span> Missile</div>
+</div>
+
+<div id="gameOver">
+    <h2>☠️ GAME OVER ☠️</h2>
+    <div id="finalScore">Score Final: 0</div>
+    <button class="menu-button" onclick="restartGame()">🔄 Rejouer</button>
+    <button class="menu-button" onclick="backToMenu()">📋 Menu</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Configuration du jeu
+    const CONFIG = {
+        ARENA_SIZE: 1200,
+        PLAYER_SPEED: 6,
+        BULLET_SPEED: 25,
+        ENEMY_SPEED: 4,
+        SPAWN_RATE: 3000,
+        difficulty: 'normal',
+        gameMode: 'combat'
+    };
+
+    // Variables globales
+    let scene, camera, renderer;
+    let player, enemies = [], bullets = [], enemyBullets = [], particles = [], clouds = [];
+    let gameRunning = false;
+    let score = 0;
+    let keys = {};
+    let water, sky;
+
+    // Variables pour le mode solo
+    let waveNumber = 1;
+    let enemiesKilled = 0;
+    let waveEnemies = 3;
+    let powerUps = [];
+    let soloMode = false;
+
+    // Classe Drone améliorée
+    class Drone {
+        constructor(isPlayer = false, position = null) {
+            this.isPlayer = isPlayer;
+            this.health = 100;
+            this.shield = 50;
+            this.speed = isPlayer ? CONFIG.PLAYER_SPEED : CONFIG.ENEMY_SPEED;
+            this.lastShot = 0;
+            this.fireRate = isPlayer ? 150 : 500;
+            this.missiles = 5;
+
+            // Création du modèle 3D amélioré
+            const group = new THREE.Group();
+
+            // Corps principal stylisé
+            const bodyGeometry = new THREE.SphereGeometry(12, 8, 6);
+            const bodyMaterial = new THREE.MeshPhongMaterial({
+                color: isPlayer ? 0x4facfe : 0xff6b6b,
+                emissive: isPlayer ? 0x0066cc : 0xcc0000,
+                emissiveIntensity: 0.3,
+                shininess: 100,
+                specular: 0xffffff
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.scale.y = 0.6;
+            group.add(body);
+
+            // Cockpit
+            const cockpitGeometry = new THREE.SphereGeometry(6, 8, 6);
+            const cockpitMaterial = new THREE.MeshPhongMaterial({
+                color: 0x1a1a2e,
+                emissive: isPlayer ? 0x00f2fe : 0xff9a00,
+                emissiveIntensity: 0.5,
+                transparent: true,
+                opacity: 0.8
+            });
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.position.y = 3;
+            group.add(cockpit);
+
+            // Rotors améliorés
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2;
+
+                // Bras du rotor
+                const armGeometry = new THREE.CylinderGeometry(1.5, 2, 30, 6);
+                const armMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x2c3e50,
+                    metalness: 0.8
+                });
+                const rotorArm = new THREE.Mesh(armGeometry, armMaterial);
+                rotorArm.position.x = Math.cos(angle) * 10;
+                rotorArm.position.z = Math.sin(angle) * 10;
+                rotorArm.rotation.z = Math.PI / 2;
+                rotorArm.rotation.y = angle;
+
+                // Moteur du rotor
+                const motorGeometry = new THREE.CylinderGeometry(5, 5, 3, 8);
+                const motorMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x34495e,
+                    emissive: 0x2c3e50,
+                    emissiveIntensity: 0.2
+                });
+                const motor = new THREE.Mesh(motorGeometry, motorMaterial);
+                motor.position.x = Math.cos(angle) * 25;
+                motor.position.z = Math.sin(angle) * 25;
+                motor.position.y = 5;
+
+                // Pales du rotor
+                const bladeGeometry = new THREE.BoxGeometry(20, 0.5, 2);
+                const bladeMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x95a5a6,
+                    emissive: isPlayer ? 0x4facfe : 0xff6b6b,
+                    emissiveIntensity: 0.1,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const blade1 = new THREE.Mesh(bladeGeometry, bladeMaterial);
+                const blade2 = new THREE.Mesh(bladeGeometry, bladeMaterial);
+                blade2.rotation.y = Math.PI / 2;
+
+                const bladeGroup = new THREE.Group();
+                bladeGroup.add(blade1);
+                bladeGroup.add(blade2);
+                bladeGroup.position.x = Math.cos(angle) * 25;
+                bladeGroup.position.z = Math.sin(angle) * 25;
+                bladeGroup.position.y = 8;
+
+                group.add(rotorArm);
+                group.add(motor);
+                group.add(bladeGroup);
+
+                // Animation des rotors
+                bladeGroup.userData = { spin: true, speed: 0.4 + Math.random() * 0.2 };
+            }
+
+            // Lumières LED
+            const lightGeometry = new THREE.SphereGeometry(1, 4, 4);
+            const lightMaterial = new THREE.MeshBasicMaterial({
+                color: isPlayer ? 0x00f2fe : 0xff0000,
+                emissive: isPlayer ? 0x00f2fe : 0xff0000
+            });
+
+            const frontLight = new THREE.Mesh(lightGeometry, lightMaterial);
+            frontLight.position.set(12, 0, 0);
+            group.add(frontLight);
+
+            const backLight = new THREE.Mesh(lightGeometry, lightMaterial);
+            backLight.position.set(-12, 0, 0);
+            group.add(backLight);
+
+            // Point lumineux pour l'effet
+            if (isPlayer) {
+                const light = new THREE.PointLight(0x4facfe, 1, 50);
+                light.position.y = 10;
+                group.add(light);
+            }
+
+            this.mesh = group;
+            this.mesh.position.copy(position || new THREE.Vector3(
+                isPlayer ? 0 : (Math.random() - 0.5) * CONFIG.ARENA_SIZE,
+                80 + Math.random() * 50,
+                isPlayer ? 300 : (Math.random() - 0.5) * CONFIG.ARENA_SIZE
+            ));
+
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = true;
+
+            scene.add(this.mesh);
+
+            // IA pour les ennemis
+            if (!isPlayer) {
+                this.ai = new DroneAI(this);
+            }
+        }
+
+        update() {
+            // Animation des rotors
+            this.mesh.children.forEach(child => {
+                if (child.userData && child.userData.spin) {
+                    child.rotation.y += child.userData.speed;
+                }
+            });
+
+            // Flottement naturel
+            this.mesh.position.y += Math.sin(Date.now() * 0.002) * 0.3;
+            this.mesh.rotation.z = Math.sin(Date.now() * 0.001) * 0.05;
+            this.mesh.rotation.x = Math.cos(Date.now() * 0.001) * 0.05;
+
+            // Mise à jour de l'IA
+            if (this.ai) {
+                this.ai.update();
+            }
+
+            // Régénération du bouclier
+            if (this.shield < 50) {
+                this.shield += 0.08;
+            }
+        }
+
+        takeDamage(damage) {
+            if (this.shield > 0) {
+                this.shield -= damage;
+                createShieldHit(this.mesh.position);
+                if (this.shield < 0) {
+                    this.health += this.shield;
+                    this.shield = 0;
+                }
+            } else {
+                this.health -= damage;
+                createHit(this.mesh.position);
+            }
+
+            if (this.health <= 0) {
+                this.destroy();
+                return true;
+            }
+            return false;
+        }
+
+        destroy() {
+            createExplosion(this.mesh.position);
+            scene.remove(this.mesh);
+
+            // Bonus de score et drops
+            if (this.isPlayer === false) {
+                if (player) {
+                    score += 100;
+                    enemiesKilled++;
+
+                    // Drops en mode solo
+                    if (soloMode && player) {
+                        // Chance de drop de missile
+                        if (Math.random() < 0.3) {
+                            player.missiles = Math.min(player.missiles + 1, 10);
+                        }
+
+                        // Chance de drop de santé
+                        if (Math.random() < 0.2 && player.health < 80) {
+                            createPowerUp(this.mesh.position.clone(), 'health');
+                        }
+
+                        // Chance de drop de bouclier
+                        if (Math.random() < 0.15 && player.shield < 30) {
+                            createPowerUp(this.mesh.position.clone(), 'shield');
+                        }
+                    }
+
+                    // Vérifier la fin de vague en mode solo
+                    if (soloMode) {
+                        checkWaveComplete();
+                    }
+                }
+            }
+        }
+
+        fire() {
+            const now = Date.now();
+            if (now - this.lastShot < this.fireRate) return;
+
+            this.lastShot = now;
+
+            const bullet = new Bullet(
+                this.mesh.position.clone(),
+                this.isPlayer ? new THREE.Vector3(0, 0, -1) :
+                    new THREE.Vector3().subVectors(player.mesh.position, this.mesh.position).normalize(),
+                this.isPlayer
+            );
+
+            if (this.isPlayer) {
+                bullets.push(bullet);
+            } else {
+                enemyBullets.push(bullet);
+            }
+        }
+
+        fireMissile() {
+            if (this.missiles <= 0) return;
+            this.missiles--;
+
+            // Trouver la cible la plus proche
+            let target = null;
+            let minDist = Infinity;
+
+            const searchArray = this.isPlayer ? enemies : [player];
+            searchArray.forEach(enemy => {
+                if (enemy && enemy.mesh) {
+                    const dist = this.mesh.position.distanceTo(enemy.mesh.position);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        target = enemy;
+                    }
+                }
+            });
+
+            if (target) {
+                const missile = new Missile(this.mesh.position.clone(), target, this.isPlayer);
+                bullets.push(missile);
+            }
+        }
+    }
+
+    // Classe IA améliorée
+    class DroneAI {
+        constructor(drone) {
+            this.drone = drone;
+            this.state = 'patrol';
+            this.targetPosition = new THREE.Vector3();
+            this.updateTarget();
+
+            // Paramètres IA selon difficulté
+            this.accuracy = CONFIG.difficulty === 'easy' ? 0.6 :
+                CONFIG.difficulty === 'hard' ? 0.85 :
+                    CONFIG.difficulty === 'extreme' ? 0.98 : 0.75;
+
+            this.reactionTime = CONFIG.difficulty === 'easy' ? 1000 :
+                CONFIG.difficulty === 'hard' ? 400 :
+                    CONFIG.difficulty === 'extreme' ? 100 : 600;
+
+            this.dodgeSkill = CONFIG.difficulty === 'easy' ? 0.3 :
+                CONFIG.difficulty === 'hard' ? 0.7 :
+                    CONFIG.difficulty === 'extreme' ? 0.95 : 0.5;
+
+            this.lastDecision = Date.now();
+        }
+
+        update() {
+            if (!player || !player.mesh) return;
+
+            const distToPlayer = this.drone.mesh.position.distanceTo(player.mesh.position);
+
+            // Changement d'état intelligent
+            if (distToPlayer < 250) {
+                this.state = 'combat';
+            } else if (distToPlayer > 600) {
+                this.state = 'pursuit';
+            } else {
+                this.state = 'strafe';
+            }
+
+            // Comportement selon l'état
+            switch(this.state) {
+                case 'combat':
+                    this.combatBehavior(distToPlayer);
+                    break;
+                case 'pursuit':
+                    this.pursuitBehavior();
+                    break;
+                case 'strafe':
+                    this.strafeBehavior();
+                    break;
+            }
+
+            // Évitement des collisions
+            this.avoidCollisions();
+            this.avoidTerrain();
+        }
+
+        combatBehavior(distance) {
+            // Prédiction avancée de la position du joueur
+            const playerVelocity = new THREE.Vector3();
+            if (player.lastPosition) {
+                playerVelocity.subVectors(player.mesh.position, player.lastPosition);
+            }
+
+            const timeToTarget = distance / CONFIG.BULLET_SPEED;
+            const predictedPos = player.mesh.position.clone();
+            predictedPos.add(playerVelocity.multiplyScalar(timeToTarget * 60));
+
+            // Mouvement tactique en spirale
+            const time = Date.now() * 0.003;
+            const radius = 180 + Math.sin(time * 2) * 60;
+            const height = 80 + Math.sin(time * 3) * 40;
+
+            this.targetPosition.x = predictedPos.x + Math.cos(time) * radius;
+            this.targetPosition.z = predictedPos.z + Math.sin(time) * radius;
+            this.targetPosition.y = height;
+
+            // Déplacement fluide
+            const direction = new THREE.Vector3().subVectors(this.targetPosition, this.drone.mesh.position);
+            direction.normalize();
+            this.drone.mesh.position.add(direction.multiplyScalar(this.drone.speed));
+
+            // Orientation vers le joueur
+            this.drone.mesh.lookAt(player.mesh.position);
+
+            // Tir intelligent
+            const aimVector = new THREE.Vector3().subVectors(predictedPos, this.drone.mesh.position);
+            const aimAngle = aimVector.angleTo(new THREE.Vector3(0, 0, -1));
+
+            if (Math.random() < this.accuracy && distance < 400 && aimAngle < 0.5) {
+                this.drone.fire();
+            }
+
+            // Utilisation stratégique des missiles
+            if (Math.random() < 0.015 && this.drone.missiles > 0 && distance < 350) {
+                this.drone.fireMissile();
+            }
+
+            // Esquive proactive
+            this.dodgeBullets();
+        }
+
+        strafeBehavior() {
+            // Mouvement latéral pour être imprévisible
+            const time = Date.now() * 0.002;
+            const sideMove = Math.sin(time * 4) * 200;
+
+            const toPlayer = new THREE.Vector3().subVectors(player.mesh.position, this.drone.mesh.position);
+            const right = new THREE.Vector3().crossVectors(toPlayer, new THREE.Vector3(0, 1, 0)).normalize();
+
+            this.targetPosition.copy(player.mesh.position);
+            this.targetPosition.add(right.multiplyScalar(sideMove));
+            this.targetPosition.y = 80 + Math.sin(time * 3) * 30;
+
+            const direction = new THREE.Vector3().subVectors(this.targetPosition, this.drone.mesh.position);
+            direction.normalize();
+            this.drone.mesh.position.add(direction.multiplyScalar(this.drone.speed * 0.8));
+
+            this.drone.mesh.lookAt(player.mesh.position);
+
+            // Tir occasionnel
+            if (Math.random() < this.accuracy * 0.5) {
+                this.drone.fire();
+            }
+        }
+
+        pursuitBehavior() {
+            // Poursuite intelligente avec anticipation
+            const playerVelocity = new THREE.Vector3();
+            if (player.lastPosition) {
+                playerVelocity.subVectors(player.mesh.position, player.lastPosition);
+            }
+
+            const interceptPoint = player.mesh.position.clone();
+            interceptPoint.add(playerVelocity.multiplyScalar(20));
+
+            const direction = new THREE.Vector3().subVectors(interceptPoint, this.drone.mesh.position);
+            direction.normalize();
+            this.drone.mesh.position.add(direction.multiplyScalar(this.drone.speed * 1.3));
+            this.drone.mesh.lookAt(player.mesh.position);
+        }
+
+        dodgeBullets() {
+            if (Math.random() > this.dodgeSkill) return;
+
+            bullets.forEach(bullet => {
+                if (bullet.mesh) {
+                    const dist = this.drone.mesh.position.distanceTo(bullet.mesh.position);
+                    const bulletDirection = bullet.velocity.clone().normalize();
+                    const toBullet = new THREE.Vector3().subVectors(this.drone.mesh.position, bullet.mesh.position).normalize();
+                    const dangerFactor = bulletDirection.dot(toBullet);
+
+                    if (dist < 150 && dangerFactor > 0.7) {
+                        // Esquive sophistiquée
+                        const dodgeDir = new THREE.Vector3().crossVectors(
+                            bullet.velocity,
+                            new THREE.Vector3(0, 1, 0)
+                        ).normalize();
+
+                        // Choix aléatoire de direction d'esquive
+                        if (Math.random() < 0.5) dodgeDir.multiplyScalar(-1);
+
+                        this.drone.mesh.position.add(dodgeDir.multiplyScalar(15));
+
+                        // Mouvement vertical d'esquive
+                        this.drone.mesh.position.y += (Math.random() - 0.5) * 20;
+                    }
+                }
+            });
+        }
+
+        avoidCollisions() {
+            enemies.forEach(other => {
+                if (other !== this.drone && other.mesh) {
+                    const dist = this.drone.mesh.position.distanceTo(other.mesh.position);
+                    if (dist < 60) {
+                        const awayDir = new THREE.Vector3().subVectors(
+                            this.drone.mesh.position,
+                            other.mesh.position
+                        ).normalize();
+                        this.drone.mesh.position.add(awayDir.multiplyScalar(8));
+                    }
+                }
+            });
+        }
+
+        avoidTerrain() {
+            // Éviter de voler trop bas
+            if (this.drone.mesh.position.y < 40) {
+                this.drone.mesh.position.y += 5;
+            }
+
+            // Rester dans l'arène
+            const maxDist = CONFIG.ARENA_SIZE / 2;
+            if (Math.abs(this.drone.mesh.position.x) > maxDist) {
+                this.drone.mesh.position.x = Math.sign(this.drone.mesh.position.x) * maxDist;
+            }
+            if (Math.abs(this.drone.mesh.position.z) > maxDist) {
+                this.drone.mesh.position.z = Math.sign(this.drone.mesh.position.z) * maxDist;
+            }
+        }
+
+        updateTarget() {
+            this.targetPosition.set(
+                (Math.random() - 0.5) * CONFIG.ARENA_SIZE,
+                50 + Math.random() * 100,
+                (Math.random() - 0.5) * CONFIG.ARENA_SIZE
+            );
+        }
+    }
+
+    // Classe Projectile améliorée
+    class Bullet {
+        constructor(position, direction, isPlayerBullet) {
+            this.velocity = direction.multiplyScalar(CONFIG.BULLET_SPEED);
+            this.isPlayerBullet = isPlayerBullet;
+            this.damage = 12;
+            this.life = 100;
+
+            const geometry = new THREE.SphereGeometry(2, 8, 6);
+            const material = new THREE.MeshBasicMaterial({
+                color: isPlayerBullet ? 0x00f2fe : 0xff6b6b,
+                emissive: isPlayerBullet ? 0x00f2fe : 0xff6b6b
+            });
+
+            this.mesh = new THREE.Mesh(geometry, material);
+            this.mesh.position.copy(position);
+
+            // Effet de traînée
+            const trailGeometry = new THREE.CylinderGeometry(0.5, 2.5, 20, 6);
+            const trailMaterial = new THREE.MeshBasicMaterial({
+                color: isPlayerBullet ? 0x4facfe : 0xff9a00,
+                transparent: true,
+                opacity: 0.6
+            });
+            this.trail = new THREE.Mesh(trailGeometry, trailMaterial);
+            this.mesh.add(this.trail);
+            this.trail.position.z = 10;
+            this.trail.rotation.x = Math.PI / 2;
+
+            // Lumière
+            const light = new THREE.PointLight(isPlayerBullet ? 0x00f2fe : 0xff6b6b, 0.5, 30);
+            this.mesh.add(light);
+
+            scene.add(this.mesh);
+        }
+
+        update() {
+            this.mesh.position.add(this.velocity);
+            this.life--;
+
+            // Destruction si trop vieux ou hors limites
+            if (this.life <= 0 ||
+                Math.abs(this.mesh.position.x) > CONFIG.ARENA_SIZE ||
+                Math.abs(this.mesh.position.z) > CONFIG.ARENA_SIZE ||
+                this.mesh.position.y < 0 || this.mesh.position.y > 400) {
+                this.destroy();
+                return false;
+            }
+
+            return true;
+        }
+
+        destroy() {
+            scene.remove(this.mesh);
+        }
+    }
+
+    // Classe Missile guidé amélioré
+    class Missile extends Bullet {
+        constructor(position, target, isPlayerMissile) {
+            super(position, new THREE.Vector3(0, 0, -1), isPlayerMissile);
+            this.target = target;
+            this.damage = 35;
+            this.speed = CONFIG.BULLET_SPEED * 0.8;
+            this.life = 150;
+
+            // Apparence unique pour les missiles
+            scene.remove(this.mesh);
+
+            const group = new THREE.Group();
+
+            const bodyGeometry = new THREE.CylinderGeometry(1.5, 2.5, 12, 8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({
+                color: 0xff9a00,
+                emissive: 0xff6600,
+                emissiveIntensity: 0.4
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.z = Math.PI / 2;
+            group.add(body);
+
+            const noseGeometry = new THREE.ConeGeometry(2, 4, 8);
+            const noseMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffd93d,
+                emissive: 0xffaa00,
+                emissiveIntensity: 0.6
+            });
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.position.x = 8;
+            nose.rotation.z = -Math.PI / 2;
+            group.add(nose);
+
+            // Flammes
+            const flameGeometry = new THREE.ConeGeometry(3, 8, 6);
+            const flameMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff3300,
+                transparent: true,
+                opacity: 0.8
+            });
+            const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+            flame.position.x = -8;
+            flame.rotation.z = Math.PI / 2;
+            group.add(flame);
+
+            this.mesh = group;
+            this.mesh.position.copy(position);
+            scene.add(this.mesh);
+        }
+
+        update() {
+            if (this.target && this.target.mesh) {
+                // Guidage amélioré
+                const direction = new THREE.Vector3().subVectors(
+                    this.target.mesh.position,
+                    this.mesh.position
+                ).normalize();
+
+                this.velocity.lerp(direction.multiplyScalar(this.speed), 0.15);
+                this.mesh.lookAt(this.target.mesh.position);
+                this.mesh.rotateY(Math.PI / 2);
+            }
+
+            this.mesh.position.add(this.velocity);
+            this.life--;
+
+            // Particules de fumée
+            if (Math.random() < 0.8) {
+                createSmokeParticle(this.mesh.position);
+            }
+
+            // Vérification des limites
+            if (this.life <= 0 ||
+                Math.abs(this.mesh.position.x) > CONFIG.ARENA_SIZE ||
+                Math.abs(this.mesh.position.z) > CONFIG.ARENA_SIZE) {
+                this.destroy();
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    // Initialisation Three.js avec environnement tropical
+    function init() {
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x87CEEB, 200, 2000);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
+        camera.position.set(0, 250, 500);
+
+        renderer = new THREE.WebGLRenderer({
+            canvas: document.getElementById('canvas'),
+            antialias: true,
+            alpha: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+
+        // Ciel dégradé
+        const skyGeometry = new THREE.SphereGeometry(2000, 32, 32);
+        const skyMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                topColor: { value: new THREE.Color(0x0077be) },
+                bottomColor: { value: new THREE.Color(0x87CEEB) },
+                offset: { value: 33 },
+                exponent: { value: 0.6 }
+            },
+            vertexShader: `
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPosition.xyz;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+            fragmentShader: `
+                    uniform vec3 topColor;
+                    uniform vec3 bottomColor;
+                    uniform float offset;
+                    uniform float exponent;
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        float h = normalize(vWorldPosition + offset).y;
+                        gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+                    }
+                `,
+            side: THREE.BackSide
+        });
+        sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(sky);
+
+        // Éclairage tropical
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffd700, 1.2);
+        sunLight.position.set(300, 600, 200);
+        sunLight.castShadow = true;
+        sunLight.shadow.camera.left = -1000;
+        sunLight.shadow.camera.right = 1000;
+        sunLight.shadow.camera.top = 1000;
+        sunLight.shadow.camera.bottom = -1000;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+
+        const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x4facfe, 0.5);
+        scene.add(hemisphereLight);
+
+        // Océan
+        const waterGeometry = new THREE.PlaneGeometry(3000, 3000, 128, 128);
+        const waterMaterial = new THREE.MeshPhongMaterial({
+            color: 0x006994,
+            transparent: true,
+            opacity: 0.8,
+            shininess: 100,
+            specular: 0x4facfe
+        });
+
+        // Vagues
+        const vertices = waterGeometry.attributes.position.array;
+        for (let i = 0; i < vertices.length; i += 3) {
+            vertices[i + 2] = Math.sin(vertices[i] * 0.05) * 3 + Math.cos(vertices[i + 1] * 0.05) * 3;
+        }
+        waterGeometry.computeVertexNormals();
+
+        water = new THREE.Mesh(waterGeometry, waterMaterial);
+        water.rotation.x = -Math.PI / 2;
+        water.receiveShadow = true;
+        scene.add(water);
+
+        // Îles tropicales
+        createIslands();
+
+        // Nuages
+        createClouds();
+
+        // Contrôles
+        document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    // Création des îles
+    function createIslands() {
+        for (let i = 0; i < 5; i++) {
+            const islandGroup = new THREE.Group();
+
+            // Base de l'île (sable)
+            const islandGeometry = new THREE.ConeGeometry(
+                80 + Math.random() * 60,
+                40 + Math.random() * 30,
+                8
+            );
+            const islandMaterial = new THREE.MeshPhongMaterial({
+                color: 0xf4d03f,
+                flatShading: true
+            });
+            const island = new THREE.Mesh(islandGeometry, islandMaterial);
+            island.position.y = -20;
+            island.castShadow = true;
+            island.receiveShadow = true;
+            islandGroup.add(island);
+
+            // Partie verte (végétation)
+            const greenGeometry = new THREE.ConeGeometry(
+                60 + Math.random() * 40,
+                30 + Math.random() * 20,
+                8
+            );
+            const greenMaterial = new THREE.MeshPhongMaterial({
+                color: 0x27ae60,
+                flatShading: true
+            });
+            const greenPart = new THREE.Mesh(greenGeometry, greenMaterial);
+            greenPart.position.y = 10;
+            islandGroup.add(greenPart);
+
+            // Palmiers
+            for (let j = 0; j < 3 + Math.random() * 4; j++) {
+                const palmGroup = new THREE.Group();
+
+                // Tronc
+                const trunkGeometry = new THREE.CylinderGeometry(3, 4, 40, 6);
+                const trunkMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x8b4513
+                });
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                palmGroup.add(trunk);
+
+                // Feuilles
+                for (let k = 0; k < 6; k++) {
+                    const leafGeometry = new THREE.ConeGeometry(15, 25, 4);
+                    const leafMaterial = new THREE.MeshPhongMaterial({
+                        color: 0x228b22
+                    });
+                    const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+                    const leafAngle = (k / 6) * Math.PI * 2;
+                    leaf.position.x = Math.cos(leafAngle) * 10;
+                    leaf.position.z = Math.sin(leafAngle) * 10;
+                    leaf.position.y = 20;
+                    leaf.rotation.z = leafAngle;
+                    leaf.rotation.x = Math.PI / 6;
+                    palmGroup.add(leaf);
+                }
+
+                palmGroup.position.x = (Math.random() - 0.5) * 60;
+                palmGroup.position.z = (Math.random() - 0.5) * 60;
+                palmGroup.position.y = 20;
+                palmGroup.rotation.y = Math.random() * Math.PI * 2;
+                palmGroup.scale.set(
+                    0.8 + Math.random() * 0.4,
+                    0.8 + Math.random() * 0.4,
+                    0.8 + Math.random() * 0.4
+                );
+
+                islandGroup.add(palmGroup);
+            }
+
+            // Position de l'île
+            islandGroup.position.x = (Math.random() - 0.5) * 1500;
+            islandGroup.position.z = (Math.random() - 0.5) * 1500;
+
+            scene.add(islandGroup);
+        }
+    }
+
+    // Création des nuages
+    function createClouds() {
+        for (let i = 0; i < 15; i++) {
+            const cloudGroup = new THREE.Group();
+
+            const numSpheres = 4 + Math.random() * 4;
+            for (let j = 0; j < numSpheres; j++) {
+                const cloudGeometry = new THREE.SphereGeometry(
+                    20 + Math.random() * 30,
+                    8,
+                    6
+                );
+                const cloudMaterial = new THREE.MeshPhongMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const cloudPart = new THREE.Mesh(cloudGeometry, cloudMaterial);
+                cloudPart.position.x = (Math.random() - 0.5) * 50;
+                cloudPart.position.y = (Math.random() - 0.5) * 20;
+                cloudPart.position.z = (Math.random() - 0.5) * 50;
+                cloudGroup.add(cloudPart);
+            }
+
+            cloudGroup.position.x = (Math.random() - 0.5) * 2000;
+            cloudGroup.position.y = 250 + Math.random() * 200;
+            cloudGroup.position.z = (Math.random() - 0.5) * 2000;
+
+            cloudGroup.userData = {
+                speed: 0.2 + Math.random() * 0.3,
+                float: Math.random() * Math.PI * 2
+            };
+
+            clouds.push(cloudGroup);
+            scene.add(cloudGroup);
+        }
+    }
+
+    // Effets visuels améliorés
+    function createExplosion(position) {
+        // Explosion principale
+        for (let i = 0; i < 40; i++) {
+            const size = 1 + Math.random() * 3;
+            const geometry = new THREE.SphereGeometry(size, 4, 4);
+            const material = new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? 0xff6600 : 0xffaa00,
+                transparent: true,
+                opacity: 1
+            });
+
+            const particle = new THREE.Mesh(geometry, material);
+            particle.position.copy(position);
+            scene.add(particle);
+
+            const velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 20,
+                Math.random() * 15,
+                (Math.random() - 0.5) * 20
+            );
+
+            particles.push({
+                mesh: particle,
+                velocity: velocity,
+                life: 60,
+                gravity: true
+            });
+        }
+
+        // Flash lumineux
+        const flash = new THREE.PointLight(0xff6600, 5, 200);
+        flash.position.copy(position);
+        scene.add(flash);
+
+        setTimeout(() => scene.remove(flash), 200);
+    }
+
+    function createSmokeParticle(position) {
+        const geometry = new THREE.SphereGeometry(2, 4, 4);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x666666,
+            transparent: true,
+            opacity: 0.6
+        });
+
+        const particle = new THREE.Mesh(geometry, material);
+        particle.position.copy(position);
+        scene.add(particle);
+
+        particles.push({
+            mesh: particle,
+            velocity: new THREE.Vector3(
+                (Math.random() - 0.5) * 2,
+                Math.random() * 3,
+                (Math.random() - 0.5) * 2
+            ),
+            life: 30,
+            grow: true
+        });
+    }
+
+    function createShieldHit(position) {
+        const geometry = new THREE.SphereGeometry(20, 8, 6);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x00f2fe,
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        });
+
+        const shield = new THREE.Mesh(geometry, material);
+        shield.position.copy(position);
+        scene.add(shield);
+
+        particles.push({
+            mesh: shield,
+            velocity: new THREE.Vector3(0, 0, 0),
+            life: 15,
+            expand: true
+        });
+    }
+
+    function createHit(position) {
+        for (let i = 0; i < 10; i++) {
+            const geometry = new THREE.BoxGeometry(2, 2, 2);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xff6b6b,
+                transparent: true,
+                opacity: 1
+            });
+
+            const particle = new THREE.Mesh(geometry, material);
+            particle.position.copy(position);
+            scene.add(particle);
+
+            particles.push({
+                mesh: particle,
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10,
+                    (Math.random() - 0.5) * 10
+                ),
+                life: 30
+            });
+        }
+    }
+
+    // Démarrage du mode solo
+    function startSoloMode() {
+        soloMode = true;
+        CONFIG.gameMode = 'solo';
+        waveNumber = 1;
+        enemiesKilled = 0;
+        waveEnemies = 3;
+
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('hud').style.display = 'block';
+        document.getElementById('controls').style.display = 'block';
+        document.getElementById('enemyCount').style.display = 'block';
+        document.getElementById('waveDisplay').style.display = 'block';
+        document.getElementById('gameOver').style.display = 'none';
+
+        // Réinitialisation
+        cleanupGame();
+
+        score = 0;
+
+        // Création du joueur avec bonus en solo
+        player = new Drone(true);
+        player.lastPosition = player.mesh.position.clone();
+        player.health = 100;
+        player.shield = 50;
+        player.missiles = 5;
+
+        gameRunning = true;
+
+        // Commencer la première vague
+        startWave();
+
+        // Afficher un message de bienvenue
+        showNotification('🎯 MODE SOLO - Vague 1');
+
+        animate();
+    }
+
+    // Démarrage d'une nouvelle vague
+    function startWave() {
+        if (!soloMode) return;
+
+        // Calcul du nombre d'ennemis pour cette vague
+        waveEnemies = 2 + waveNumber * 2;
+        const message = `🌊 VAGUE ${waveNumber} - ${waveEnemies} ennemis!`;
+        showNotification(message);
+
+        // Bonus de santé entre les vagues
+        if (waveNumber > 1 && player) {
+            player.health = Math.min(100, player.health + 20);
+            player.shield = Math.min(50, player.shield + 25);
+            player.missiles = Math.min(10, player.missiles + 2);
+        }
+
+        // Spawn progressif des ennemis
+        for (let i = 0; i < waveEnemies; i++) {
+            setTimeout(() => {
+                if (gameRunning && soloMode) {
+                    const enemy = new Drone(false);
+
+                    // Augmenter la difficulté avec les vagues
+                    if (waveNumber > 3) {
+                        enemy.health += (waveNumber - 3) * 10;
+                        enemy.speed += (waveNumber - 3) * 0.3;
+                    }
+
+                    // Améliorer l'IA avec les vagues
+                    if (enemy.ai) {
+                        enemy.ai.accuracy = Math.min(0.95, enemy.ai.accuracy + (waveNumber * 0.02));
+                        enemy.ai.reactionTime = Math.max(100, enemy.ai.reactionTime - (waveNumber * 50));
+                    }
+
+                    enemies.push(enemy);
+                }
+            }, i * 800);
+        }
+    }
+
+    // Vérifier si la vague est terminée
+    function checkWaveComplete() {
+        if (!soloMode || !gameRunning) return;
+
+        // Si tous les ennemis de la vague sont éliminés
+        if (enemies.length === 0 && enemiesKilled >= waveEnemies) {
+            enemiesKilled = 0;
+            waveNumber++;
+
+            // Bonus de score pour compléter la vague
+            score += waveNumber * 500;
+
+            // Message de félicitations
+            showNotification(`✨ VAGUE ${waveNumber - 1} TERMINÉE! +${waveNumber * 500} points`);
+
+            // Commencer la prochaine vague après un délai
+            setTimeout(() => {
+                if (gameRunning && soloMode) {
+                    startWave();
+                }
+            }, 3000);
+        }
+    }
+
+    // Création de power-ups
+    function createPowerUp(position, type) {
+        const powerUpGroup = new THREE.Group();
+
+        // Forme du power-up
+        const geometry = new THREE.OctahedronGeometry(10, 0);
+        const material = new THREE.MeshPhongMaterial({
+            color: type === 'health' ? 0x00ff00 : 0x00ffff,
+            emissive: type === 'health' ? 0x00ff00 : 0x00ffff,
+            emissiveIntensity: 0.5
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        powerUpGroup.add(mesh);
+
+        // Aura lumineuse
+        const light = new THREE.PointLight(type === 'health' ? 0x00ff00 : 0x00ffff, 1, 50);
+        powerUpGroup.add(light);
+
+        powerUpGroup.position.copy(position);
+        powerUpGroup.userData = { type: type, collected: false };
+
+        scene.add(powerUpGroup);
+        powerUps.push(powerUpGroup);
+    }
+
+    // Fonction pour nettoyer le jeu
+    function cleanupGame() {
+        enemies.forEach(enemy => {
+            if (enemy.mesh) scene.remove(enemy.mesh);
+        });
+        bullets.forEach(bullet => {
+            if (bullet.mesh) scene.remove(bullet.mesh);
+        });
+        enemyBullets.forEach(bullet => {
+            if (bullet.mesh) scene.remove(bullet.mesh);
+        });
+        powerUps.forEach(powerUp => {
+            scene.remove(powerUp);
+        });
+
+        enemies = [];
+        bullets = [];
+        enemyBullets = [];
+        particles = [];
+        powerUps = [];
+    }
+
+    // Fonction pour afficher des notifications
+    function showNotification(text) {
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = text;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 2000);
+    }
+
+    // Démarrage du jeu (mode combat classique)
+    function startGame() {
+        soloMode = false;
+        CONFIG.gameMode = 'combat';
+        waveNumber = 1;
+
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('hud').style.display = 'block';
+        document.getElementById('controls').style.display = 'block';
+        document.getElementById('enemyCount').style.display = 'block';
+        document.getElementById('waveDisplay').style.display = 'none';
+        document.getElementById('gameOver').style.display = 'none';
+
+        // Réinitialisation
+        cleanupGame();
+
+        score = 0;
+
+        // Création du joueur
+        player = new Drone(true);
+        player.lastPosition = player.mesh.position.clone();
+
+        // Création des ennemis initiaux
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+                enemies.push(new Drone(false));
+            }, i * 1000);
+        }
+
+        gameRunning = true;
+
+        // Spawn d'ennemis continu en mode combat
+        setInterval(() => {
+            if (gameRunning && !soloMode && enemies.length < 10) {
+                enemies.push(new Drone(false));
+            }
+        }, CONFIG.SPAWN_RATE);
+
+        animate();
+    }
+
+    // Boucle d'animation
+    function animate() {
+        if (!gameRunning) return;
+
+        requestAnimationFrame(animate);
+
+        const time = Date.now() * 0.001;
+
+        // Animation de l'eau
+        if (water) {
+            const vertices = water.geometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const y = vertices[i + 1];
+                vertices[i + 2] = Math.sin(x * 0.05 + time * 2) * 3 +
+                    Math.cos(y * 0.05 + time * 1.5) * 3;
+            }
+            water.geometry.attributes.position.needsUpdate = true;
+            water.geometry.computeVertexNormals();
+        }
+
+        // Animation des nuages
+        clouds.forEach(cloud => {
+            cloud.position.x += cloud.userData.speed;
+            if (cloud.position.x > 1500) cloud.position.x = -1500;
+            cloud.position.y += Math.sin(time + cloud.userData.float) * 0.2;
+        });
+
+        // Mise à jour du joueur
+        if (player) {
+            updatePlayer();
+            player.update();
+            player.lastPosition = player.mesh.position.clone();
+        }
+
+        // Mise à jour des ennemis
+        enemies = enemies.filter(enemy => {
+            if (enemy.health > 0) {
+                enemy.update();
+                return true;
+            }
+            return false;
+        });
+
+        // Mise à jour des projectiles
+        bullets = bullets.filter(bullet => bullet.update());
+        enemyBullets = enemyBullets.filter(bullet => bullet.update());
+
+        // Mise à jour des particules
+        particles = particles.filter(particle => {
+            particle.life--;
+
+            if (particle.velocity) {
+                particle.mesh.position.add(particle.velocity);
+                particle.velocity.multiplyScalar(0.95);
+
+                if (particle.gravity) {
+                    particle.velocity.y -= 0.5;
+                }
+            }
+
+            if (particle.grow) {
+                particle.mesh.scale.multiplyScalar(1.05);
+            }
+
+            if (particle.expand) {
+                particle.mesh.scale.multiplyScalar(1.1);
+            }
+
+            particle.mesh.material.opacity = particle.life / 60;
+
+            if (particle.life <= 0) {
+                scene.remove(particle.mesh);
+                return false;
+            }
+            return true;
+        });
+
+        // Mise à jour des power-ups
+        powerUps = powerUps.filter(powerUp => {
+            if (!powerUp.userData.collected) {
+                // Rotation
+                powerUp.rotation.y += 0.05;
+                powerUp.position.y += Math.sin(time * 3) * 0.5;
+
+                // Vérifier la collecte
+                if (player && player.mesh) {
+                    const dist = powerUp.position.distanceTo(player.mesh.position);
+                    if (dist < 30) {
+                        powerUp.userData.collected = true;
+
+                        // Appliquer l'effet
+                        if (powerUp.userData.type === 'health') {
+                            player.health = Math.min(100, player.health + 30);
+                            showNotification('❤️ +30 Santé!');
+                        } else if (powerUp.userData.type === 'shield') {
+                            player.shield = Math.min(50, player.shield + 25);
+                            showNotification('🛡️ +25 Bouclier!');
+                        }
+
+                        scene.remove(powerUp);
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            return false;
+        });
+
+        // Collisions
+        checkCollisions();
+
+        // Mise à jour de la caméra
+        if (player && player.mesh) {
+            const targetCameraPos = new THREE.Vector3(
+                player.mesh.position.x,
+                250,
+                player.mesh.position.z + 400
+            );
+            camera.position.lerp(targetCameraPos, 0.1);
+            camera.lookAt(player.mesh.position);
+        }
+
+        // Mise à jour HUD
+        updateHUD();
+
+        renderer.render(scene, camera);
+    }
+
+    // Contrôles du joueur
+    function updatePlayer() {
+        if (!player || !player.mesh) return;
+
+        const moveSpeed = keys['shift'] ? CONFIG.PLAYER_SPEED * 1.5 : CONFIG.PLAYER_SPEED;
+
+        if (keys['z'] || keys['arrowup']) player.mesh.position.z -= moveSpeed;
+        if (keys['s'] || keys['arrowdown']) player.mesh.position.z += moveSpeed;
+        if (keys['q'] || keys['arrowleft']) player.mesh.position.x -= moveSpeed;
+        if (keys['d'] || keys['arrowright']) player.mesh.position.x += moveSpeed;
+
+        // Limites de l'arène
+        player.mesh.position.x = Math.max(-CONFIG.ARENA_SIZE/2, Math.min(CONFIG.ARENA_SIZE/2, player.mesh.position.x));
+        player.mesh.position.z = Math.max(-CONFIG.ARENA_SIZE/2, Math.min(CONFIG.ARENA_SIZE/2, player.mesh.position.z));
+
+        // Hauteur
+        if (player.mesh.position.y < 30) player.mesh.position.y = 30;
+        if (player.mesh.position.y > 200) player.mesh.position.y = 200;
+
+        // Tir
+        if (keys[' ']) {
+            player.fire();
+        }
+
+        // Missile
+        if (keys['e']) {
+            player.fireMissile();
+            keys['e'] = false;
+        }
+    }
+
+    // Vérification des collisions
+    function checkCollisions() {
+        // Balles du joueur vs ennemis
+        bullets.forEach((bullet, bIndex) => {
+            enemies.forEach((enemy, eIndex) => {
+                if (bullet.mesh && enemy.mesh) {
+                    const dist = bullet.mesh.position.distanceTo(enemy.mesh.position);
+                    if (dist < 25) {
+                        if (enemy.takeDamage(bullet.damage)) {
+                            enemies.splice(eIndex, 1);
+                        }
+                        bullet.destroy();
+                        bullets.splice(bIndex, 1);
+                    }
+                }
+            });
+        });
+
+        // Balles ennemies vs joueur
+        enemyBullets.forEach((bullet, bIndex) => {
+            if (player && player.mesh && bullet.mesh) {
+                const dist = bullet.mesh.position.distanceTo(player.mesh.position);
+                if (dist < 25) {
+                    if (player.takeDamage(bullet.damage)) {
+                        gameOver();
+                    }
+                    bullet.destroy();
+                    enemyBullets.splice(bIndex, 1);
+                }
+            }
+        });
+    }
+
+    // Mise à jour de l'interface
+    function updateHUD() {
+        if (player) {
+            document.getElementById('healthBar').style.width = Math.max(0, player.health) + '%';
+            document.getElementById('shieldBar').style.width = Math.max(0, player.shield * 2) + '%';
+            document.getElementById('score').textContent = 'Score: ' + score;
+
+            // Affichage des missiles
+            let missileDisplay = '';
+            for (let i = 0; i < player.missiles; i++) {
+                missileDisplay += '🚀 ';
+            }
+            document.getElementById('missileCount').innerHTML = missileDisplay || 'Aucun';
+        }
+        document.getElementById('enemies').textContent = enemies.length;
+
+        // Affichage de la vague en mode solo
+        if (soloMode) {
+            document.getElementById('waveNumber').textContent = waveNumber;
+        }
+    }
+
+    // Fin de partie
+    function gameOver() {
+        gameRunning = false;
+        document.getElementById('gameOver').style.display = 'block';
+
+        // Score bonus en mode solo
+        if (soloMode) {
+            const waveBonus = (waveNumber - 1) * 1000;
+            score += waveBonus;
+            document.getElementById('finalScore').innerHTML = `Score Final: ${score}<br>Vagues Survécues: ${waveNumber - 1}`;
+        } else {
+            document.getElementById('finalScore').textContent = 'Score Final: ' + score;
+        }
+    }
+
+    // Redémarrage
+    function restartGame() {
+        document.getElementById('gameOver').style.display = 'none';
+        startGame();
+    }
+
+    // Retour au menu
+    function backToMenu() {
+        gameRunning = false;
+        document.getElementById('gameOver').style.display = 'none';
+        document.getElementById('menu').style.display = 'block';
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('controls').style.display = 'none';
+        document.getElementById('enemyCount').style.display = 'none';
+    }
+
+    // Changement de difficulté
+    function setDifficulty(level) {
+        CONFIG.difficulty = level;
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = 'Difficulté: ' + level.toUpperCase();
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 2000);
+
+        // Ajustement des paramètres
+        if (level === 'easy') {
+            CONFIG.ENEMY_SPEED = 3;
+            CONFIG.SPAWN_RATE = 4000;
+        } else if (level === 'hard') {
+            CONFIG.ENEMY_SPEED = 5;
+            CONFIG.SPAWN_RATE = 2500;
+        } else if (level === 'extreme') {
+            CONFIG.ENEMY_SPEED = 6;
+            CONFIG.SPAWN_RATE = 1500;
+        }
+    }
+
+    // Redimensionnement
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Lancement
+    window.addEventListener('load', init);
+</script>
+</body>
+</html>
