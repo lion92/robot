@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Battle Arena - Spectateur</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            overflow: hidden;
+            font-family: monospace;
+            color: #fff;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            min-width: 200px;
+        }
+        #teams {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        .team-blue { color: #4facfe; }
+        .team-red { color: #ff6b6b; }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            background: #4facfe;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #00f2fe; }
+        #winner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+            display: none;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="stats">
+    <h3>⚔️ BATAILLE EN COURS</h3>
+    <div>Durée: <span id="time">0</span>s</div>
+    <div>Tirs: <span id="shots">0</span></div>
+    <div>Éliminations: <span id="kills">0</span></div>
+</div>
+<div id="teams">
+    <div class="team-blue">🔵 Équipe Bleue: <span id="blue-count">0</span></div>
+    <div class="team-red">🔴 Équipe Rouge: <span id="red-count">0</span></div>
+</div>
+<div id="controls">
+    <button onclick="startBattle(5)">5v5</button>
+    <button onclick="startBattle(10)">10v10</button>
+    <button onclick="startBattle(20)">20v20 CHAOS</button>
+    <button onclick="toggleCamera()">📷 Changer Vue</button>
+    <button onclick="toggleSpeed()">⏩ Vitesse x<span id="speed">1</span></button>
+</div>
+<div id="winner"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    let scene, camera, renderer;
+    let drones = [], bullets = [], particles = [];
+    let stats = { time: 0, shots: 0, kills: 0 };
+    let gameSpeed = 1;
+    let cameraMode = 0;
+    let battleStart = 0;
+
+    // Init Three.js
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x0a0a0a, 200, 1500);
+
+    camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 1, 2000);
+    camera.position.set(0, 300, 500);
+
+    renderer = new THREE.WebGLRenderer({
+        canvas: document.getElementById('c'),
+        antialias: true,
+        alpha: true
+    });
+    renderer.setSize(innerWidth, innerHeight);
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0x404040, 0.3));
+    const moon = new THREE.DirectionalLight(0x4a90e2, 0.5);
+    moon.position.set(200, 400, 200);
+    moon.castShadow = true;
+    scene.add(moon);
+
+    // City glow
+    const cityGlow = new THREE.HemisphereLight(0xff9500, 0x1a1a1a, 0.4);
+    scene.add(cityGlow);
+
+    // City floor (streets)
+    const arena = new THREE.Mesh(
+        new THREE.PlaneGeometry(1200, 1200, 20, 20),
+        new THREE.MeshPhongMaterial({
+            color: 0x1a1a1a,
+            transparent: true,
+            opacity: 0.8
+        })
+    );
+    arena.rotation.x = -Math.PI/2;
+    scene.add(arena);
+
+    // Create buildings
+    const buildings = [];
+    function createBuildings() {
+        const buildingColors = [0x2c3e50, 0x34495e, 0x2c3853, 0x273c55, 0x1e2936];
+
+        // Grid of buildings with streets
+        for(let x = -500; x <= 500; x += 150) {
+            for(let z = -500; z <= 500; z += 150) {
+                // Skip center area for better combat visibility
+                if(Math.abs(x) < 150 && Math.abs(z) < 150) continue;
+
+                // Random building dimensions
+                const width = 40 + Math.random() * 40;
+                const depth = 40 + Math.random() * 40;
+                const height = 80 + Math.random() * 200;
+
+                // Building base
+                const building = new THREE.Mesh(
+                    new THREE.BoxGeometry(width, height, depth),
+                    new THREE.MeshPhongMaterial({
+                        color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
+                        emissive: 0x000000,
+                        emissiveIntensity: 0.1
+                    })
+                );
+
+                building.position.set(
+                    x + (Math.random() - 0.5) * 30,
+                    height/2,
+                    z + (Math.random() - 0.5) * 30
+                );
+
+                building.castShadow = true;
+                building.receiveShadow = true;
+                scene.add(building);
+                buildings.push(building);
+
+                // Windows (emissive lights)
+                const windowRows = Math.floor(height / 15);
+                const windowCols = Math.floor(width / 10);
+
+                for(let row = 0; row < windowRows; row++) {
+                    for(let col = 0; col < windowCols; col++) {
+                        if(Math.random() > 0.7) { // 70% windows lit
+                            const window = new THREE.Mesh(
+                                new THREE.BoxGeometry(6, 8, 1),
+                                new THREE.MeshBasicMaterial({
+                                    color: 0xffeb3b,
+                                    emissive: 0xffeb3b
+                                })
+                            );
+                            window.position.set(
+                                building.position.x + (col - windowCols/2) * 10,
+                                row * 15 + 10,
+                                building.position.z + depth/2 + 0.5
+                            );
+                            scene.add(window);
+
+                            // Add window on opposite side too
+                            const window2 = window.clone();
+                            window2.position.z = building.position.z - depth/2 - 0.5;
+                            scene.add(window2);
+                        }
+                    }
+                }
+
+                // Rooftop details
+                const rooftop = new THREE.Mesh(
+                    new THREE.BoxGeometry(width * 0.8, 5, depth * 0.8),
+                    new THREE.MeshPhongMaterial({ color: 0x1a1a1a })
+                );
+                rooftop.position.set(
+                    building.position.x,
+                    height + 2.5,
+                    building.position.z
+                );
+                scene.add(rooftop);
+
+                // Antenna
+                if(Math.random() > 0.5) {
+                    const antenna = new THREE.Mesh(
+                        new THREE.CylinderGeometry(1, 1, 30),
+                        new THREE.MeshPhongMaterial({ color: 0xff0000 })
+                    );
+                    antenna.position.set(
+                        building.position.x + (Math.random() - 0.5) * width/2,
+                        height + 15,
+                        building.position.z + (Math.random() - 0.5) * depth/2
+                    );
+                    scene.add(antenna);
+
+                    // Blinking light on antenna
+                    const light = new THREE.PointLight(0xff0000, 0.5, 30);
+                    light.position.copy(antenna.position);
+                    light.position.y += 15;
+                    scene.add(light);
+                }
+            }
+        }
+
+        // Street lights
+        for(let i = -400; i <= 400; i += 200) {
+            for(let j = -400; j <= 400; j += 200) {
+                const pole = new THREE.Mesh(
+                    new THREE.CylinderGeometry(2, 2, 40),
+                    new THREE.MeshPhongMaterial({ color: 0x444444 })
+                );
+                pole.position.set(i, 20, j);
+                scene.add(pole);
+
+                const streetLight = new THREE.PointLight(0xffa500, 0.8, 100);
+                streetLight.position.set(i, 40, j);
+                scene.add(streetLight);
+            }
+        }
+    }
+
+    createBuildings();
+
+    // Arena boundaries (invisible walls)
+    for(let i = 0; i < 4; i++) {
+        const wall = new THREE.Mesh(
+            new THREE.BoxGeometry(i < 2 ? 1200 : 10, 500, i < 2 ? 10 : 1200),
+            new THREE.MeshPhongMaterial({
+                visible: false
+            })
+        );
+        wall.position.set(
+            i === 1 ? 600 : i === 3 ? -600 : 0,
+            250,
+            i === 0 ? 600 : i === 2 ? -600 : 0
+        );
+        scene.add(wall);
+    }
+
+    // Drone AI Class
+    class DroneAI {
+        constructor(team, position) {
+            const group = new THREE.Group();
+
+            // Body
+            const body = new THREE.Mesh(
+                new THREE.OctahedronGeometry(10, 0),
+                new THREE.MeshPhongMaterial({
+                    color: team === 'blue' ? 0x4facfe : 0xff6b6b,
+                    emissive: team === 'blue' ? 0x0066cc : 0xcc0000,
+                    emissiveIntensity: 0.5
+                })
+            );
+            group.add(body);
+
+            // Rotors
+            for(let i = 0; i < 4; i++) {
+                const angle = (i/4) * Math.PI * 2;
+                const rotor = new THREE.Mesh(
+                    new THREE.BoxGeometry(15, 1, 3),
+                    new THREE.MeshBasicMaterial({
+                        color: 0x1a1a1a,
+                        transparent: true,
+                        opacity: 0.8
+                    })
+                );
+                rotor.position.x = Math.cos(angle) * 12;
+                rotor.position.z = Math.sin(angle) * 12;
+                rotor.position.y = 5;
+                group.add(rotor);
+            }
+
+            // Light
+            const light = new THREE.PointLight(
+                team === 'blue' ? 0x4facfe : 0xff6b6b,
+                0.5,
+                50
+            );
+            group.add(light);
+
+            this.mesh = group;
+            this.mesh.position.copy(position);
+
+            this.team = team;
+            this.health = 100;
+            this.velocity = new THREE.Vector3();
+            this.target = null;
+            this.lastShot = 0;
+            this.state = 'hunting';
+            this.dodgeTimer = 0;
+            this.accuracy = 0.7 + Math.random() * 0.3;
+            this.aggressiveness = 0.5 + Math.random() * 0.5;
+            this.reactionTime = 100 + Math.random() * 200;
+
+            scene.add(this.mesh);
+        }
+
+        update() {
+            // Rotor animation
+            this.mesh.children.forEach((child, i) => {
+                if(i > 0 && i < 5) child.rotation.y += 0.4 * gameSpeed;
+            });
+
+            // AI behavior
+            this.findTarget();
+            this.movement();
+            this.combat();
+
+            // Apply velocity
+            this.mesh.position.add(this.velocity.clone().multiplyScalar(gameSpeed));
+
+            // Boundaries
+            const bound = 580;
+            ['x', 'z'].forEach(axis => {
+                if(Math.abs(this.mesh.position[axis]) > bound) {
+                    this.mesh.position[axis] = Math.sign(this.mesh.position[axis]) * bound;
+                    this.velocity[axis] *= -0.5;
+                }
+            });
+
+            // Height variation between buildings
+            const minHeight = 50;
+            const maxHeight = 250;
+            const targetHeight = minHeight + Math.sin(Date.now() * 0.001 + this.mesh.id) * 30 +
+                Math.random() * (maxHeight - minHeight - 60);
+            this.mesh.position.y += (targetHeight - this.mesh.position.y) * 0.05;
+
+            // Keep drones above buildings but below max height
+            this.mesh.position.y = Math.max(minHeight, Math.min(maxHeight, this.mesh.position.y));
+        }
+
+        findTarget() {
+            let minDist = Infinity;
+            let newTarget = null;
+
+            drones.forEach(d => {
+                if(d.team !== this.team && d.health > 0) {
+                    const dist = this.mesh.position.distanceTo(d.mesh.position);
+                    if(dist < minDist) {
+                        minDist = dist;
+                        newTarget = d;
+                    }
+                }
+            });
+
+            this.target = newTarget;
+            this.state = this.target ?
+                (minDist < 200 ? 'combat' : 'pursuit') :
+                'patrol';
+        }
+
+        movement() {
+            const speed = 3;
+
+            switch(this.state) {
+                case 'combat':
+                    if(this.target) {
+                        // Strafe around target, using buildings as cover
+                        const angle = Date.now() * 0.002;
+                        const radius = 150;
+                        const targetPos = new THREE.Vector3(
+                            this.target.mesh.position.x + Math.cos(angle) * radius,
+                            this.mesh.position.y,
+                            this.target.mesh.position.z + Math.sin(angle) * radius
+                        );
+
+                        const dir = targetPos.clone().sub(this.mesh.position).normalize();
+                        this.velocity.lerp(dir.multiplyScalar(speed), 0.1);
+
+                        // Dodge incoming bullets and buildings
+                        this.dodgeBullets();
+                        this.avoidBuildings();
+                    }
+                    break;
+
+                case 'pursuit':
+                    if(this.target) {
+                        const dir = this.target.mesh.position.clone()
+                            .sub(this.mesh.position).normalize();
+                        this.velocity.lerp(dir.multiplyScalar(speed * 1.5), 0.05);
+                        this.avoidBuildings();
+                    }
+                    break;
+
+                case 'patrol':
+                    // Random movement between buildings
+                    if(Math.random() < 0.02) {
+                        this.velocity.x += (Math.random() - 0.5) * 2;
+                        this.velocity.z += (Math.random() - 0.5) * 2;
+                    }
+                    this.velocity.multiplyScalar(0.95);
+                    this.avoidBuildings();
+                    break;
+            }
+
+            // Max speed
+            if(this.velocity.length() > speed * 2) {
+                this.velocity.normalize().multiplyScalar(speed * 2);
+            }
+        }
+
+        avoidBuildings() {
+            // Simple building avoidance
+            buildings.forEach(building => {
+                const dist = this.mesh.position.distanceTo(building.position);
+                if(dist < 80) {
+                    const avoidDir = this.mesh.position.clone()
+                        .sub(building.position).normalize();
+                    this.velocity.add(avoidDir.multiplyScalar(5));
+
+                    // Go higher to avoid building
+                    if(this.mesh.position.y < building.geometry.parameters.height + 20) {
+                        this.velocity.y = 3;
+                    }
+                }
+            });
+        }
+
+        dodgeBullets() {
+            bullets.forEach(b => {
+                if(b.team !== this.team) {
+                    const dist = this.mesh.position.distanceTo(b.position);
+                    if(dist < 100) {
+                        const dodge = this.mesh.position.clone().sub(b.position).normalize();
+                        this.velocity.add(dodge.multiplyScalar(5));
+                    }
+                }
+            });
+        }
+
+        combat() {
+            if(!this.target || this.target.health <= 0) return;
+
+            const dist = this.mesh.position.distanceTo(this.target.mesh.position);
+            const now = Date.now();
+
+            if(dist < 300 && now - this.lastShot > this.reactionTime) {
+                // Aim prediction
+                const timeToHit = dist / 15;
+                const predictedPos = this.target.mesh.position.clone()
+                    .add(this.target.velocity.clone().multiplyScalar(timeToHit));
+
+                // Shoot with accuracy
+                if(Math.random() < this.accuracy * this.aggressiveness) {
+                    this.shoot(predictedPos);
+                    this.lastShot = now;
+                }
+            }
+        }
+
+        shoot(targetPos) {
+            const bullet = new THREE.Mesh(
+                new THREE.SphereGeometry(2),
+                new THREE.MeshBasicMaterial({
+                    color: this.team === 'blue' ? 0x00f2fe : 0xff6b6b,
+                    emissive: this.team === 'blue' ? 0x00f2fe : 0xff6b6b
+                })
+            );
+
+            bullet.position.copy(this.mesh.position);
+            bullet.velocity = targetPos.clone()
+                .sub(this.mesh.position).normalize().multiplyScalar(15);
+            bullet.team = this.team;
+            bullet.owner = this;
+            bullet.life = 100;
+
+            scene.add(bullet);
+            bullets.push(bullet);
+            stats.shots++;
+        }
+
+        takeDamage(damage) {
+            this.health -= damage;
+
+            // Hit effect
+            for(let i = 0; i < 5; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.BoxGeometry(2, 2, 2),
+                    new THREE.MeshBasicMaterial({
+                        color: this.team === 'blue' ? 0x4facfe : 0xff6b6b
+                    })
+                );
+                p.position.copy(this.mesh.position);
+                p.velocity = new THREE.Vector3(
+                    (Math.random()-0.5)*5,
+                    Math.random()*5,
+                    (Math.random()-0.5)*5
+                );
+                p.life = 20;
+                scene.add(p);
+                particles.push(p);
+            }
+
+            if(this.health <= 0) {
+                this.explode();
+                return true;
+            }
+            return false;
+        }
+
+        explode() {
+            // Big explosion
+            for(let i = 0; i < 30; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.TetrahedronGeometry(3),
+                    new THREE.MeshBasicMaterial({
+                        color: Math.random() > 0.5 ? 0xff6600 : 0xffaa00
+                    })
+                );
+                p.position.copy(this.mesh.position);
+                p.velocity = new THREE.Vector3(
+                    (Math.random()-0.5)*15,
+                    Math.random()*15,
+                    (Math.random()-0.5)*15
+                );
+                p.life = 40;
+                scene.add(p);
+                particles.push(p);
+            }
+
+            scene.remove(this.mesh);
+            stats.kills++;
+        }
+    }
+
+    // Start battle
+    function startBattle(teamSize) {
+        // Clear previous battle
+        drones.forEach(d => scene.remove(d.mesh));
+        bullets.forEach(b => scene.remove(b));
+        particles.forEach(p => scene.remove(p));
+        drones = [];
+        bullets = [];
+        particles = [];
+
+        // Reset stats
+        stats = { time: 0, shots: 0, kills: 0 };
+        battleStart = Date.now();
+        document.getElementById('winner').style.display = 'none';
+
+        // Create teams with urban spawn points
+        for(let i = 0; i < teamSize; i++) {
+            // Blue team (west side)
+            drones.push(new DroneAI('blue', new THREE.Vector3(
+                -400 + Math.random()*100,
+                100 + Math.random()*100,
+                (Math.random()-0.5)*400
+            )));
+
+            // Red team (east side)
+            drones.push(new DroneAI('red', new THREE.Vector3(
+                400 - Math.random()*100,
+                100 + Math.random()*100,
+                (Math.random()-0.5)*400
+            )));
+        }
+    }
+
+    // Toggle camera views
+    function toggleCamera() {
+        cameraMode = (cameraMode + 1) % 3;
+    }
+
+    // Toggle speed
+    function toggleSpeed() {
+        gameSpeed = gameSpeed === 1 ? 2 : gameSpeed === 2 ? 4 : 1;
+        document.getElementById('speed').textContent = gameSpeed;
+    }
+
+    // Main loop
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Update drones
+        drones = drones.filter(d => {
+            if(d.health > 0) {
+                d.update();
+                return true;
+            }
+            return false;
+        });
+
+        // Update bullets
+        bullets = bullets.filter(b => {
+            b.position.add(b.velocity.clone().multiplyScalar(gameSpeed));
+            b.life -= gameSpeed;
+
+            // Check hits
+            drones.forEach((d, i) => {
+                if(d.team !== b.team && b.position.distanceTo(d.mesh.position) < 15) {
+                    if(d.takeDamage(25)) {
+                        drones.splice(i, 1);
+                    }
+                    scene.remove(b);
+                    b.life = 0;
+                }
+            });
+
+            if(b.life <= 0) {
+                scene.remove(b);
+                return false;
+            }
+            return true;
+        });
+
+        // Update particles
+        particles = particles.filter(p => {
+            p.position.add(p.velocity.clone().multiplyScalar(gameSpeed));
+            p.velocity.y -= 0.3 * gameSpeed;
+            p.life -= gameSpeed;
+            p.material.opacity = p.life / 40;
+            p.rotation.x += 0.1;
+            p.rotation.y += 0.1;
+
+            if(p.life <= 0) {
+                scene.remove(p);
+                return false;
+            }
+            return true;
+        });
+
+        // Camera movement
+        const time = Date.now() * 0.0005;
+        switch(cameraMode) {
+            case 0: // Orbital view
+                camera.position.x = Math.cos(time) * 600;
+                camera.position.z = Math.sin(time) * 600;
+                camera.position.y = 300;
+                camera.lookAt(0, 0, 0);
+                break;
+            case 1: // Top view
+                camera.position.set(0, 800, 0);
+                camera.lookAt(0, 0, 0);
+                break;
+            case 2: // Dynamic follow
+                if(drones.length > 0) {
+                    const drone = drones[Math.floor(Math.random() * drones.length)];
+                    camera.position.lerp(
+                        drone.mesh.position.clone().add(new THREE.Vector3(100, 100, 100)),
+                        0.02
+                    );
+                    camera.lookAt(drone.mesh.position);
+                }
+                break;
+        }
+
+        // Update UI
+        if(battleStart) {
+            stats.time = Math.floor((Date.now() - battleStart) / 1000);
+        }
+
+        const blueCount = drones.filter(d => d.team === 'blue').length;
+        const redCount = drones.filter(d => d.team === 'red').length;
+
+        document.getElementById('time').textContent = stats.time;
+        document.getElementById('shots').textContent = stats.shots;
+        document.getElementById('kills').textContent = stats.kills;
+        document.getElementById('blue-count').textContent = blueCount;
+        document.getElementById('red-count').textContent = redCount;
+
+        // Check winner
+        if(drones.length > 0 && (blueCount === 0 || redCount === 0)) {
+            const winner = document.getElementById('winner');
+            winner.textContent = blueCount > 0 ? '🔵 VICTOIRE BLEUE!' : '🔴 VICTOIRE ROUGE!';
+            winner.style.color = blueCount > 0 ? '#4facfe' : '#ff6b6b';
+            winner.style.display = 'block';
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    // Start with 5v5
+    startBattle(5);
+    animate();
+
+    // Window resize
+    window.addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+    });
+</script>
+</body>
+</html>
