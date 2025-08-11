@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drone Arroseur - Mission Jardinage</title>
+    <title>Drone Arroseur HD - Mission Jardinage</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             overflow: hidden;
-            font-family: 'Courier New', monospace;
+            font-family: 'Arial', sans-serif;
             color: #fff;
             touch-action: none;
             -webkit-user-select: none;
@@ -19,87 +19,125 @@
             position: absolute;
             top: 0;
             left: 0;
+            filter: contrast(1.1) saturate(1.2);
         }
         #hud {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.8);
-            padding: 15px;
-            border-radius: 10px;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(30,30,50,0.8));
+            padding: 20px;
+            border-radius: 20px;
             font-size: 14px;
-            min-width: 250px;
-            border: 2px solid #4facfe;
-            box-shadow: 0 0 20px rgba(79, 172, 254, 0.3);
+            min-width: 280px;
+            border: 2px solid rgba(79, 172, 254, 0.5);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37),
+            inset 0 0 20px rgba(79, 172, 254, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        #hud h3 {
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 18px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
         }
         #controls {
             position: absolute;
-            bottom: 10px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.9);
+            background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(30,30,50,0.9));
             padding: 15px 25px;
-            border-radius: 10px;
+            border-radius: 25px;
             display: flex;
             gap: 15px;
-            border: 2px solid #4facfe;
-            box-shadow: 0 0 20px rgba(79, 172, 254, 0.3);
+            border: 2px solid rgba(79, 172, 254, 0.3);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(10px);
         }
         button {
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
-            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            border-radius: 5px;
+            border-radius: 15px;
             cursor: pointer;
             font-size: 14px;
             font-weight: bold;
             transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         button:hover {
-            background: linear-gradient(135deg, #00f2fe, #4facfe);
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.5);
+            background: linear-gradient(135deg, #764ba2, #667eea);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 25px rgba(118, 75, 162, 0.6);
         }
         #radar {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 20px;
+            right: 20px;
             width: 200px;
             height: 200px;
-            background: rgba(0,20,0,0.8);
-            border: 2px solid #00ff00;
+            background: radial-gradient(circle, rgba(0,40,0,0.9), rgba(0,20,0,0.7));
+            border: 3px solid rgba(0,255,0,0.5);
             border-radius: 50%;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 40px rgba(0, 255, 0, 0.3),
+            inset 0 0 30px rgba(0, 255, 0, 0.1);
+            overflow: hidden;
+        }
+        #radar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: conic-gradient(from 0deg, transparent, rgba(0,255,0,0.3), transparent);
+            animation: radarSweep 4s linear infinite;
+            border-radius: 50%;
+        }
+        @keyframes radarSweep {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         #crosshair {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 2px solid rgba(255,255,255,0.5);
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(255,255,255,0.3);
             border-radius: 50%;
             pointer-events: none;
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+            animation: crosshairPulse 2s ease-in-out infinite;
+        }
+        @keyframes crosshairPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
         }
         #crosshair::before, #crosshair::after {
             content: '';
             position: absolute;
-            background: rgba(255,255,255,0.5);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
         }
         #crosshair::before {
             width: 2px;
-            height: 20px;
+            height: 30px;
             left: 50%;
-            top: -10px;
+            top: -15px;
             transform: translateX(-50%);
         }
         #crosshair::after {
             height: 2px;
-            width: 20px;
+            width: 30px;
             top: 50%;
-            left: -10px;
+            left: -15px;
             transform: translateY(-50%);
         }
         .mode-indicator {
@@ -107,77 +145,115 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 36px;
+            font-size: 42px;
             font-weight: bold;
-            text-shadow: 0 0 20px currentColor;
-            animation: fadeOut 2s forwards;
+            text-shadow: 0 0 30px currentColor, 0 0 60px currentColor;
+            animation: fadeOut 2.5s forwards;
             pointer-events: none;
+            z-index: 1000;
+            text-transform: uppercase;
+            letter-spacing: 3px;
         }
         @keyframes fadeOut {
-            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.3) rotateY(90deg);
+            }
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2) rotateY(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1) rotateY(0deg);
+            }
         }
         #instructions {
             position: absolute;
             top: 50%;
             right: 20px;
             transform: translateY(-50%);
-            background: rgba(0,0,0,0.8);
-            padding: 20px;
-            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(30,30,50,0.8));
+            padding: 25px;
+            border-radius: 20px;
             font-size: 13px;
-            border: 2px solid #4facfe;
-            max-width: 250px;
+            border: 2px solid rgba(79, 172, 254, 0.3);
+            max-width: 280px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(10px);
+        }
+        #instructions h4 {
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
         }
         .key {
             display: inline-block;
-            background: #4facfe;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin: 0 2px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 4px 8px;
+            border-radius: 5px;
+            margin: 0 3px;
             font-weight: bold;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
         }
         .water-bar {
             width: 100%;
-            height: 20px;
-            background: #333;
-            border-radius: 10px;
+            height: 22px;
+            background: linear-gradient(90deg, #1a1a2e, #16213e);
+            border-radius: 15px;
             overflow: hidden;
-            margin: 5px 0;
+            margin: 8px 0;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            border: 1px solid rgba(79, 172, 254, 0.3);
         }
         .water-fill {
             height: 100%;
-            background: linear-gradient(90deg, #00a8ff, #00d4ff, #00ffff);
-            transition: width 0.3s;
+            background: linear-gradient(90deg, #00a8ff, #00d4ff, #00ffff, #00ffd5);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        .water-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
         .score-popup {
             position: absolute;
-            font-size: 24px;
+            font-size: 32px;
             font-weight: bold;
-            color: #00ff00;
-            text-shadow: 0 0 10px rgba(0,255,0,0.8);
-            animation: scoreFloat 1.5s ease-out forwards;
+            background: linear-gradient(90deg, #00ff88, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0,255,136,0.8);
+            animation: scoreFloat 2s ease-out forwards;
             pointer-events: none;
             z-index: 1000;
         }
         @keyframes scoreFloat {
             0% {
-                transform: translateY(0) scale(0.5);
+                transform: translateY(0) scale(0.5) rotateZ(-10deg);
                 opacity: 0;
             }
             50% {
-                transform: translateY(-30px) scale(1.2);
+                transform: translateY(-40px) scale(1.3) rotateZ(5deg);
                 opacity: 1;
             }
             100% {
-                transform: translateY(-60px) scale(0.8);
+                transform: translateY(-80px) scale(0.8) rotateZ(0deg);
                 opacity: 0;
             }
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
         }
         #levelComplete {
             display: none;
@@ -185,30 +261,78 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #00ff00, #00aa00);
-            padding: 30px;
-            border-radius: 20px;
+            background: linear-gradient(135deg, #00ff88, #00d4ff);
+            padding: 40px;
+            border-radius: 30px;
             text-align: center;
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             z-index: 1000;
-            box-shadow: 0 0 50px rgba(0,255,0,0.5);
+            box-shadow: 0 0 80px rgba(0,255,136,0.6),
+            inset 0 0 30px rgba(255,255,255,0.2);
+            animation: levelCompleteAnim 0.5s ease-out;
+        }
+        @keyframes levelCompleteAnim {
+            0% { transform: translate(-50%, -50%) scale(0) rotateZ(180deg); }
+            100% { transform: translate(-50%, -50%) scale(1) rotateZ(0deg); }
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(79, 172, 254, 0.2);
+        }
+        .stat-label {
+            color: rgba(255,255,255,0.7);
+        }
+        .stat-value {
+            color: #00d4ff;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
         }
     </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-    <h3>🚁💧 DRONE ARROSEUR</h3>
-    <div style="color: #00ff00; font-size: 16px;">Mode: <span id="gameMode">ARROSAGE</span></div>
-    <div style="color: #ffff00;">🌱 Score: <span id="score">0</span> points</div>
-    <div style="color: #00ffff;">🌿 Plantes arrosées: <span id="plantsWatered">0</span>/<span id="totalPlants">0</span></div>
-    <div>⏱️ Temps: <span id="timer">00:00</span></div>
-    <div>📍 Position: X:<span id="posX">0</span> Z:<span id="posZ">0</span></div>
-    <div>🔺 Altitude: <span id="altitude">100</span>m</div>
-    <div>💧 Réservoir d'eau: <div class="water-bar"><div class="water-fill" id="water" style="width: 100%"></div></div></div>
-    <div>🏆 Meilleur score: <span id="highScore">0</span></div>
-    <div>🌍 Zone: <span id="zone">Centre Ville</span></div>
+    <h3>🚁💧 DRONE ARROSEUR HD</h3>
+    <div class="stat-item">
+        <span class="stat-label">Mode:</span>
+        <span class="stat-value" id="gameMode">ARROSAGE</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">🌱 Score:</span>
+        <span class="stat-value" id="score">0</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">🌿 Plantes:</span>
+        <span class="stat-value"><span id="plantsWatered">0</span>/<span id="totalPlants">0</span></span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">⏱️ Temps:</span>
+        <span class="stat-value" id="timer">00:00</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">📍 Position:</span>
+        <span class="stat-value">X:<span id="posX">0</span> Z:<span id="posZ">0</span></span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">🔺 Altitude:</span>
+        <span class="stat-value"><span id="altitude">100</span>m</span>
+    </div>
+    <div style="margin-top: 10px;">
+        <div style="color: #00d4ff; font-size: 12px; margin-bottom: 3px;">💧 Réservoir d'eau</div>
+        <div class="water-bar"><div class="water-fill" id="water" style="width: 100%"></div></div>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">🏆 Record:</span>
+        <span class="stat-value" id="highScore">0</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">🌍 Zone:</span>
+        <span class="stat-value" id="zone">Centre Ville</span>
+    </div>
 </div>
 
 <div id="radar">
@@ -216,10 +340,10 @@
 </div>
 
 <div id="controls">
-    <button onclick="startWateringMode()">💧 Mode Arrosage</button>
-    <button onclick="startCombatMode()">⚔️ Mode Combat</button>
-    <button onclick="toggleCamera()">📷 Vue: <span id="cameraBtn">3ème Personne</span></button>
-    <button onclick="restartLevel()">🔄 Recommencer</button>
+    <button onclick="startWateringMode()">💧 Arrosage</button>
+    <button onclick="startCombatMode()">⚔️ Combat</button>
+    <button onclick="toggleCamera()">📷 Vue</button>
+    <button onclick="restartLevel()">🔄 Reset</button>
 </div>
 
 <div id="instructions">
@@ -233,8 +357,8 @@
     <p><span class="key">Clic / W</span> Arroser</p>
     <p><span class="key">R</span> Recharger eau</p>
     <p><span class="key">C</span> Changer Vue</p>
-    <p style="margin-top: 10px; color: #00ff00;">🌱 Trouvez et arrosez les plantes!</p>
-    <p style="color: #00ffff;">💧 Rechargez au lac central!</p>
+    <p style="margin-top: 15px; color: #00ff88;">🌱 Trouvez et arrosez les plantes!</p>
+    <p style="color: #00d4ff;">💧 Rechargez au lac central!</p>
 </div>
 
 <div id="levelComplete">
@@ -249,7 +373,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    let scene, camera, renderer;
+    let scene, camera, renderer, composer;
     let playerDrone, enemies = [], bullets = [], particles = [];
     let plants = [], waterDrops = [];
     let keys = {};
@@ -263,210 +387,330 @@
         highScore: parseInt(localStorage.getItem('droneHighScore') || 0)
     };
     let ambientLight, sun, sky;
-    let waterRefillStation;
+    let waterRefillStation, lakeMesh;
     let startTime = Date.now();
     let currentLevel = 1;
-    let levelGoals = [10, 20, 30, 50]; // Plantes à arroser par niveau
+    let clouds = [];
 
     const MAP_SIZE = 2000;
     const CITY_BLOCKS = 8;
     const BLOCK_SIZE = MAP_SIZE / CITY_BLOCKS;
 
-    // Initialize Three.js
+    // Initialize Three.js with better settings
     scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x87ceeb, 0.0005);
+    scene.fog = new THREE.FogExp2(0x87ceeb, 0.0003);
 
-    camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
+    camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 5000);
     camera.position.set(0, 150, 200);
 
     renderer = new THREE.WebGLRenderer({
         canvas: document.getElementById('c'),
         antialias: true,
         alpha: false,
-        powerPreference: "high-performance"
+        powerPreference: "high-performance",
+        precision: "highp",
+        logarithmicDepthBuffer: true
     });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.4;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.physicallyCorrectLights = true;
 
-    // Lighting
-    ambientLight = new THREE.AmbientLight(0x87ceeb, 0.5);
+    // Enhanced lighting
+    ambientLight = new THREE.HemisphereLight(0x87ceeb, 0x494949, 0.6);
     scene.add(ambientLight);
 
-    sun = new THREE.DirectionalLight(0xffd4a3, 1);
-    sun.position.set(300, 600, 300);
+    sun = new THREE.DirectionalLight(0xffd4a3, 2);
+    sun.position.set(500, 800, 500);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
+    sun.shadow.mapSize.width = 4096;
+    sun.shadow.mapSize.height = 4096;
     sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 2000;
-    sun.shadow.camera.left = -500;
-    sun.shadow.camera.right = 500;
-    sun.shadow.camera.top = 500;
-    sun.shadow.camera.bottom = -500;
+    sun.shadow.camera.far = 3000;
+    sun.shadow.camera.left = -1000;
+    sun.shadow.camera.right = 1000;
+    sun.shadow.camera.top = 1000;
+    sun.shadow.camera.bottom = -1000;
+    sun.shadow.bias = -0.0005;
     scene.add(sun);
 
-    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x545454, 0.6);
-    scene.add(hemiLight);
+    // Add rim light
+    const rimLight = new THREE.DirectionalLight(0x88ccff, 0.5);
+    rimLight.position.set(-300, 400, -300);
+    scene.add(rimLight);
 
-    // Sky dome
-    const skyGeo = new THREE.SphereGeometry(3000, 32, 32);
-    const skyMat = new THREE.MeshBasicMaterial({
-        color: 0x87ceeb,
+    // Enhanced sky with gradient
+    const skyGeo = new THREE.SphereGeometry(4000, 64, 64);
+    const skyMat = new THREE.ShaderMaterial({
+        uniforms: {
+            topColor: { value: new THREE.Color(0x0088ff) },
+            bottomColor: { value: new THREE.Color(0xffd4a3) },
+            offset: { value: 400 },
+            exponent: { value: 0.6 }
+        },
+        vertexShader: `
+            varying vec3 vWorldPosition;
+            void main() {
+                vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                vWorldPosition = worldPosition.xyz;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 topColor;
+            uniform vec3 bottomColor;
+            uniform float offset;
+            uniform float exponent;
+            varying vec3 vWorldPosition;
+            void main() {
+                float h = normalize(vWorldPosition + offset).y;
+                gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+            }
+        `,
         side: THREE.BackSide
     });
     sky = new THREE.Mesh(skyGeo, skyMat);
     scene.add(sky);
 
-    // Plant Class
+    // Create volumetric clouds
+    function createClouds() {
+        const cloudGeometry = new THREE.SphereGeometry(1, 6, 6);
+
+        for(let i = 0; i < 15; i++) {
+            const cloudGroup = new THREE.Group();
+
+            // Create cloud with multiple spheres
+            for(let j = 0; j < 8; j++) {
+                const cloudPart = new THREE.Mesh(
+                    cloudGeometry,
+                    new THREE.MeshPhongMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.4,
+                        depthWrite: false
+                    })
+                );
+                cloudPart.position.set(
+                    (Math.random() - 0.5) * 50,
+                    (Math.random() - 0.5) * 20,
+                    (Math.random() - 0.5) * 50
+                );
+                cloudPart.scale.setScalar(20 + Math.random() * 30);
+                cloudGroup.add(cloudPart);
+            }
+
+            cloudGroup.position.set(
+                (Math.random() - 0.5) * 3000,
+                300 + Math.random() * 300,
+                (Math.random() - 0.5) * 3000
+            );
+            cloudGroup.userData.speed = 0.05 + Math.random() * 0.1;
+            clouds.push(cloudGroup);
+            scene.add(cloudGroup);
+        }
+    }
+
+    // Enhanced Plant Class
     class Plant {
         constructor(position, type = 'flower') {
             const group = new THREE.Group();
 
             this.type = type;
             this.watered = false;
-            this.health = 0; // 0 = dry, 100 = fully watered
+            this.health = 0;
             this.position = position;
 
             if(type === 'flower') {
-                // Pot
-                const pot = new THREE.Mesh(
-                    new THREE.CylinderGeometry(4, 3, 5, 8),
-                    new THREE.MeshPhongMaterial({ color: 0x8b4513 })
-                );
-                pot.position.y = 2.5;
+                // Stylized pot with details
+                const potGeo = new THREE.CylinderGeometry(5, 4, 6, 12);
+                const potMat = new THREE.MeshPhongMaterial({
+                    color: 0x8b4513,
+                    roughness: 0.7,
+                    metalness: 0.1
+                });
+                const pot = new THREE.Mesh(potGeo, potMat);
+                pot.position.y = 3;
+                pot.castShadow = true;
+                pot.receiveShadow = true;
                 group.add(pot);
 
-                // Stem
-                const stem = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.5, 0.5, 10),
-                    new THREE.MeshPhongMaterial({ color: 0x228b22 })
-                );
-                stem.position.y = 10;
+                // Pot rim
+                const rimGeo = new THREE.TorusGeometry(5, 0.5, 8, 12);
+                const rim = new THREE.Mesh(rimGeo, potMat);
+                rim.position.y = 6;
+                rim.rotation.x = Math.PI / 2;
+                group.add(rim);
+
+                // Stem with gradient
+                const stemGeo = new THREE.CylinderGeometry(0.4, 0.6, 12, 8);
+                const stemMat = new THREE.MeshPhongMaterial({
+                    color: 0x228b22,
+                    emissive: 0x0a3d0a,
+                    emissiveIntensity: 0.2
+                });
+                const stem = new THREE.Mesh(stemGeo, stemMat);
+                stem.position.y = 12;
                 group.add(stem);
 
-                // Flower petals
+                // Enhanced flower petals
                 this.petals = [];
-                const petalCount = 6;
+                const petalCount = 8;
+                const petalGeo = new THREE.SphereGeometry(2.5, 8, 6);
+
                 for(let i = 0; i < petalCount; i++) {
-                    const petal = new THREE.Mesh(
-                        new THREE.SphereGeometry(2, 4, 4),
-                        new THREE.MeshPhongMaterial({ color: 0xff1493 })
-                    );
+                    const petalMat = new THREE.MeshPhongMaterial({
+                        color: new THREE.Color().setHSL(0.95, 0.8, 0.6),
+                        emissive: 0xff1493,
+                        emissiveIntensity: 0.1
+                    });
+                    const petal = new THREE.Mesh(petalGeo, petalMat);
                     const angle = (i / petalCount) * Math.PI * 2;
                     petal.position.set(
-                        Math.cos(angle) * 3,
-                        15,
-                        Math.sin(angle) * 3
+                        Math.cos(angle) * 4,
+                        18,
+                        Math.sin(angle) * 4
                     );
-                    petal.scale.set(1, 0.5, 1);
+                    petal.scale.set(1.2, 0.6, 1);
+                    petal.rotation.z = angle;
                     group.add(petal);
                     this.petals.push(petal);
                 }
 
-                // Center
-                const center = new THREE.Mesh(
-                    new THREE.SphereGeometry(1.5, 8, 8),
-                    new THREE.MeshPhongMaterial({ color: 0xffff00 })
-                );
-                center.position.y = 15;
+                // Glowing center
+                const centerGeo = new THREE.SphereGeometry(2, 12, 8);
+                const centerMat = new THREE.MeshPhongMaterial({
+                    color: 0xffff00,
+                    emissive: 0xffaa00,
+                    emissiveIntensity: 0.5
+                });
+                const center = new THREE.Mesh(centerGeo, centerMat);
+                center.position.y = 18;
                 group.add(center);
+
+                // Add glow effect
+                const glowGeo = new THREE.SphereGeometry(3, 8, 8);
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color: 0xffff00,
+                    transparent: true,
+                    opacity: 0.3
+                });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                glow.position.y = 18;
+                group.add(glow);
 
                 this.pointValue = 10;
 
             } else if(type === 'tree') {
-                // Trunk
-                const trunk = new THREE.Mesh(
-                    new THREE.CylinderGeometry(3, 4, 20),
-                    new THREE.MeshPhongMaterial({ color: 0x4a3c28 })
-                );
-                trunk.position.y = 10;
+                // Realistic trunk with bark texture
+                const trunkGeo = new THREE.CylinderGeometry(4, 5, 25, 10, 1);
+                const trunkMat = new THREE.MeshPhongMaterial({
+                    color: 0x4a3c28,
+                    roughness: 0.9,
+                    metalness: 0
+                });
+
+                // Deform trunk for realism
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 12.5;
+                trunk.castShadow = true;
                 group.add(trunk);
 
-                // Foliage
-                this.foliage = new THREE.Mesh(
-                    new THREE.SphereGeometry(12, 8, 6),
-                    new THREE.MeshPhongMaterial({
-                        color: 0x228b22,
-                        flatShading: true
-                    })
-                );
-                this.foliage.position.y = 25;
-                group.add(this.foliage);
+                // Multiple foliage layers
+                this.foliageLayers = [];
+                for(let i = 0; i < 3; i++) {
+                    const foliageGeo = new THREE.DodecahedronGeometry(10 - i * 2, 1);
+                    const foliageMat = new THREE.MeshPhongMaterial({
+                        color: new THREE.Color().setHSL(0.25, 0.8, 0.3 - i * 0.05),
+                        flatShading: true,
+                        emissive: 0x0a4d0a,
+                        emissiveIntensity: 0.1
+                    });
+                    const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+                    foliage.position.y = 28 + i * 5;
+                    foliage.rotation.y = Math.random() * Math.PI;
+                    foliage.castShadow = true;
+                    group.add(foliage);
+                    this.foliageLayers.push(foliage);
+                }
 
+                this.foliage = this.foliageLayers[0];
                 this.pointValue = 20;
 
             } else if(type === 'bush') {
-                // Bush body
-                this.bush = new THREE.Mesh(
-                    new THREE.SphereGeometry(8, 6, 5),
-                    new THREE.MeshPhongMaterial({
-                        color: 0x2d5016,
-                        flatShading: true
-                    })
-                );
-                this.bush.position.y = 5;
-                this.bush.scale.set(1.5, 0.8, 1.5);
+                // Detailed bush
+                const bushGeo = new THREE.IcosahedronGeometry(10, 1);
+                const bushMat = new THREE.MeshPhongMaterial({
+                    color: 0x2d5016,
+                    flatShading: true,
+                    emissive: 0x1a300d,
+                    emissiveIntensity: 0.2
+                });
+                this.bush = new THREE.Mesh(bushGeo, bushMat);
+                this.bush.position.y = 8;
+                this.bush.scale.set(1.8, 1, 1.8);
+                this.bush.castShadow = true;
                 group.add(this.bush);
 
-                // Berries
-                for(let i = 0; i < 5; i++) {
-                    const berry = new THREE.Mesh(
-                        new THREE.SphereGeometry(0.5),
-                        new THREE.MeshPhongMaterial({ color: 0xff0000 })
+                // Add flowers on bush
+                for(let i = 0; i < 8; i++) {
+                    const flowerGeo = new THREE.SphereGeometry(0.8, 6, 6);
+                    const flowerMat = new THREE.MeshPhongMaterial({
+                        color: new THREE.Color().setHSL(Math.random() * 0.1 + 0.9, 0.9, 0.7),
+                        emissive: 0xff00ff,
+                        emissiveIntensity: 0.3
+                    });
+                    const flower = new THREE.Mesh(flowerGeo, flowerMat);
+                    flower.position.set(
+                        (Math.random() - 0.5) * 15,
+                        5 + Math.random() * 8,
+                        (Math.random() - 0.5) * 15
                     );
-                    berry.position.set(
-                        (Math.random() - 0.5) * 10,
-                        3 + Math.random() * 5,
-                        (Math.random() - 0.5) * 10
-                    );
-                    group.add(berry);
+                    group.add(flower);
                 }
 
                 this.pointValue = 15;
             }
 
-            // Indicator light (shows if plant needs water)
-            this.indicator = new THREE.PointLight(0xff0000, 2, 30);
-            this.indicator.position.y = 30;
+            // Enhanced indicator light with pulsing
+            this.indicator = new THREE.PointLight(0xff0000, 3, 40);
+            this.indicator.position.y = 35;
             group.add(this.indicator);
 
-            // "Need water" icon
-            const iconGeo = new THREE.PlaneGeometry(10, 10);
-            const iconMat = new THREE.MeshBasicMaterial({
+            // 3D water drop icon
+            const dropGroup = new THREE.Group();
+            const dropGeo = new THREE.SphereGeometry(3, 8, 8);
+            const dropMat = new THREE.MeshPhongMaterial({
+                color: 0x00aaff,
                 transparent: true,
                 opacity: 0.8,
-                side: THREE.DoubleSide,
-                map: this.createWaterIcon()
+                emissive: 0x0088ff,
+                emissiveIntensity: 0.3
             });
-            this.waterIcon = new THREE.Mesh(iconGeo, iconMat);
-            this.waterIcon.position.y = 35;
-            group.add(this.waterIcon);
+            const drop = new THREE.Mesh(dropGeo, dropMat);
+            drop.scale.set(1, 1.5, 1);
+            dropGroup.add(drop);
+
+            const dropTip = new THREE.Mesh(
+                new THREE.ConeGeometry(2, 4, 8),
+                dropMat
+            );
+            dropTip.position.y = -3;
+            dropTip.rotation.x = Math.PI;
+            dropGroup.add(dropTip);
+
+            dropGroup.position.y = 40;
+            this.waterIcon = dropGroup;
+            group.add(dropGroup);
 
             this.mesh = group;
             this.mesh.position.copy(position);
             scene.add(this.mesh);
 
             this.updateAppearance();
-        }
-
-        createWaterIcon() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-
-            ctx.fillStyle = '#00aaff';
-            ctx.font = 'bold 48px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('💧', 32, 32);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            return texture;
         }
 
         water(amount) {
@@ -479,13 +723,9 @@
                 stats.plantsWatered++;
                 stats.score += this.pointValue;
 
-                // Show score popup
                 showScorePopup(this.mesh.position, `+${this.pointValue}`);
+                createWaterSplash(this.mesh.position, 30);
 
-                // Celebration effect
-                createWaterSplash(this.mesh.position);
-
-                // Update HUD
                 updateHUD();
 
                 return this.pointValue;
@@ -498,128 +738,225 @@
         updateAppearance() {
             const healthRatio = this.health / 100;
 
-            // Update plant color based on health
             if(this.type === 'flower') {
-                this.petals.forEach(petal => {
-                    const color = new THREE.Color().lerpColors(
-                        new THREE.Color(0x8b4513), // Brown (dry)
-                        new THREE.Color(0xff1493), // Pink (healthy)
-                        healthRatio
-                    );
-                    petal.material.color = color;
+                this.petals.forEach((petal, i) => {
+                    const hue = 0.95 - (1 - healthRatio) * 0.8;
+                    const sat = healthRatio * 0.8;
+                    const light = 0.3 + healthRatio * 0.3;
+                    petal.material.color.setHSL(hue, sat, light);
+                    petal.material.emissiveIntensity = healthRatio * 0.2;
                 });
-            } else if(this.type === 'tree' && this.foliage) {
-                const color = new THREE.Color().lerpColors(
-                    new THREE.Color(0x8b4513), // Brown (dry)
-                    new THREE.Color(0x228b22), // Green (healthy)
-                    healthRatio
-                );
-                this.foliage.material.color = color;
+            } else if(this.type === 'tree' && this.foliageLayers) {
+                this.foliageLayers.forEach((foliage, i) => {
+                    const hue = 0.25 - (1 - healthRatio) * 0.15;
+                    const sat = healthRatio * 0.8;
+                    const light = 0.2 + healthRatio * 0.2;
+                    foliage.material.color.setHSL(hue, sat, light);
+                });
             } else if(this.type === 'bush' && this.bush) {
-                const color = new THREE.Color().lerpColors(
-                    new THREE.Color(0x8b4513), // Brown (dry)
-                    new THREE.Color(0x2d5016), // Dark green (healthy)
-                    healthRatio
-                );
-                this.bush.material.color = color;
+                const hue = 0.25 - (1 - healthRatio) * 0.15;
+                const sat = healthRatio * 0.7;
+                const light = 0.2 + healthRatio * 0.2;
+                this.bush.material.color.setHSL(hue, sat, light);
             }
 
-            // Update indicator
             if(this.watered) {
                 this.indicator.color.setHex(0x00ff00);
-                this.indicator.intensity = 1;
+                this.indicator.intensity = 1.5;
                 this.waterIcon.visible = false;
             } else {
-                const color = new THREE.Color().lerpColors(
-                    new THREE.Color(0xff0000), // Red (needs water)
-                    new THREE.Color(0xffff00), // Yellow (partially watered)
-                    healthRatio
-                );
-                this.indicator.color = color;
-                this.indicator.intensity = 2 - healthRatio;
+                const r = 1;
+                const g = healthRatio;
+                const b = 0;
+                this.indicator.color.setRGB(r, g, b);
+                this.indicator.intensity = 3 - healthRatio * 1.5;
                 this.waterIcon.visible = true;
             }
         }
 
         update() {
-            // Rotate water icon
-            if(this.waterIcon.visible) {
-                this.waterIcon.rotation.y += 0.02;
-                this.waterIcon.position.y = 35 + Math.sin(Date.now() * 0.002) * 2;
+            if(this.waterIcon && this.waterIcon.visible) {
+                this.waterIcon.rotation.y += 0.03;
+                this.waterIcon.position.y = 40 + Math.sin(Date.now() * 0.003) * 3;
+
+                // Pulsing effect
+                const pulse = 0.8 + Math.sin(Date.now() * 0.005) * 0.2;
+                this.waterIcon.scale.setScalar(pulse);
             }
 
-            // Animate watered plants
             if(this.watered) {
                 this.mesh.rotation.y += 0.01;
+
+                // Gentle swaying for watered plants
+                if(this.type === 'flower' && this.petals) {
+                    this.petals.forEach((petal, i) => {
+                        petal.position.y = 18 + Math.sin(Date.now() * 0.002 + i) * 0.5;
+                    });
+                }
+            }
+
+            // Pulsing indicator light
+            if(this.indicator && !this.watered) {
+                this.indicator.intensity = 3 + Math.sin(Date.now() * 0.01) * 1;
             }
         }
     }
 
-    // Player Drone Class
+    // Enhanced Player Drone Class
     class PlayerDrone {
         constructor() {
             const group = new THREE.Group();
 
-            // Main body
-            const bodyGeo = new THREE.OctahedronGeometry(12, 1);
+            // Futuristic body design
+            const bodyGeo = new THREE.OctahedronGeometry(15, 2);
             const bodyMat = new THREE.MeshPhongMaterial({
                 color: 0x4facfe,
                 emissive: 0x0066cc,
-                emissiveIntensity: 0.3,
-                metalness: 0.8,
-                roughness: 0.2
+                emissiveIntensity: 0.4,
+                metalness: 0.9,
+                roughness: 0.1,
+                reflectivity: 1
             });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
             group.add(body);
 
-            // Water tank (visible)
-            const tank = new THREE.Mesh(
-                new THREE.SphereGeometry(8, 8, 8),
-                new THREE.MeshPhongMaterial({
-                    color: 0x00aaff,
-                    transparent: true,
-                    opacity: 0.6
-                })
-            );
-            tank.position.y = -8;
+            // Glass cockpit
+            const cockpitGeo = new THREE.SphereGeometry(8, 16, 12);
+            const cockpitMat = new THREE.MeshPhongMaterial({
+                color: 0x88ddff,
+                transparent: true,
+                opacity: 0.6,
+                emissive: 0x4488ff,
+                emissiveIntensity: 0.3,
+                shininess: 100
+            });
+            const cockpit = new THREE.Mesh(cockpitGeo, cockpitMat);
+            cockpit.position.y = 5;
+            cockpit.scale.set(1, 0.7, 1);
+            group.add(cockpit);
+
+            // Animated water tank
+            const tankGeo = new THREE.SphereGeometry(10, 16, 16);
+            const tankMat = new THREE.MeshPhongMaterial({
+                color: 0x00aaff,
+                transparent: true,
+                opacity: 0.5,
+                emissive: 0x0088ff,
+                emissiveIntensity: 0.2
+            });
+            const tank = new THREE.Mesh(tankGeo, tankMat);
+            tank.position.y = -10;
+            tank.scale.set(0.8, 1, 0.8);
             group.add(tank);
             this.waterTank = tank;
 
-            // Rotors
+            // Water level indicator inside tank
+            const waterGeo = new THREE.SphereGeometry(9, 16, 16);
+            const waterMat = new THREE.MeshPhongMaterial({
+                color: 0x00d4ff,
+                transparent: true,
+                opacity: 0.8,
+                emissive: 0x00aaff,
+                emissiveIntensity: 0.5
+            });
+            this.waterLevel = new THREE.Mesh(waterGeo, waterMat);
+            this.waterLevel.position.y = -10;
+            this.waterLevel.scale.set(0.8, 1, 0.8);
+            group.add(this.waterLevel);
+
+            // Enhanced rotors with blur effect
             this.rotors = [];
+            this.rotorBlurs = [];
             for(let i = 0; i < 4; i++) {
                 const angle = (i/4) * Math.PI * 2;
-                const rotor = new THREE.Mesh(
-                    new THREE.BoxGeometry(12, 0.5, 3),
-                    new THREE.MeshBasicMaterial({
-                        color: 0x222222,
-                        transparent: true,
-                        opacity: 0.8
-                    })
-                );
-                rotor.position.x = Math.cos(angle) * 15;
-                rotor.position.z = Math.sin(angle) * 15;
-                rotor.position.y = 5;
+
+                // Rotor arm
+                const armGeo = new THREE.BoxGeometry(20, 2, 3);
+                const armMat = new THREE.MeshPhongMaterial({
+                    color: 0x2a2a2a,
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+                const arm = new THREE.Mesh(armGeo, armMat);
+                arm.position.x = Math.cos(angle) * 10;
+                arm.position.z = Math.sin(angle) * 10;
+                arm.position.y = 3;
+                arm.rotation.y = angle;
+                group.add(arm);
+
+                // Rotor blade
+                const rotorGeo = new THREE.BoxGeometry(15, 0.5, 4);
+                const rotorMat = new THREE.MeshBasicMaterial({
+                    color: 0x111111,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const rotor = new THREE.Mesh(rotorGeo, rotorMat);
+                rotor.position.x = Math.cos(angle) * 18;
+                rotor.position.z = Math.sin(angle) * 18;
+                rotor.position.y = 6;
                 group.add(rotor);
                 this.rotors.push(rotor);
+
+                // Rotor blur effect
+                const blurGeo = new THREE.CylinderGeometry(15, 15, 0.2, 32);
+                const blurMat = new THREE.MeshBasicMaterial({
+                    color: 0x333333,
+                    transparent: true,
+                    opacity: 0.2
+                });
+                const blur = new THREE.Mesh(blurGeo, blurMat);
+                blur.position.x = Math.cos(angle) * 18;
+                blur.position.z = Math.sin(angle) * 18;
+                blur.position.y = 6;
+                group.add(blur);
+                this.rotorBlurs.push(blur);
             }
 
-            // Water sprayer
-            const sprayer = new THREE.Mesh(
-                new THREE.ConeGeometry(3, 8, 8),
-                new THREE.MeshPhongMaterial({ color: 0x00ffff })
-            );
-            sprayer.position.y = -10;
+            // Advanced water sprayer
+            const sprayerGeo = new THREE.ConeGeometry(4, 10, 12);
+            const sprayerMat = new THREE.MeshPhongMaterial({
+                color: 0x00ffff,
+                emissive: 0x00aaff,
+                emissiveIntensity: 0.3,
+                metalness: 0.7,
+                roughness: 0.3
+            });
+            const sprayer = new THREE.Mesh(sprayerGeo, sprayerMat);
+            sprayer.position.y = -15;
             sprayer.rotation.x = Math.PI;
             group.add(sprayer);
 
-            // Spotlight
-            const spotlight = new THREE.SpotLight(0xffffff, 1, 300, Math.PI/4, 0.3, 1);
-            spotlight.position.set(0, -5, 10);
+            // LED lights
+            const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00];
+            for(let i = 0; i < 4; i++) {
+                const angle = (i/4) * Math.PI * 2;
+                const led = new THREE.PointLight(colors[i], 0.5, 20);
+                led.position.x = Math.cos(angle) * 12;
+                led.position.z = Math.sin(angle) * 12;
+                group.add(led);
+            }
+
+            // Main spotlight
+            const spotlight = new THREE.SpotLight(0xffffff, 2, 500, Math.PI/6, 0.3, 1);
+            spotlight.position.set(0, -10, 15);
             spotlight.target.position.set(0, -100, 100);
             spotlight.castShadow = true;
+            spotlight.shadow.mapSize.width = 1024;
+            spotlight.shadow.mapSize.height = 1024;
             group.add(spotlight);
             group.add(spotlight.target);
+
+            // Drone glow effect
+            const glowGeo = new THREE.SphereGeometry(20, 12, 12);
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: 0x4facfe,
+                transparent: true,
+                opacity: 0.2
+            });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            group.add(glow);
 
             this.mesh = group;
             this.mesh.position.set(0, 100, 0);
@@ -631,16 +968,18 @@
         }
 
         update() {
-            // Rotate rotors
-            this.rotors.forEach(rotor => {
-                rotor.rotation.y += 0.5;
+            // Animate rotors with speed variation
+            const rotorSpeed = 0.6 + this.velocity.length() * 2;
+            this.rotors.forEach((rotor, i) => {
+                rotor.rotation.y += rotorSpeed;
+                this.rotorBlurs[i].rotation.y += rotorSpeed * 0.5;
+                this.rotorBlurs[i].visible = rotorSpeed > 0.8;
             });
 
-            // Movement
-            const moveSpeed = 0.4;
-            const rotSpeed = 0.04;
+            // Movement with improved physics
+            const moveSpeed = 0.5;
+            const rotSpeed = 0.05;
 
-            // Rotation
             if(keys['arrowleft']) {
                 this.mesh.rotation.y += rotSpeed;
             }
@@ -648,48 +987,50 @@
                 this.mesh.rotation.y -= rotSpeed;
             }
 
-            // Forward/Backward
             if(keys['arrowup']) {
                 this.velocity.x -= Math.sin(this.mesh.rotation.y) * moveSpeed;
                 this.velocity.z -= Math.cos(this.mesh.rotation.y) * moveSpeed;
             }
             if(keys['arrowdown']) {
-                this.velocity.x += Math.sin(this.mesh.rotation.y) * moveSpeed * 0.5;
-                this.velocity.z += Math.cos(this.mesh.rotation.y) * moveSpeed * 0.5;
+                this.velocity.x += Math.sin(this.mesh.rotation.y) * moveSpeed * 0.6;
+                this.velocity.z += Math.cos(this.mesh.rotation.y) * moveSpeed * 0.6;
             }
 
-            // Altitude
             if(keys[' ']) {
-                this.velocity.y = moveSpeed * 2;
+                this.velocity.y = moveSpeed * 2.5;
             } else if(keys['shift']) {
-                this.velocity.y = -moveSpeed * 2;
+                this.velocity.y = -moveSpeed * 2.5;
             } else {
-                this.velocity.y *= 0.8;
+                this.velocity.y *= 0.85;
             }
 
-            // Apply drag
-            this.velocity.x *= 0.88;
-            this.velocity.z *= 0.88;
+            // Advanced physics drag
+            this.velocity.x *= 0.92;
+            this.velocity.z *= 0.92;
 
-            // Update position
             this.mesh.position.add(this.velocity);
 
             // Boundaries
             const mapLimit = MAP_SIZE/2 - 50;
             this.mesh.position.x = Math.max(-mapLimit, Math.min(mapLimit, this.mesh.position.x));
             this.mesh.position.z = Math.max(-mapLimit, Math.min(mapLimit, this.mesh.position.z));
-            this.mesh.position.y = Math.max(20, Math.min(400, this.mesh.position.y));
+            this.mesh.position.y = Math.max(20, Math.min(500, this.mesh.position.y));
 
-            // Visual tilt
-            const targetTiltX = -this.velocity.z * 0.05;
-            const targetTiltZ = -this.velocity.x * 0.05;
-            this.mesh.rotation.x += (targetTiltX - this.mesh.rotation.x) * 0.1;
-            this.mesh.rotation.z += (targetTiltZ - this.mesh.rotation.z) * 0.1;
+            // Dynamic tilt
+            const targetTiltX = -this.velocity.z * 0.08;
+            const targetTiltZ = -this.velocity.x * 0.08;
+            this.mesh.rotation.x += (targetTiltX - this.mesh.rotation.x) * 0.15;
+            this.mesh.rotation.z += (targetTiltZ - this.mesh.rotation.z) * 0.15;
 
-            // Update water tank visual
+            // Animate water tank
             const waterRatio = stats.waterLevel / 100;
-            this.waterTank.scale.setScalar(0.5 + waterRatio * 0.5);
-            this.waterTank.material.opacity = 0.3 + waterRatio * 0.3;
+            this.waterLevel.scale.y = 0.3 + waterRatio * 0.7;
+            this.waterLevel.position.y = -10 - (1 - waterRatio) * 5;
+            this.waterTank.material.opacity = 0.3 + waterRatio * 0.4;
+
+            // Water tank glow effect
+            this.waterTank.material.emissiveIntensity = waterRatio * 0.3;
+            this.waterLevel.material.emissiveIntensity = waterRatio * 0.5;
 
             // Update HUD
             document.getElementById('posX').textContent = Math.floor(this.mesh.position.x);
@@ -699,199 +1040,359 @@
 
         waterPlants() {
             const now = Date.now();
-            if(now - this.lastWater < 100) return;
+            if(now - this.lastWater < 80) return;
             if(stats.waterLevel <= 0) {
-                showModeIndicator("💧 Réservoir vide! Rechargez au lac!");
+                showModeIndicator("💧 Réservoir vide! Direction le lac!");
                 return;
             }
 
-            // Create water drops
-            for(let i = 0; i < 3; i++) {
-                const drop = new THREE.Mesh(
-                    new THREE.SphereGeometry(1),
-                    new THREE.MeshPhongMaterial({
-                        color: 0x00aaff,
-                        transparent: true,
-                        opacity: 0.8
-                    })
-                );
+            // Create realistic water spray
+            for(let i = 0; i < 5; i++) {
+                const dropGeo = new THREE.SphereGeometry(0.8 + Math.random() * 0.5);
+                const dropMat = new THREE.MeshPhongMaterial({
+                    color: 0x00aaff,
+                    transparent: true,
+                    opacity: 0.9,
+                    emissive: 0x0088ff,
+                    emissiveIntensity: 0.3
+                });
+                const drop = new THREE.Mesh(dropGeo, dropMat);
                 drop.position.copy(this.mesh.position);
-                drop.position.y -= 10;
+                drop.position.y -= 15;
+
+                const spread = 3;
                 drop.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 2,
-                    -5,
-                    (Math.random() - 0.5) * 2
+                    (Math.random() - 0.5) * spread,
+                    -8 - Math.random() * 2,
+                    (Math.random() - 0.5) * spread
                 );
-                drop.life = 30;
+                drop.life = 40;
                 scene.add(drop);
                 waterDrops.push(drop);
             }
 
-            // Consume water
-            stats.waterLevel = Math.max(0, stats.waterLevel - 1);
+            stats.waterLevel = Math.max(0, stats.waterLevel - 0.8);
             updateHUD();
             this.lastWater = now;
 
-            // Check for plants to water
+            // Check for plants to water with distance-based effectiveness
             plants.forEach(plant => {
                 const dist = plant.mesh.position.distanceTo(this.mesh.position);
-                if(dist < 50 && this.mesh.position.y < 100) {
-                    plant.water(5);
+                if(dist < 60 && this.mesh.position.y < 120) {
+                    const effectiveness = Math.max(0, 1 - (dist / 60));
+                    plant.water(8 * effectiveness);
                 }
             });
         }
 
         refillWater() {
-            // Check if near water source
-            if(waterRefillStation) {
-                const dist = this.mesh.position.distanceTo(waterRefillStation.position);
-                if(dist < 50 && this.mesh.position.y < 50) {
-                    stats.waterLevel = Math.min(100, stats.waterLevel + 2);
-                    updateHUD();
+            if(lakeMesh) {
+                const dist = this.mesh.position.distanceTo(lakeMesh.position);
+                if(dist < 80 && this.mesh.position.y < 60) {
+                    const oldLevel = stats.waterLevel;
+                    stats.waterLevel = Math.min(100, stats.waterLevel + 3);
 
-                    if(stats.waterLevel >= 100) {
+                    if(oldLevel < 100 && stats.waterLevel >= 100) {
                         showModeIndicator("💧 Réservoir plein!");
+                        createWaterSplash(this.mesh.position, 20);
+                    }
+
+                    // Create refill effect
+                    if(Math.random() < 0.3) {
+                        const bubble = new THREE.Mesh(
+                            new THREE.SphereGeometry(Math.random() * 2 + 1),
+                            new THREE.MeshBasicMaterial({
+                                color: 0x00aaff,
+                                transparent: true,
+                                opacity: 0.6
+                            })
+                        );
+                        bubble.position.copy(lakeMesh.position);
+                        bubble.position.x += (Math.random() - 0.5) * 50;
+                        bubble.position.z += (Math.random() - 0.5) * 50;
+                        scene.add(bubble);
+
+                        particles.push({
+                            mesh: bubble,
+                            position: bubble.position,
+                            velocity: new THREE.Vector3(0, 2, 0),
+                            life: 30
+                        });
+                    }
+
+                    updateHUD();
+                }
+            }
+        }
+    }
+
+    // Generate enhanced city map
+    function generateCity() {
+        // Textured ground with grass
+        const groundGeo = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, 50, 50);
+        const groundMat = new THREE.MeshPhongMaterial({
+            color: 0x3a5f0b,
+            roughness: 0.8,
+            metalness: 0.1
+        });
+
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI/2;
+        ground.receiveShadow = true;
+
+        // Add terrain variation
+        const vertices = ground.geometry.attributes.position.array;
+        for(let i = 0; i < vertices.length; i += 3) {
+            vertices[i + 1] = Math.sin(vertices[i] * 0.01) * 5 + Math.cos(vertices[i + 2] * 0.01) * 5;
+        }
+        ground.geometry.computeVertexNormals();
+        scene.add(ground);
+
+        // Beautiful central lake
+        const lakeGeo = new THREE.CircleGeometry(120, 64);
+        const lakeMat = new THREE.MeshPhongMaterial({
+            color: 0x006994,
+            transparent: true,
+            opacity: 0.7,
+            shininess: 100,
+            reflectivity: 1,
+            emissive: 0x004466,
+            emissiveIntensity: 0.1
+        });
+        lakeMesh = new THREE.Mesh(lakeGeo, lakeMat);
+        lakeMesh.rotation.x = -Math.PI/2;
+        lakeMesh.position.y = 0.5;
+        lakeMesh.receiveShadow = true;
+        scene.add(lakeMesh);
+        waterRefillStation = lakeMesh;
+
+        // Lake shore decoration
+        const shoreGeo = new THREE.TorusGeometry(125, 5, 8, 32);
+        const shoreMat = new THREE.MeshPhongMaterial({
+            color: 0x8b7355,
+            roughness: 0.9
+        });
+        const shore = new THREE.Mesh(shoreGeo, shoreMat);
+        shore.rotation.x = -Math.PI/2;
+        shore.position.y = 1;
+        scene.add(shore);
+
+        // Animated fountain
+        const fountainBase = new THREE.Mesh(
+            new THREE.CylinderGeometry(15, 18, 8, 16),
+            new THREE.MeshPhongMaterial({
+                color: 0x808080,
+                metalness: 0.5,
+                roughness: 0.3
+            })
+        );
+        fountainBase.position.y = 4;
+        fountainBase.castShadow = true;
+        scene.add(fountainBase);
+
+        // Fountain water jet
+        const jetGeo = new THREE.CylinderGeometry(1, 2, 20, 8);
+        const jetMat = new THREE.MeshPhongMaterial({
+            color: 0x00aaff,
+            transparent: true,
+            opacity: 0.6,
+            emissive: 0x0088ff,
+            emissiveIntensity: 0.3
+        });
+        const jet = new THREE.Mesh(jetGeo, jetMat);
+        jet.position.y = 15;
+        scene.add(jet);
+
+        // Generate city blocks with roads
+        generateRoads();
+        generateBuildings();
+        generateParks();
+        generatePlants();
+        createClouds();
+    }
+
+    function generateRoads() {
+        const roadMat = new THREE.MeshPhongMaterial({
+            color: 0x333333,
+            roughness: 0.9
+        });
+
+        const linesMat = new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            emissive: 0xffff00
+        });
+
+        for(let i = 1; i < CITY_BLOCKS; i++) {
+            // Main roads
+            const roadH = new THREE.Mesh(
+                new THREE.PlaneGeometry(MAP_SIZE, 40),
+                roadMat
+            );
+            roadH.rotation.x = -Math.PI/2;
+            roadH.position.set(0, 0.2, -MAP_SIZE/2 + i * BLOCK_SIZE);
+            roadH.receiveShadow = true;
+            scene.add(roadH);
+
+            // Road lines
+            const lineH = new THREE.Mesh(
+                new THREE.PlaneGeometry(MAP_SIZE, 2),
+                linesMat
+            );
+            lineH.rotation.x = -Math.PI/2;
+            lineH.position.set(0, 0.3, -MAP_SIZE/2 + i * BLOCK_SIZE);
+            scene.add(lineH);
+
+            const roadV = new THREE.Mesh(
+                new THREE.PlaneGeometry(40, MAP_SIZE),
+                roadMat
+            );
+            roadV.rotation.x = -Math.PI/2;
+            roadV.position.set(-MAP_SIZE/2 + i * BLOCK_SIZE, 0.2, 0);
+            roadV.receiveShadow = true;
+            scene.add(roadV);
+
+            const lineV = new THREE.Mesh(
+                new THREE.PlaneGeometry(2, MAP_SIZE),
+                linesMat
+            );
+            lineV.rotation.x = -Math.PI/2;
+            lineV.position.set(-MAP_SIZE/2 + i * BLOCK_SIZE, 0.3, 0);
+            scene.add(lineV);
+        }
+    }
+
+    function generateBuildings() {
+        for(let i = 0; i < 25; i++) {
+            const width = 50 + Math.random() * 80;
+            const height = 60 + Math.random() * 200;
+            const depth = 50 + Math.random() * 80;
+
+            const buildingGeo = new THREE.BoxGeometry(width, height, depth);
+            const hue = 0.55 + Math.random() * 0.1;
+            const buildingMat = new THREE.MeshPhongMaterial({
+                color: new THREE.Color().setHSL(hue, 0.2, 0.3),
+                metalness: 0.5,
+                roughness: 0.5
+            });
+
+            const building = new THREE.Mesh(buildingGeo, buildingMat);
+
+            let x, z;
+            do {
+                x = (Math.random() - 0.5) * (MAP_SIZE - 200);
+                z = (Math.random() - 0.5) * (MAP_SIZE - 200);
+            } while(Math.sqrt(x*x + z*z) < 200);
+
+            building.position.set(x, height/2, z);
+            building.castShadow = true;
+            building.receiveShadow = true;
+            scene.add(building);
+
+            // Windows with emissive glow
+            const windowRows = Math.floor(height / 15);
+            const windowCols = Math.floor(width / 15);
+
+            for(let row = 1; row < windowRows; row++) {
+                for(let col = 1; col < windowCols; col++) {
+                    if(Math.random() > 0.3) {
+                        const windowGeo = new THREE.PlaneGeometry(8, 10);
+                        const windowMat = new THREE.MeshBasicMaterial({
+                            color: 0xffffaa,
+                            emissive: 0xffff88,
+                            emissiveIntensity: Math.random()
+                        });
+                        const window = new THREE.Mesh(windowGeo, windowMat);
+                        window.position.set(
+                            x + (col - windowCols/2) * 15,
+                            row * 15,
+                            z + depth/2 + 0.1
+                        );
+                        scene.add(window);
                     }
                 }
             }
         }
     }
 
-    // Generate city map with plants
-    function generateCity() {
-        // Ground
-        const groundGeo = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE);
-        const groundMat = new THREE.MeshPhongMaterial({
-            color: 0x3a5f0b,
-            roughness: 0.9
-        });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI/2;
-        ground.receiveShadow = true;
-        scene.add(ground);
+    function generateParks() {
+        // Small parks around the city
+        for(let i = 0; i < 5; i++) {
+            const parkSize = 80 + Math.random() * 40;
+            const parkGeo = new THREE.CircleGeometry(parkSize, 32);
+            const parkMat = new THREE.MeshPhongMaterial({
+                color: 0x2d5016,
+                roughness: 0.9
+            });
 
-        // Central lake (water refill station)
-        const lakeMat = new THREE.MeshPhongMaterial({
-            color: 0x006994,
-            transparent: true,
-            opacity: 0.8,
-            shininess: 100
-        });
-        const lake = new THREE.Mesh(
-            new THREE.CircleGeometry(100, 32),
-            lakeMat
-        );
-        lake.rotation.x = -Math.PI/2;
-        lake.position.y = 0.1;
-        scene.add(lake);
-        waterRefillStation = lake;
-
-        // Fountain in center
-        const fountain = new THREE.Mesh(
-            new THREE.CylinderGeometry(10, 12, 5),
-            new THREE.MeshPhongMaterial({ color: 0x808080 })
-        );
-        fountain.position.y = 2.5;
-        scene.add(fountain);
-
-        // Water particle effect for fountain
-        const waterParticles = new THREE.Points(
-            new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(0, 10, 0)
-            ]),
-            new THREE.PointsMaterial({
-                color: 0x00aaff,
-                size: 5,
-                transparent: true,
-                opacity: 0.6
-            })
-        );
-        scene.add(waterParticles);
-
-        // Generate roads
-        const roadMat = new THREE.MeshPhongMaterial({ color: 0x444444 });
-        for(let i = 1; i < CITY_BLOCKS; i++) {
-            // Horizontal roads
-            const roadH = new THREE.Mesh(
-                new THREE.PlaneGeometry(MAP_SIZE, 30),
-                roadMat
-            );
-            roadH.rotation.x = -Math.PI/2;
-            roadH.position.set(0, 0.1, -MAP_SIZE/2 + i * BLOCK_SIZE);
-            scene.add(roadH);
-
-            // Vertical roads
-            const roadV = new THREE.Mesh(
-                new THREE.PlaneGeometry(30, MAP_SIZE),
-                roadMat
-            );
-            roadV.rotation.x = -Math.PI/2;
-            roadV.position.set(-MAP_SIZE/2 + i * BLOCK_SIZE, 0.1, 0);
-            scene.add(roadV);
-        }
-
-        // Generate buildings and plants
-        generateBuildings();
-        generatePlants();
-    }
-
-    function generateBuildings() {
-        for(let i = 0; i < 20; i++) {
-            const building = new THREE.Mesh(
-                new THREE.BoxGeometry(
-                    40 + Math.random() * 60,
-                    50 + Math.random() * 150,
-                    40 + Math.random() * 60
-                ),
-                new THREE.MeshPhongMaterial({
-                    color: new THREE.Color().setHSL(0.6, 0.1, 0.3 + Math.random() * 0.2)
-                })
+            const park = new THREE.Mesh(parkGeo, parkMat);
+            park.rotation.x = -Math.PI/2;
+            park.position.set(
+                (Math.random() - 0.5) * (MAP_SIZE - 400),
+                0.1,
+                (Math.random() - 0.5) * (MAP_SIZE - 400)
             );
 
-            const x = (Math.random() - 0.5) * (MAP_SIZE - 200);
-            const z = (Math.random() - 0.5) * (MAP_SIZE - 200);
+            if(park.position.length() > 200) {
+                park.receiveShadow = true;
+                scene.add(park);
 
-            // Avoid center lake area
-            if(Math.abs(x) > 150 || Math.abs(z) > 150) {
-                building.position.set(x, building.geometry.parameters.height/2, z);
-                building.castShadow = true;
-                building.receiveShadow = true;
-                scene.add(building);
+                // Add trees to parks
+                const treeCount = 3 + Math.floor(Math.random() * 5);
+                for(let j = 0; j < treeCount; j++) {
+                    const angle = (j / treeCount) * Math.PI * 2;
+                    const dist = parkSize * 0.3 + Math.random() * parkSize * 0.4;
+
+                    const treeGeo = new THREE.ConeGeometry(8, 20, 8);
+                    const treeMat = new THREE.MeshPhongMaterial({
+                        color: 0x0d5016,
+                        flatShading: true
+                    });
+                    const tree = new THREE.Mesh(treeGeo, treeMat);
+                    tree.position.set(
+                        park.position.x + Math.cos(angle) * dist,
+                        10,
+                        park.position.z + Math.sin(angle) * dist
+                    );
+                    tree.castShadow = true;
+                    scene.add(tree);
+                }
             }
         }
     }
 
     function generatePlants() {
-        // Clear existing plants
         plants.forEach(plant => {
             scene.remove(plant.mesh);
         });
         plants = [];
 
-        const plantCount = 15 + currentLevel * 5; // More plants each level
+        const plantCount = 20 + currentLevel * 5;
 
         for(let i = 0; i < plantCount; i++) {
             const types = ['flower', 'tree', 'bush'];
-            const type = types[Math.floor(Math.random() * types.length)];
+            const weights = [0.5, 0.3, 0.2];
+            const random = Math.random();
+            let type = 'flower';
+
+            if(random < weights[0]) type = 'flower';
+            else if(random < weights[0] + weights[1]) type = 'tree';
+            else type = 'bush';
 
             let x, z;
             let validPosition = false;
 
-            // Find valid position (not too close to center or other plants)
             while(!validPosition) {
-                x = (Math.random() - 0.5) * (MAP_SIZE - 100);
-                z = (Math.random() - 0.5) * (MAP_SIZE - 100);
+                x = (Math.random() - 0.5) * (MAP_SIZE - 150);
+                z = (Math.random() - 0.5) * (MAP_SIZE - 150);
 
-                // Check distance from center
-                if(Math.sqrt(x*x + z*z) > 150) {
-                    // Check distance from other plants
+                if(Math.sqrt(x*x + z*z) > 180) {
                     validPosition = true;
                     for(let plant of plants) {
                         const dist = Math.sqrt(
                             Math.pow(x - plant.position.x, 2) +
                             Math.pow(z - plant.position.z, 2)
                         );
-                        if(dist < 50) {
+                        if(dist < 60) {
                             validPosition = false;
                             break;
                         }
@@ -903,30 +1404,64 @@
             plants.push(plant);
         }
 
+
+
         document.getElementById('totalPlants').textContent = plants.length;
     }
 
-    // Effects
-    function createWaterSplash(position) {
-        for(let i = 0; i < 20; i++) {
-            const particle = new THREE.Mesh(
-                new THREE.SphereGeometry(0.5),
-                new THREE.MeshBasicMaterial({
-                    color: 0x00aaff,
-                    transparent: true,
-                    opacity: 0.8
-                })
-            );
+    // Enhanced Effects
+    function createWaterSplash(position, count = 20) {
+        for(let i = 0; i < count; i++) {
+            const particleGeo = new THREE.SphereGeometry(Math.random() * 1 + 0.5);
+            const particleMat = new THREE.MeshPhongMaterial({
+                color: 0x00aaff,
+                transparent: true,
+                opacity: 0.9,
+                emissive: 0x0088ff,
+                emissiveIntensity: 0.4
+            });
+            const particle = new THREE.Mesh(particleGeo, particleMat);
             particle.position.copy(position);
             particle.velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 5,
-                Math.random() * 10,
-                (Math.random() - 0.5) * 5
+                (Math.random() - 0.5) * 8,
+                Math.random() * 15,
+                (Math.random() - 0.5) * 8
             );
-            particle.life = 30;
+            particle.life = 40;
             scene.add(particle);
-            particles.push(particle);
+            particles.push({
+                mesh: particle,
+                position: particle.position,
+                velocity: particle.velocity,
+                life: particle.life
+            });
         }
+
+        // Add water ring effect
+        const ringGeo = new THREE.TorusGeometry(5, 0.5, 8, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x00aaff,
+            transparent: true,
+            opacity: 0.6
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.copy(position);
+        ring.position.y = 1;
+        ring.rotation.x = Math.PI / 2;
+        scene.add(ring);
+
+        // Animate ring expansion
+        const animateRing = () => {
+            ring.scale.x += 0.5;
+            ring.scale.y += 0.5;
+            ring.material.opacity -= 0.02;
+            if(ring.material.opacity > 0) {
+                requestAnimationFrame(animateRing);
+            } else {
+                scene.remove(ring);
+            }
+        };
+        animateRing();
     }
 
     function showScorePopup(position, text) {
@@ -944,19 +1479,19 @@
         popup.style.top = y + 'px';
 
         document.body.appendChild(popup);
-        setTimeout(() => popup.remove(), 1500);
+        setTimeout(() => popup.remove(), 2000);
     }
 
     function showModeIndicator(text) {
         const indicator = document.createElement('div');
         indicator.className = 'mode-indicator';
         indicator.textContent = text;
-        indicator.style.color = '#00ff00';
+        indicator.style.color = mode === 'combat' ? '#ff6666' : '#00ffaa';
         document.body.appendChild(indicator);
-        setTimeout(() => indicator.remove(), 2000);
+        setTimeout(() => indicator.remove(), 2500);
     }
 
-    // Game management
+    // Game Management
     function startWateringMode() {
         mode = 'watering';
         stats.plantsWatered = 0;
@@ -964,36 +1499,37 @@
         startTime = Date.now();
         generatePlants();
 
-        // Remove enemies if any
-        enemies.forEach(enemy => scene.remove(enemy.mesh));
+        enemies.forEach(enemy => scene.remove(enemy.mesh || enemy));
         enemies = [];
 
         document.getElementById('gameMode').textContent = 'ARROSAGE';
-        showModeIndicator("💧 Mode Arrosage - Trouvez les plantes!");
+        showModeIndicator("💧 Mode Arrosage - Sauvez les plantes!");
         updateHUD();
     }
 
     function startCombatMode() {
         mode = 'combat';
         document.getElementById('gameMode').textContent = 'COMBAT';
-        showModeIndicator("⚔️ Mode Combat activé!");
-
-        // Spawn enemies
+        showModeIndicator("⚔️ Mode Combat - Défendez le jardin!");
         spawnEnemies();
     }
 
     function spawnEnemies() {
-        // Basic enemy spawning for combat mode
-        for(let i = 0; i < 5; i++) {
-            const enemy = new THREE.Mesh(
-                new THREE.OctahedronGeometry(10),
-                new THREE.MeshPhongMaterial({ color: 0xff0000 })
-            );
+        for(let i = 0; i < 8; i++) {
+            const enemyGeo = new THREE.DodecahedronGeometry(12, 0);
+            const enemyMat = new THREE.MeshPhongMaterial({
+                color: 0xff0000,
+                emissive: 0xaa0000,
+                emissiveIntensity: 0.3
+            });
+            const enemy = new THREE.Mesh(enemyGeo, enemyMat);
             enemy.position.set(
-                (Math.random() - 0.5) * 500,
-                50 + Math.random() * 100,
-                (Math.random() - 0.5) * 500
+                (Math.random() - 0.5) * 600,
+                50 + Math.random() * 150,
+                (Math.random() - 0.5) * 600
             );
+            enemy.velocity = new THREE.Vector3();
+            enemy.life = 100;
             scene.add(enemy);
             enemies.push(enemy);
         }
@@ -1005,13 +1541,11 @@
         document.getElementById('water').style.width = stats.waterLevel + '%';
         document.getElementById('highScore').textContent = stats.highScore;
 
-        // Update high score
         if(stats.score > stats.highScore) {
             stats.highScore = stats.score;
             localStorage.setItem('droneHighScore', stats.highScore);
         }
 
-        // Check level completion
         if(stats.plantsWatered >= plants.length && plants.length > 0) {
             levelComplete();
         }
@@ -1032,14 +1566,26 @@
         document.getElementById('finalTime').textContent = document.getElementById('timer').textContent;
         completeDiv.style.display = 'block';
 
-        showModeIndicator("🎉 NIVEAU TERMINÉ! Excellent travail!");
+        showModeIndicator("🎉 BRAVO! Niveau terminé!");
+
+        // Celebration effects
+        for(let i = 0; i < 50; i++) {
+            setTimeout(() => {
+                const pos = new THREE.Vector3(
+                    (Math.random() - 0.5) * 200,
+                    Math.random() * 200,
+                    (Math.random() - 0.5) * 200
+                );
+                createWaterSplash(pos, 10);
+            }, i * 50);
+        }
     }
 
     function nextLevel() {
         currentLevel++;
         document.getElementById('levelComplete').style.display = 'none';
         startWateringMode();
-        showModeIndicator(`🌱 NIVEAU ${currentLevel} - ${15 + currentLevel * 5} plantes à arroser!`);
+        showModeIndicator(`🌱 NIVEAU ${currentLevel} - Difficulté augmentée!`);
     }
 
     function restartLevel() {
@@ -1065,7 +1611,7 @@
 
         switch(cameraMode) {
             case 0: // Third person
-                const offset = new THREE.Vector3(0, 50, 100);
+                const offset = new THREE.Vector3(0, 60, 120);
                 offset.applyQuaternion(playerDrone.mesh.quaternion);
                 camera.position.lerp(
                     playerDrone.mesh.position.clone().add(offset),
@@ -1075,7 +1621,7 @@
                 break;
             case 1: // FPS
                 camera.position.copy(playerDrone.mesh.position);
-                camera.position.y += 5;
+                camera.position.y += 8;
                 const lookDir = new THREE.Vector3(0, 0, -100);
                 lookDir.applyQuaternion(playerDrone.mesh.quaternion);
                 camera.lookAt(playerDrone.mesh.position.clone().add(lookDir));
@@ -1083,7 +1629,7 @@
             case 2: // Top down
                 camera.position.set(
                     playerDrone.mesh.position.x,
-                    playerDrone.mesh.position.y + 200,
+                    playerDrone.mesh.position.y + 250,
                     playerDrone.mesh.position.z + 50
                 );
                 camera.lookAt(playerDrone.mesh.position);
@@ -1099,69 +1645,99 @@
 
         ctx.clearRect(0, 0, 200, 200);
 
-        // Grid
+        // Radar grid
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.1)';
+        for(let i = 0; i <= 200; i += 20) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, 200);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(200, i);
+            ctx.stroke();
+        }
+
+        // Radar circles
         ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
-        ctx.beginPath();
-        ctx.moveTo(100, 0);
-        ctx.lineTo(100, 200);
-        ctx.moveTo(0, 100);
-        ctx.lineTo(200, 100);
-        ctx.stroke();
+        for(let r = 25; r <= 100; r += 25) {
+            ctx.beginPath();
+            ctx.arc(100, 100, r, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
-        // Circles
-        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+        // Player drone
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.arc(100, 100, 50, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(100, 100, 90, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.arc(100, 100, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
 
-        // Player
-        ctx.fillStyle = '#4facfe';
-        ctx.fillRect(98, 98, 4, 4);
-
-        // Plants
+        // Plants on radar
         plants.forEach(plant => {
             const dx = (plant.mesh.position.x - playerDrone.mesh.position.x) / 5;
             const dz = (plant.mesh.position.z - playerDrone.mesh.position.z) / 5;
 
             if(Math.abs(dx) < 100 && Math.abs(dz) < 100) {
-                ctx.fillStyle = plant.watered ? '#00ff00' : '#ffff00';
+                if(plant.watered) {
+                    ctx.fillStyle = '#00ff00';
+                    ctx.strokeStyle = '#00ff00';
+                } else {
+                    const healthRatio = plant.health / 100;
+                    const r = Math.floor(255);
+                    const g = Math.floor(255 * healthRatio);
+                    ctx.fillStyle = `rgb(${r}, ${g}, 0)`;
+                    ctx.strokeStyle = ctx.fillStyle;
+                }
+
                 ctx.beginPath();
-                ctx.arc(100 + dx, 100 + dz, 3, 0, Math.PI * 2);
+                ctx.arc(100 + dx, 100 + dz, plant.watered ? 2 : 4, 0, Math.PI * 2);
                 ctx.fill();
+
+                if(!plant.watered) {
+                    ctx.beginPath();
+                    ctx.arc(100 + dx, 100 + dz, 6, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
             }
         });
 
-        // Water source
-        if(waterRefillStation) {
-            const dx = (waterRefillStation.position.x - playerDrone.mesh.position.x) / 5;
-            const dz = (waterRefillStation.position.z - playerDrone.mesh.position.z) / 5;
+        // Water source (lake)
+        if(lakeMesh) {
+            const dx = (lakeMesh.position.x - playerDrone.mesh.position.x) / 5;
+            const dz = (lakeMesh.position.z - playerDrone.mesh.position.z) / 5;
 
             if(Math.abs(dx) < 100 && Math.abs(dz) < 100) {
-                ctx.fillStyle = '#00aaff';
+                ctx.fillStyle = '#0088ff';
                 ctx.beginPath();
-                ctx.arc(100 + dx, 100 + dz, 5, 0, Math.PI * 2);
+                ctx.arc(100 + dx, 100 + dz, 15, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.strokeStyle = '#00aaff';
+                ctx.beginPath();
+                ctx.arc(100 + dx, 100 + dz, 18, 0, Math.PI * 2);
+                ctx.stroke();
             }
         }
 
         // Direction indicator
         ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(100, 100);
         const angle = -playerDrone.mesh.rotation.y;
-        ctx.lineTo(100 + Math.sin(angle) * 20, 100 - Math.cos(angle) * 20);
+        ctx.lineTo(100 + Math.sin(angle) * 25, 100 - Math.cos(angle) * 25);
         ctx.stroke();
+        ctx.lineWidth = 1;
     }
 
-    // Initialize
+    // Initialize game
     playerDrone = new PlayerDrone();
     generateCity();
     startWateringMode();
 
-    // Input handling
+    // Enhanced input handling
     window.addEventListener('keydown', e => {
         keys[e.key.toLowerCase()] = true;
 
@@ -1192,32 +1768,58 @@
         renderer.setSize(innerWidth, innerHeight);
     });
 
-    // Main game loop
+    // Main animation loop
     function animate() {
         requestAnimationFrame(animate);
+
+        const time = Date.now() * 0.001;
 
         // Update player
         if(playerDrone) {
             playerDrone.update();
 
-            // Auto-refill when near water
             if(keys['r']) {
                 playerDrone.refillWater();
             }
         }
 
+        // Animate clouds
+        clouds.forEach(cloud => {
+            cloud.position.x += cloud.userData.speed;
+            if(cloud.position.x > 2000) cloud.position.x = -2000;
+            cloud.rotation.y += 0.001;
+        });
+
         // Update plants
         plants.forEach(plant => plant.update());
 
-        // Update water drops
+        // Update water drops with physics
         waterDrops = waterDrops.filter(drop => {
             drop.position.add(drop.velocity);
-            drop.velocity.y -= 0.3;
+            drop.velocity.y -= 0.4; // Gravity
             drop.life--;
 
-            // Check collision with ground
+            // Add air resistance
+            drop.velocity.x *= 0.98;
+            drop.velocity.z *= 0.98;
+
+            // Water drop trails
+            if(drop.life % 2 === 0) {
+                const trail = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.3),
+                    new THREE.MeshBasicMaterial({
+                        color: 0x00aaff,
+                        transparent: true,
+                        opacity: 0.4
+                    })
+                );
+                trail.position.copy(drop.position);
+                scene.add(trail);
+                setTimeout(() => scene.remove(trail), 200);
+            }
+
             if(drop.position.y <= 0) {
-                createWaterSplash(drop.position);
+                createWaterSplash(drop.position, 5);
                 scene.remove(drop);
                 return false;
             }
@@ -1226,39 +1828,98 @@
                 scene.remove(drop);
                 return false;
             }
+
+            // Scale down as it falls
+            const scale = drop.life / 40;
+            drop.scale.setScalar(scale);
+            drop.material.opacity = 0.9 * scale;
+
             return true;
         });
 
-        // Update particles
-        particles = particles.filter(particle => {
-            particle.position.add(particle.velocity);
-            particle.velocity.y -= 0.3;
-            particle.life--;
-            particle.material.opacity = particle.life / 30;
+        // Update particle effects
+        particles = particles.filter(p => {
+            if(p.mesh && p.velocity) {
+                p.position.add(p.velocity);
+                p.velocity.y -= 0.5;
+                p.life--;
 
-            if(particle.life <= 0) {
-                scene.remove(particle);
-                return false;
+                if(p.mesh.material) {
+                    p.mesh.material.opacity = p.life / 40;
+                }
+
+                if(p.life <= 0) {
+                    scene.remove(p.mesh);
+                    return false;
+                }
             }
             return true;
         });
 
-        // Update zone
+        // Update enemies in combat mode
+        if(mode === 'combat') {
+            enemies = enemies.filter(enemy => {
+                if(enemy && enemy.position) {
+                    // Simple AI movement
+                    const toPlayer = playerDrone.mesh.position.clone().sub(enemy.position);
+                    const dist = toPlayer.length();
+
+                    if(dist > 100) {
+                        toPlayer.normalize();
+                        enemy.velocity.add(toPlayer.multiplyScalar(0.2));
+                    }
+
+                    enemy.velocity.multiplyScalar(0.95);
+                    enemy.position.add(enemy.velocity);
+                    enemy.rotation.x += 0.02;
+                    enemy.rotation.y += 0.03;
+
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        // Dynamic lighting based on time
+        const dayProgress = (Math.sin(time * 0.02) + 1) / 2;
+        sun.intensity = 1.5 + dayProgress * 0.5;
+        sun.position.x = Math.cos(time * 0.02) * 500;
+        sun.position.y = 600 + Math.sin(time * 0.02) * 200;
+
+        // Update sky color
+        sky.material.uniforms.topColor.value.setHSL(0.55, 0.5, 0.5 + dayProgress * 0.2);
+        sky.material.uniforms.bottomColor.value.setHSL(0.08, 0.8, 0.6 + dayProgress * 0.2);
+
+        // Fog density based on altitude
+        if(playerDrone) {
+            const heightFactor = Math.min(playerDrone.mesh.position.y / 500, 1);
+            scene.fog.density = 0.0003 - heightFactor * 0.0002;
+        }
+
+        // Update zone display
         let zone = "Centre Ville";
         if(playerDrone) {
             const px = playerDrone.mesh.position.x;
             const pz = playerDrone.mesh.position.z;
 
-            if(Math.abs(px) < 100 && Math.abs(pz) < 100) {
-                zone = "Lac Central (Recharge 💧)";
+            if(Math.sqrt(px*px + pz*pz) < 120) {
+                zone = "🌊 Lac Central (Recharge 💧)";
+                // Add blue tint when near water
+                if(Math.sqrt(px*px + pz*pz) < 80 && playerDrone.mesh.position.y < 60) {
+                    renderer.toneMappingExposure = 1.6;
+                } else {
+                    renderer.toneMappingExposure = 1.4;
+                }
             } else if(px > MAP_SIZE/3) {
-                zone = "Quartier Est";
+                zone = "🏢 Quartier Est";
             } else if(px < -MAP_SIZE/3) {
-                zone = "Quartier Ouest";
+                zone = "🏛️ Quartier Ouest";
             } else if(pz > MAP_SIZE/3) {
-                zone = "Quartier Nord";
+                zone = "🏭 Zone Industrielle Nord";
             } else if(pz < -MAP_SIZE/3) {
-                zone = "Quartier Sud";
+                zone = "🏘️ Banlieue Sud";
+            } else {
+                zone = "🌆 Centre Ville";
             }
         }
         document.getElementById('zone').textContent = zone;
@@ -1267,10 +1928,20 @@
         updateRadar();
         updateTimer();
 
+        // Render scene
         renderer.render(scene, camera);
     }
 
+    // Start animation
     animate();
+
+    // Initial welcome message
+    setTimeout(() => {
+        showModeIndicator("🌱 Bienvenue! Arrosez les plantes!");
+        setTimeout(() => {
+            showModeIndicator("💧 Rechargez au lac central!");
+        }, 3000);
+    }, 1000);
 </script>
 </body>
 </html>
