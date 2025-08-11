@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Drone Battle Arena - Spectateur (Enhanced + Fix)</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --glass: rgba(12,14,30,.55);
+            --bd: rgba(255,255,255,.08);
+            --blue:#4facfe; --red:#ff6b6b;
+        }
+        body{
+            overflow:hidden;
+            font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Inter,Arial;
+            color:#fff;
+            background:
+                    radial-gradient(1200px 600px at 10% -10%, #4f46e533, transparent),
+                    radial-gradient(1200px 600px at 110% 110%, #06b6d433, transparent),
+                    linear-gradient(135deg,#0b1222,#172a44 55%,#0d1b2a);
+        }
+        canvas{position:absolute;inset:0;z-index:0}
+        .glass{
+            background:var(--glass);
+            border:1px solid var(--bd);
+            backdrop-filter: blur(10px) saturate(120%);
+            box-shadow: 0 10px 30px rgba(0,0,0,.25);
+        }
+        #stats,#teams,#controls{ position:absolute; z-index:5; border-radius:12px; font-size:14px; }
+        #stats{ top:12px; left:12px; padding:14px 16px; min-width:220px }
+        #teams{ top:12px; right:12px; padding:14px 16px }
+        #controls{ bottom:14px; left:50%; transform:translateX(-50%); padding:10px 14px; display:flex; gap:10px }
+        button{
+            padding:8px 14px; border:none; border-radius:10px; cursor:pointer; font-weight:600; color:#fff;
+            background: linear-gradient(135deg,#5865f2,#22d3ee); box-shadow: 0 6px 16px rgba(34,211,238,.25);
+            transition: transform .15s ease, filter .15s ease;
+        }
+        button:hover{ transform: translateY(-1px); filter:brightness(1.06) }
+        .team-blue{ color:var(--blue) } .team-red{ color:var(--red) }
+        #winner{
+            position:absolute; z-index:6; left:50%; top:50%; transform:translate(-50%,-50%);
+            font-size:48px; font-weight:800; letter-spacing:.5px; display:none; text-shadow:0 0 30px rgba(255,255,255,.35);
+            animation:pulse 1s infinite;
+        }
+        @keyframes pulse{ 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.06)} }
+
+        /* Effets visuels (sous l'UI, au-dessus du canvas) */
+        .fx-vignette,.fx-noise{ pointer-events:none; position:fixed; inset:0; z-index:2 }
+        .fx-vignette{
+            background: radial-gradient(1200px 600px at 50% 60%, transparent 55%, rgba(0,0,0,.35) 85%);
+            mix-blend-mode:multiply;
+        }
+        .fx-noise{
+            background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 140 140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.04"/></svg>');
+            opacity:.45; animation: jitter 7s linear infinite;
+        }
+        @keyframes jitter{ 0%{transform:translate(0,0)} 50%{transform:translate(-1%,1%)} 100%{transform:translate(0,0)} }
+
+        /* Message d’erreur WebGL */
+        #error{
+            position:fixed; inset:0; display:none; place-items:center; z-index:10;
+            background: rgba(0,0,0,.8); text-align:center; padding:24px;
+        }
+        #error .box{ max-width:560px } #error h2{ margin-bottom:8px }
+        #error p{ opacity:.85; margin-bottom:12px }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="stats" class="glass">
+    <h3 style="margin-bottom:8px;font-weight:800">⚔️ BATAILLE EN COURS</h3>
+    <div>Durée: <span id="time">0</span>s</div>
+    <div>Tirs: <span id="shots">0</span></div>
+    <div>Éliminations: <span id="kills">0</span></div>
+</div>
+
+<div id="teams" class="glass">
+    <div class="team-blue">🔵 Équipe Bleue: <span id="blue-count">0</span></div>
+    <div class="team-red">🔴 Équipe Rouge: <span id="red-count">0</span></div>
+</div>
+
+<div id="controls" class="glass">
+    <button onclick="startBattle(5)">5v5</button>
+    <button onclick="startBattle(10)">10v10</button>
+    <button onclick="startBattle(20)">20v20 CHAOS</button>
+    <button onclick="toggleCamera()">📷 Vue</button>
+    <button onclick="toggleSpeed()">⏩ x<span id="speed">1</span></button>
+    <button onclick="toggleLite()">⚡ Mode léger</button>
+    <button onclick="togglePhoto()">📸 Mode photo</button>
+</div>
+
+<div id="winner"></div>
+<div class="fx-vignette"></div>
+<div class="fx-noise"></div>
+
+<div id="error">
+    <div class="box">
+        <h2>Votre navigateur ne supporte pas WebGL 🧩</h2>
+        <p>Essayez avec Chrome, Edge, Firefox ou Safari récent. Sur mobile, vérifiez que le “mode économie d’énergie” n’est pas en train de désactiver l’accélération graphique.</p>
+        <p>Vous pouvez aussi activer le <strong>Mode léger</strong> pour soulager la machine.</p>
+        <button onclick="location.reload()">↻ Réessayer</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    let scene, camera, renderer;
+    let drones=[], bullets=[], particles=[];
+    let stats={time:0,shots:0,kills:0};
+    let gameSpeed=1, cameraMode=0, battleStart=0;
+    let boeing=null, lite=false, photo=false;
+    const buildings=[];
+
+    // --- INIT RENDERER + CHECK WEBGL ---
+    (function initRenderer(){
+        try{
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, alpha: true });
+            const gl = renderer.getContext();
+            if(!gl){ throw new Error('no-webgl'); }
+        }catch(e){
+            document.getElementById('error').style.display='grid';
+            window.startBattle = window.toggleCamera = window.toggleSpeed = window.toggleLite = window.togglePhoto = function(){};
+            return;
+        }
+        boot();
+    })();
+
+    function boot(){
+        // --- SCÈNE ---
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x0b1222, 180, 1600);
+
+        camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 1, 3000);
+        camera.position.set(0, 320, 620);
+
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // --- LUMIÈRES ---
+        scene.add(new THREE.AmbientLight(0x223044, .6));
+        const moon = new THREE.DirectionalLight(0x8ab4ff, .8);
+        moon.position.set(300, 500, 200);
+        moon.castShadow = true;
+        moon.shadow.mapSize.set(1024,1024);
+        scene.add(moon);
+        const cityGlow = new THREE.HemisphereLight(0x0ea5e9, 0x0b1222, .35);
+        scene.add(cityGlow);
+
+        // --- SOL + ALLÉES ---
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(1200,1200), new THREE.MeshStandardMaterial({ color:0x1c3922, roughness:.95, metalness:.05 }));
+        ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+        const pathMat = new THREE.MeshStandardMaterial({ color:0x9c8466, roughness:.9, metalness:.05 });
+        [['H',1200,22,0.05],['V',22,1200,0.05]].forEach(([_,w,h,y])=>{
+            const p = new THREE.Mesh(new THREE.PlaneGeometry(w,h), pathMat); p.rotation.x=-Math.PI/2; p.position.y=y; scene.add(p);
+        });
+        for(let i=0;i<2;i++){ const p=new THREE.Mesh(new THREE.PlaneGeometry(16,820), pathMat); p.rotation.x=-Math.PI/2; p.rotation.z=i? -Math.PI/4:Math.PI/4; p.position.y=0.05; scene.add(p); }
+
+        // --- BÂTIMENTS ---
+        (function createBuildings(){
+            const colors=[0x22303e,0x2a3a4a,0x1f2a36,0x1c2631,0x1a2430];
+            for(let x=-500;x<=500;x+=150){
+                for(let z=-500;z<=500;z+=150){
+                    if(Math.abs(x)<150 && Math.abs(z)<150) continue;
+                    const w=40+Math.random()*40, d=40+Math.random()*40, h=90+Math.random()*210;
+                    const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({ color: colors[(Math.random()*colors.length)|0], emissive:0x0b1a2a, emissiveIntensity:.1, roughness:.8, metalness:.2 }));
+                    b.position.set(x+(Math.random()-.5)*26, h/2, z+(Math.random()-.5)*26);
+                    b.castShadow=b.receiveShadow=true; scene.add(b); buildings.push(b);
+                }
+            }
+        })();
+
+        // --- MURS INVISIBLES ---
+        for(let i=0;i<4;i++){
+            const wall=new THREE.Mesh(new THREE.BoxGeometry(i<2?1200:10,500,i<2?10:1200), new THREE.MeshBasicMaterial({visible:false}));
+            wall.position.set(i===1?600:i===3?-600:0,250,i===0?600:i===2?-600:0); scene.add(wall);
+        }
+
+        // --- ÉTOILES ---
+        // IMPORTANT: déclarer AVANT l'appel pour éviter la TDZ
+        let stars = null, starMat = null;
+
+        function makeStars(){
+            const geo=new THREE.BufferGeometry(), n=lite?0:800;
+            if(n===0) return;
+            const pos=new Float32Array(n*3);
+            for(let i=0;i<n;i++){
+                pos[i*3+0]=(Math.random()-0.5)*3000;
+                pos[i*3+1]=400+Math.random()*1200;
+                pos[i*3+2]=(Math.random()-0.5)*3000;
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+            starMat=new THREE.PointsMaterial({ size:1.6, color:0x9ecfff, transparent:true, opacity:.85, depthWrite:false });
+            stars=new THREE.Points(geo, starMat);
+            scene.add(stars);
+        }
+        function setStarsVisible(v){ if(stars) stars.visible = v; }
+
+        // Appeler APRÈS les définitions pour éviter "can't access lexical declaration"
+        makeStars();
+
+        // --- PARC LÉGER ---
+        (function makeTrees(){
+            const greens=[0x244d1f,0x2e5e26,0x3a7a2d];
+            for(let x=-500;x<=500;x+=80){
+                for(let z=-500;z<=500;z+=80){
+                    if(Math.abs(x)<24||Math.abs(z)<24) continue;
+                    if(Math.abs(x)<120&&Math.abs(z)<120) continue;
+                    if(Math.random()<0.35) continue;
+                    const t=new THREE.Group();
+                    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(2.6,3.2,18,6), new THREE.MeshStandardMaterial({color:0x5b4733, roughness:.8}));
+                    trunk.position.y=9; t.add(trunk);
+                    const fol=new THREE.Mesh(new THREE.SphereGeometry(11,6,5), new THREE.MeshStandardMaterial({color:greens[(Math.random()*greens.length)|0], roughness:.9}));
+                    fol.position.y=20; t.add(fol);
+                    t.position.set(x+(Math.random()-.5)*14,0,z+(Math.random()-.5)*14);
+                    scene.add(t);
+                }
+            }
+        })();
+
+        // --- LAC ---
+        const lake = new THREE.Mesh(new THREE.CircleGeometry(84,24), new THREE.MeshStandardMaterial({ color:0x0b6b91, roughness:.2, metalness:.6, transparent:true, opacity:.85 }));
+        lake.rotation.x=-Math.PI/2; lake.position.y=0.03; lake.receiveShadow=true; scene.add(lake);
+
+        // --- BOEING ---
+        class Boeing747{
+            constructor(){
+                const g=new THREE.Group();
+                const matF=new THREE.MeshStandardMaterial({ color:0xc0c0c0, metalness:.9, roughness:.2 });
+                const body=new THREE.Mesh(new THREE.CylinderGeometry(8,8,80,12),matF); body.rotation.z=Math.PI/2; g.add(body);
+                const nose=new THREE.Mesh(new THREE.ConeGeometry(8,15,12),matF); nose.rotation.z=-Math.PI/2; nose.position.x=47.5; g.add(nose);
+                const tail=new THREE.Mesh(new THREE.ConeGeometry(8,10,12),matF); tail.rotation.z=Math.PI/2; tail.position.x=-45; tail.scale.y=.8; g.add(tail);
+                const wing=new THREE.Mesh(new THREE.BoxGeometry(60,1,15), new THREE.MeshStandardMaterial({color:0xa0a0a0, metalness:.8, roughness:.3}));
+                wing.position.y=-2; wing.castShadow=true; g.add(wing);
+                [{x:10,y:-5,z:20},{x:10,y:-5,z:-20},{x:-5,y:-5,z:35},{x:-5,y:-5,z:-35}].forEach(p=>{
+                    const e=new THREE.Mesh(new THREE.CylinderGeometry(3,3,10,8), new THREE.MeshStandardMaterial({color:0x333, metalness:.9}));
+                    e.rotation.z=Math.PI/2; e.position.set(p.x,p.y,p.z); g.add(e);
+                });
+                const strobe = new THREE.PointLight(0xffffff,2,100); strobe.position.set(0,15,0); g.add(strobe); this.strobe=strobe;
+                this.mesh=g; this.mesh.position.set(-800,420,-600); this.velocity=new THREE.Vector3(2,0,1.5); this.mesh.rotation.y=Math.atan2(1.5,2);
+                scene.add(this.mesh);
+            }
+            update(){
+                this.mesh.position.add(this.velocity);
+                if(this.mesh.position.x>1000){ this.mesh.position.x=-1000; this.mesh.position.z=-600+Math.random()*1200; this.mesh.position.y=360+Math.random()*160; }
+                this.strobe.intensity = Math.sin(Date.now()*0.01)>0?2:0;
+            }
+        }
+        boeing = new Boeing747();
+
+        // --- DRONES ---
+        class DroneAI{
+            constructor(team, pos){
+                const g=new THREE.Group();
+                const body=new THREE.Mesh(new THREE.OctahedronGeometry(10,0), new THREE.MeshStandardMaterial({ color: team==='blue'?0x4facfe:0xff6b6b, emissive: team==='blue'?0x1f66ff:0xcc2222, emissiveIntensity:.5, metalness:.2, roughness:.6 }));
+                body.castShadow=true; g.add(body);
+                for(let i=0;i<4;i++){ const a=i/4*Math.PI*2; const r=new THREE.Mesh(new THREE.BoxGeometry(15,1,3), new THREE.MeshBasicMaterial({ color:0x0f1116, transparent:true, opacity:.85 })); r.position.set(Math.cos(a)*12,5,Math.sin(a)*12); g.add(r); }
+                const l=new THREE.PointLight(team==='blue'?0x4facfe:0xff6b6b,.6,60); g.add(l);
+                this.mesh=g; this.mesh.position.copy(pos); this.team=team; this.health=100; this.velocity=new THREE.Vector3();
+                this.target=null; this.lastShot=0; this.state='hunting'; this.accuracy=.7+Math.random()*.3; this.aggressiveness=.5+Math.random()*.5; this.reactionTime=100+Math.random()*200;
+                scene.add(this.mesh);
+            }
+            update(){
+                this.mesh.children.forEach((c,i)=>{ if(i>0 && i<5) c.rotation.y += .5*gameSpeed; });
+                this.findTarget(); this.move(); this.fight();
+                this.mesh.position.add(this.velocity.clone().multiplyScalar(gameSpeed));
+                const bound=580; ['x','z'].forEach(ax=>{ if(Math.abs(this.mesh.position[ax])>bound){ this.mesh.position[ax]=Math.sign(this.mesh.position[ax])*bound; this.velocity[ax]*=-.5; } });
+                const minH=58,maxH=260; const targetH=minH + Math.sin(Date.now()*0.001 + this.mesh.id)*30 + Math.random()*(maxH-minH-60);
+                this.mesh.position.y += (targetH - this.mesh.position.y)*.05;
+                this.mesh.position.y = Math.max(minH, Math.min(maxH, this.mesh.position.y));
+            }
+            findTarget(){
+                let md=Infinity, nt=null; drones.forEach(d=>{ if(d.team!==this.team && d.health>0){ const dist=this.mesh.position.distanceTo(d.mesh.position); if(dist<md){ md=dist; nt=d; } }});
+                this.target=nt; this.state = this.target ? (md<200?'combat':'pursuit') : 'patrol';
+            }
+            move(){
+                const speed=3;
+                if(this.state==='combat' && this.target){
+                    const a=Date.now()*0.002, r=150;
+                    const tp=new THREE.Vector3(this.target.mesh.position.x+Math.cos(a)*r, this.mesh.position.y, this.target.mesh.position.z+Math.sin(a)*r);
+                    const dir=tp.clone().sub(this.mesh.position).normalize();
+                    this.velocity.lerp(dir.multiplyScalar(speed), .12);
+                    this.avoid();
+                } else if(this.state==='pursuit' && this.target){
+                    const dir=this.target.mesh.position.clone().sub(this.mesh.position).normalize();
+                    this.velocity.lerp(dir.multiplyScalar(speed*1.5), .06); this.avoid();
+                } else {
+                    if(Math.random()<.02){ this.velocity.x+=(Math.random()-.5)*2; this.velocity.z+=(Math.random()-.5)*2; }
+                    this.velocity.multiplyScalar(.95); this.avoid();
+                }
+                if(this.velocity.length()>speed*2) this.velocity.normalize().multiplyScalar(speed*2);
+            }
+            avoid(){ buildings.forEach(b=>{ const dist=this.mesh.position.distanceTo(b.position); if(dist<80){ const a=this.mesh.position.clone().sub(b.position).normalize(); this.velocity.add(a.multiplyScalar(5)); if(this.mesh.position.y < b.geometry.parameters.height + 20) this.velocity.y = 3; } }); }
+            fight(){
+                if(!this.target || this.target.health<=0) return;
+                const dist=this.mesh.position.distanceTo(this.target.mesh.position), now=Date.now();
+                if(dist<300 && now-this.lastShot>this.reactionTime){
+                    const t=dist/15; const predicted=this.target.mesh.position.clone().add(this.target.velocity.clone().multiplyScalar(t));
+                    if(Math.random() < this.accuracy*this.aggressiveness){ this.shoot(predicted); this.lastShot=now; }
+                }
+            }
+            shoot(tp){
+                const b=new THREE.Mesh(new THREE.SphereGeometry(2,12,12), new THREE.MeshBasicMaterial({ color:this.team==='blue'?0x00f2fe:0xff6b6b }));
+                b.position.copy(this.mesh.position); b.velocity=tp.clone().sub(this.mesh.position).normalize().multiplyScalar(15);
+                b.team=this.team; b.life=100; scene.add(b); bullets.push(b); stats.shots++;
+            }
+            takeDamage(n){
+                this.health-=n; if(this.health<=0){ scene.remove(this.mesh); stats.kills++; return true; } return false;
+            }
+        }
+
+        // --- API BOUTONS ---
+        window.startBattle = function(teamSize){
+            drones.forEach(d=>scene.remove(d.mesh)); bullets.forEach(b=>scene.remove(b)); particles.forEach(p=>scene.remove(p));
+            drones=[]; bullets=[]; particles=[];
+            stats={time:0,shots:0,kills:0}; battleStart=Date.now();
+            document.getElementById('winner').style.display='none';
+            if(!boeing){} // déjà créé
+            for(let i=0;i<teamSize;i++){
+                drones.push(new DroneAI('blue', new THREE.Vector3(-400+Math.random()*100,110+Math.random()*110,(Math.random()-.5)*420)));
+                drones.push(new DroneAI('red',  new THREE.Vector3( 400-Math.random()*100,110+Math.random()*110,(Math.random()-.5)*420)));
+            }
+        }
+        window.toggleCamera = function(){ cameraMode=(cameraMode+1)%3; }
+        window.toggleSpeed  = function(){ gameSpeed = gameSpeed===1?2: gameSpeed===2?4:1; document.getElementById('speed').textContent=gameSpeed; }
+        window.toggleLite   = function(){
+            lite = !lite;
+            renderer.shadowMap.enabled = !lite;
+            // étoiles visibles ou non (capture via fermeture)
+            const starsObj = scene.children.find(o=>o.isPoints);
+            if(starsObj) starsObj.visible = !lite;
+            alert(lite ? 'Mode léger activé ✅' : 'Mode léger désactivé');
+        }
+        window.togglePhoto  = function(){
+            photo = !photo;
+            document.getElementById('stats').style.display = photo?'none':'';
+            document.getElementById('teams').style.display = photo?'none':'';
+            document.getElementById('controls').style.display = photo?'none':'';
+            document.querySelector('.fx-vignette').style.display = photo?'none':'';
+            document.querySelector('.fx-noise').style.display = photo?'none':'';
+        }
+
+        // --- MAIN LOOP ---
+        function animate(){
+            requestAnimationFrame(animate);
+
+            // update Boeing
+            if(boeing) boeing.update();
+
+            // update drones/bullets
+            drones = drones.filter(d=>{ if(d.health>0){ d.update(); return true; } return false; });
+            bullets = bullets.filter(b=>{
+                b.position.add(b.velocity.clone().multiplyScalar(gameSpeed)); b.life -= gameSpeed;
+                drones.forEach((d,i)=>{ if(d.team!==b.team && b.position.distanceTo(d.mesh.position)<15){ if(d.takeDamage(25)){ drones.splice(i,1); } scene.remove(b); b.life=0; } });
+                if(b.life<=0){ scene.remove(b); return false; } return true;
+            });
+
+            // camera
+            const t=Date.now()*0.0005;
+            switch(cameraMode){
+                case 0: camera.position.set(Math.cos(t)*640, 320, Math.sin(t)*640); camera.lookAt(0,0,0); break;
+                case 1: camera.position.set(0,820,0); camera.lookAt(0,0,0); break;
+                case 2:
+                    if(drones.length){
+                        const d=drones[(Math.random()*drones.length)|0];
+                        camera.position.lerp(d.mesh.position.clone().add(new THREE.Vector3(110,110,110)), .02);
+                        camera.lookAt(d.mesh.position);
+                    } break;
+            }
+
+            // UI
+            if(battleStart) stats.time = Math.floor((Date.now()-battleStart)/1000);
+            const blue=drones.filter(d=>d.team==='blue').length, red=drones.filter(d=>d.team==='red').length;
+            document.getElementById('time').textContent=stats.time;
+            document.getElementById('shots').textContent=stats.shots;
+            document.getElementById('kills').textContent=stats.kills;
+            document.getElementById('blue-count').textContent=blue;
+            document.getElementById('red-count').textContent=red;
+
+            const w=document.getElementById('winner');
+            if(drones.length>0 && (blue===0||red===0)){
+                w.textContent = blue>0 ? '🔵 VICTOIRE BLEUE!' : '🔴 VICTOIRE ROUGE!';
+                w.style.color = blue>0 ? 'var(--blue)' : 'var(--red)'; w.style.display='block';
+            }
+
+            renderer.render(scene,camera);
+        }
+
+        // START
+        startBattle(5);
+        animate();
+
+        // RESIZE
+        addEventListener('resize', ()=>{
+            camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+    }
+</script>
+</body>
+</html>

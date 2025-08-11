@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Arroseur - Mission Jardinage</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            min-width: 250px;
+            border: 2px solid #4facfe;
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.3);
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            padding: 15px 25px;
+            border-radius: 10px;
+            display: flex;
+            gap: 15px;
+            border: 2px solid #4facfe;
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.3);
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #00f2fe, #4facfe);
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.5);
+        }
+        #radar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 200px;
+            height: 200px;
+            background: rgba(0,20,0,0.8);
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.5);
+        }
+        #crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 50%;
+            top: -10px;
+            transform: translateX(-50%);
+        }
+        #crosshair::after {
+            height: 2px;
+            width: 20px;
+            top: 50%;
+            left: -10px;
+            transform: translateY(-50%);
+        }
+        .mode-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 0 0 20px currentColor;
+            animation: fadeOut 2s forwards;
+            pointer-events: none;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+        #instructions {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            border: 2px solid #4facfe;
+            max-width: 250px;
+        }
+        .key {
+            display: inline-block;
+            background: #4facfe;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 0 2px;
+            font-weight: bold;
+        }
+        .water-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        .water-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00a8ff, #00d4ff, #00ffff);
+            transition: width 0.3s;
+        }
+        .score-popup {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 10px rgba(0,255,0,0.8);
+            animation: scoreFloat 1.5s ease-out forwards;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        @keyframes scoreFloat {
+            0% {
+                transform: translateY(0) scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: translateY(-30px) scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-60px) scale(0.8);
+                opacity: 0;
+            }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        #levelComplete {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #00ff00, #00aa00);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 1000;
+            box-shadow: 0 0 50px rgba(0,255,0,0.5);
+        }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+    <h3>🚁💧 DRONE ARROSEUR</h3>
+    <div style="color: #00ff00; font-size: 16px;">Mode: <span id="gameMode">ARROSAGE</span></div>
+    <div style="color: #ffff00;">🌱 Score: <span id="score">0</span> points</div>
+    <div style="color: #00ffff;">🌿 Plantes arrosées: <span id="plantsWatered">0</span>/<span id="totalPlants">0</span></div>
+    <div>⏱️ Temps: <span id="timer">00:00</span></div>
+    <div>📍 Position: X:<span id="posX">0</span> Z:<span id="posZ">0</span></div>
+    <div>🔺 Altitude: <span id="altitude">100</span>m</div>
+    <div>💧 Réservoir d'eau: <div class="water-bar"><div class="water-fill" id="water" style="width: 100%"></div></div></div>
+    <div>🏆 Meilleur score: <span id="highScore">0</span></div>
+    <div>🌍 Zone: <span id="zone">Centre Ville</span></div>
+</div>
+
+<div id="radar">
+    <canvas id="radarCanvas" width="200" height="200"></canvas>
+</div>
+
+<div id="controls">
+    <button onclick="startWateringMode()">💧 Mode Arrosage</button>
+    <button onclick="startCombatMode()">⚔️ Mode Combat</button>
+    <button onclick="toggleCamera()">📷 Vue: <span id="cameraBtn">3ème Personne</span></button>
+    <button onclick="restartLevel()">🔄 Recommencer</button>
+</div>
+
+<div id="instructions">
+    <h4>📋 CONTRÔLES</h4>
+    <p><span class="key">↑</span> Avancer</p>
+    <p><span class="key">↓</span> Reculer</p>
+    <p><span class="key">←</span> Tourner gauche</p>
+    <p><span class="key">→</span> Tourner droite</p>
+    <p><span class="key">Espace</span> Monter</p>
+    <p><span class="key">Shift</span> Descendre</p>
+    <p><span class="key">Clic / W</span> Arroser</p>
+    <p><span class="key">R</span> Recharger eau</p>
+    <p><span class="key">C</span> Changer Vue</p>
+    <p style="margin-top: 10px; color: #00ff00;">🌱 Trouvez et arrosez les plantes!</p>
+    <p style="color: #00ffff;">💧 Rechargez au lac central!</p>
+</div>
+
+<div id="levelComplete">
+    <h2>🎉 NIVEAU TERMINÉ!</h2>
+    <p>Score Final: <span id="finalScore">0</span></p>
+    <p>Plantes Arrosées: <span id="finalPlants">0</span></p>
+    <p>Temps: <span id="finalTime">00:00</span></p>
+    <button onclick="nextLevel()">Niveau Suivant →</button>
+</div>
+
+<div id="crosshair"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    let scene, camera, renderer;
+    let playerDrone, enemies = [], bullets = [], particles = [];
+    let plants = [], waterDrops = [];
+    let keys = {};
+    let mouse = { x: 0, y: 0 };
+    let mode = 'watering';
+    let cameraMode = 0;
+    let stats = {
+        score: 0,
+        plantsWatered: 0,
+        waterLevel: 100,
+        highScore: parseInt(localStorage.getItem('droneHighScore') || 0)
+    };
+    let ambientLight, sun, sky;
+    let waterRefillStation;
+    let startTime = Date.now();
+    let currentLevel = 1;
+    let levelGoals = [10, 20, 30, 50]; // Plantes à arroser par niveau
+
+    const MAP_SIZE = 2000;
+    const CITY_BLOCKS = 8;
+    const BLOCK_SIZE = MAP_SIZE / CITY_BLOCKS;
+
+    // Initialize Three.js
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x87ceeb, 0.0005);
+
+    camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 3000);
+    camera.position.set(0, 150, 200);
+
+    renderer = new THREE.WebGLRenderer({
+        canvas: document.getElementById('c'),
+        antialias: true,
+        alpha: false,
+        powerPreference: "high-performance"
+    });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+
+    // Lighting
+    ambientLight = new THREE.AmbientLight(0x87ceeb, 0.5);
+    scene.add(ambientLight);
+
+    sun = new THREE.DirectionalLight(0xffd4a3, 1);
+    sun.position.set(300, 600, 300);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 2000;
+    sun.shadow.camera.left = -500;
+    sun.shadow.camera.right = 500;
+    sun.shadow.camera.top = 500;
+    sun.shadow.camera.bottom = -500;
+    scene.add(sun);
+
+    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x545454, 0.6);
+    scene.add(hemiLight);
+
+    // Sky dome
+    const skyGeo = new THREE.SphereGeometry(3000, 32, 32);
+    const skyMat = new THREE.MeshBasicMaterial({
+        color: 0x87ceeb,
+        side: THREE.BackSide
+    });
+    sky = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(sky);
+
+    // Plant Class
+    class Plant {
+        constructor(position, type = 'flower') {
+            const group = new THREE.Group();
+
+            this.type = type;
+            this.watered = false;
+            this.health = 0; // 0 = dry, 100 = fully watered
+            this.position = position;
+
+            if(type === 'flower') {
+                // Pot
+                const pot = new THREE.Mesh(
+                    new THREE.CylinderGeometry(4, 3, 5, 8),
+                    new THREE.MeshPhongMaterial({ color: 0x8b4513 })
+                );
+                pot.position.y = 2.5;
+                group.add(pot);
+
+                // Stem
+                const stem = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.5, 0.5, 10),
+                    new THREE.MeshPhongMaterial({ color: 0x228b22 })
+                );
+                stem.position.y = 10;
+                group.add(stem);
+
+                // Flower petals
+                this.petals = [];
+                const petalCount = 6;
+                for(let i = 0; i < petalCount; i++) {
+                    const petal = new THREE.Mesh(
+                        new THREE.SphereGeometry(2, 4, 4),
+                        new THREE.MeshPhongMaterial({ color: 0xff1493 })
+                    );
+                    const angle = (i / petalCount) * Math.PI * 2;
+                    petal.position.set(
+                        Math.cos(angle) * 3,
+                        15,
+                        Math.sin(angle) * 3
+                    );
+                    petal.scale.set(1, 0.5, 1);
+                    group.add(petal);
+                    this.petals.push(petal);
+                }
+
+                // Center
+                const center = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.5, 8, 8),
+                    new THREE.MeshPhongMaterial({ color: 0xffff00 })
+                );
+                center.position.y = 15;
+                group.add(center);
+
+                this.pointValue = 10;
+
+            } else if(type === 'tree') {
+                // Trunk
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(3, 4, 20),
+                    new THREE.MeshPhongMaterial({ color: 0x4a3c28 })
+                );
+                trunk.position.y = 10;
+                group.add(trunk);
+
+                // Foliage
+                this.foliage = new THREE.Mesh(
+                    new THREE.SphereGeometry(12, 8, 6),
+                    new THREE.MeshPhongMaterial({
+                        color: 0x228b22,
+                        flatShading: true
+                    })
+                );
+                this.foliage.position.y = 25;
+                group.add(this.foliage);
+
+                this.pointValue = 20;
+
+            } else if(type === 'bush') {
+                // Bush body
+                this.bush = new THREE.Mesh(
+                    new THREE.SphereGeometry(8, 6, 5),
+                    new THREE.MeshPhongMaterial({
+                        color: 0x2d5016,
+                        flatShading: true
+                    })
+                );
+                this.bush.position.y = 5;
+                this.bush.scale.set(1.5, 0.8, 1.5);
+                group.add(this.bush);
+
+                // Berries
+                for(let i = 0; i < 5; i++) {
+                    const berry = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.5),
+                        new THREE.MeshPhongMaterial({ color: 0xff0000 })
+                    );
+                    berry.position.set(
+                        (Math.random() - 0.5) * 10,
+                        3 + Math.random() * 5,
+                        (Math.random() - 0.5) * 10
+                    );
+                    group.add(berry);
+                }
+
+                this.pointValue = 15;
+            }
+
+            // Indicator light (shows if plant needs water)
+            this.indicator = new THREE.PointLight(0xff0000, 2, 30);
+            this.indicator.position.y = 30;
+            group.add(this.indicator);
+
+            // "Need water" icon
+            const iconGeo = new THREE.PlaneGeometry(10, 10);
+            const iconMat = new THREE.MeshBasicMaterial({
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide,
+                map: this.createWaterIcon()
+            });
+            this.waterIcon = new THREE.Mesh(iconGeo, iconMat);
+            this.waterIcon.position.y = 35;
+            group.add(this.waterIcon);
+
+            this.mesh = group;
+            this.mesh.position.copy(position);
+            scene.add(this.mesh);
+
+            this.updateAppearance();
+        }
+
+        createWaterIcon() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#00aaff';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💧', 32, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        water(amount) {
+            if(this.watered) return 0;
+
+            this.health = Math.min(100, this.health + amount);
+
+            if(this.health >= 100 && !this.watered) {
+                this.watered = true;
+                stats.plantsWatered++;
+                stats.score += this.pointValue;
+
+                // Show score popup
+                showScorePopup(this.mesh.position, `+${this.pointValue}`);
+
+                // Celebration effect
+                createWaterSplash(this.mesh.position);
+
+                // Update HUD
+                updateHUD();
+
+                return this.pointValue;
+            }
+
+            this.updateAppearance();
+            return 0;
+        }
+
+        updateAppearance() {
+            const healthRatio = this.health / 100;
+
+            // Update plant color based on health
+            if(this.type === 'flower') {
+                this.petals.forEach(petal => {
+                    const color = new THREE.Color().lerpColors(
+                        new THREE.Color(0x8b4513), // Brown (dry)
+                        new THREE.Color(0xff1493), // Pink (healthy)
+                        healthRatio
+                    );
+                    petal.material.color = color;
+                });
+            } else if(this.type === 'tree' && this.foliage) {
+                const color = new THREE.Color().lerpColors(
+                    new THREE.Color(0x8b4513), // Brown (dry)
+                    new THREE.Color(0x228b22), // Green (healthy)
+                    healthRatio
+                );
+                this.foliage.material.color = color;
+            } else if(this.type === 'bush' && this.bush) {
+                const color = new THREE.Color().lerpColors(
+                    new THREE.Color(0x8b4513), // Brown (dry)
+                    new THREE.Color(0x2d5016), // Dark green (healthy)
+                    healthRatio
+                );
+                this.bush.material.color = color;
+            }
+
+            // Update indicator
+            if(this.watered) {
+                this.indicator.color.setHex(0x00ff00);
+                this.indicator.intensity = 1;
+                this.waterIcon.visible = false;
+            } else {
+                const color = new THREE.Color().lerpColors(
+                    new THREE.Color(0xff0000), // Red (needs water)
+                    new THREE.Color(0xffff00), // Yellow (partially watered)
+                    healthRatio
+                );
+                this.indicator.color = color;
+                this.indicator.intensity = 2 - healthRatio;
+                this.waterIcon.visible = true;
+            }
+        }
+
+        update() {
+            // Rotate water icon
+            if(this.waterIcon.visible) {
+                this.waterIcon.rotation.y += 0.02;
+                this.waterIcon.position.y = 35 + Math.sin(Date.now() * 0.002) * 2;
+            }
+
+            // Animate watered plants
+            if(this.watered) {
+                this.mesh.rotation.y += 0.01;
+            }
+        }
+    }
+
+    // Player Drone Class
+    class PlayerDrone {
+        constructor() {
+            const group = new THREE.Group();
+
+            // Main body
+            const bodyGeo = new THREE.OctahedronGeometry(12, 1);
+            const bodyMat = new THREE.MeshPhongMaterial({
+                color: 0x4facfe,
+                emissive: 0x0066cc,
+                emissiveIntensity: 0.3,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            group.add(body);
+
+            // Water tank (visible)
+            const tank = new THREE.Mesh(
+                new THREE.SphereGeometry(8, 8, 8),
+                new THREE.MeshPhongMaterial({
+                    color: 0x00aaff,
+                    transparent: true,
+                    opacity: 0.6
+                })
+            );
+            tank.position.y = -8;
+            group.add(tank);
+            this.waterTank = tank;
+
+            // Rotors
+            this.rotors = [];
+            for(let i = 0; i < 4; i++) {
+                const angle = (i/4) * Math.PI * 2;
+                const rotor = new THREE.Mesh(
+                    new THREE.BoxGeometry(12, 0.5, 3),
+                    new THREE.MeshBasicMaterial({
+                        color: 0x222222,
+                        transparent: true,
+                        opacity: 0.8
+                    })
+                );
+                rotor.position.x = Math.cos(angle) * 15;
+                rotor.position.z = Math.sin(angle) * 15;
+                rotor.position.y = 5;
+                group.add(rotor);
+                this.rotors.push(rotor);
+            }
+
+            // Water sprayer
+            const sprayer = new THREE.Mesh(
+                new THREE.ConeGeometry(3, 8, 8),
+                new THREE.MeshPhongMaterial({ color: 0x00ffff })
+            );
+            sprayer.position.y = -10;
+            sprayer.rotation.x = Math.PI;
+            group.add(sprayer);
+
+            // Spotlight
+            const spotlight = new THREE.SpotLight(0xffffff, 1, 300, Math.PI/4, 0.3, 1);
+            spotlight.position.set(0, -5, 10);
+            spotlight.target.position.set(0, -100, 100);
+            spotlight.castShadow = true;
+            group.add(spotlight);
+            group.add(spotlight.target);
+
+            this.mesh = group;
+            this.mesh.position.set(0, 100, 0);
+            this.velocity = new THREE.Vector3(0, 0, 0);
+            this.isWatering = false;
+            this.lastWater = 0;
+
+            scene.add(this.mesh);
+        }
+
+        update() {
+            // Rotate rotors
+            this.rotors.forEach(rotor => {
+                rotor.rotation.y += 0.5;
+            });
+
+            // Movement
+            const moveSpeed = 0.4;
+            const rotSpeed = 0.04;
+
+            // Rotation
+            if(keys['arrowleft']) {
+                this.mesh.rotation.y += rotSpeed;
+            }
+            if(keys['arrowright']) {
+                this.mesh.rotation.y -= rotSpeed;
+            }
+
+            // Forward/Backward
+            if(keys['arrowup']) {
+                this.velocity.x -= Math.sin(this.mesh.rotation.y) * moveSpeed;
+                this.velocity.z -= Math.cos(this.mesh.rotation.y) * moveSpeed;
+            }
+            if(keys['arrowdown']) {
+                this.velocity.x += Math.sin(this.mesh.rotation.y) * moveSpeed * 0.5;
+                this.velocity.z += Math.cos(this.mesh.rotation.y) * moveSpeed * 0.5;
+            }
+
+            // Altitude
+            if(keys[' ']) {
+                this.velocity.y = moveSpeed * 2;
+            } else if(keys['shift']) {
+                this.velocity.y = -moveSpeed * 2;
+            } else {
+                this.velocity.y *= 0.8;
+            }
+
+            // Apply drag
+            this.velocity.x *= 0.88;
+            this.velocity.z *= 0.88;
+
+            // Update position
+            this.mesh.position.add(this.velocity);
+
+            // Boundaries
+            const mapLimit = MAP_SIZE/2 - 50;
+            this.mesh.position.x = Math.max(-mapLimit, Math.min(mapLimit, this.mesh.position.x));
+            this.mesh.position.z = Math.max(-mapLimit, Math.min(mapLimit, this.mesh.position.z));
+            this.mesh.position.y = Math.max(20, Math.min(400, this.mesh.position.y));
+
+            // Visual tilt
+            const targetTiltX = -this.velocity.z * 0.05;
+            const targetTiltZ = -this.velocity.x * 0.05;
+            this.mesh.rotation.x += (targetTiltX - this.mesh.rotation.x) * 0.1;
+            this.mesh.rotation.z += (targetTiltZ - this.mesh.rotation.z) * 0.1;
+
+            // Update water tank visual
+            const waterRatio = stats.waterLevel / 100;
+            this.waterTank.scale.setScalar(0.5 + waterRatio * 0.5);
+            this.waterTank.material.opacity = 0.3 + waterRatio * 0.3;
+
+            // Update HUD
+            document.getElementById('posX').textContent = Math.floor(this.mesh.position.x);
+            document.getElementById('posZ').textContent = Math.floor(this.mesh.position.z);
+            document.getElementById('altitude').textContent = Math.floor(this.mesh.position.y);
+        }
+
+        waterPlants() {
+            const now = Date.now();
+            if(now - this.lastWater < 100) return;
+            if(stats.waterLevel <= 0) {
+                showModeIndicator("💧 Réservoir vide! Rechargez au lac!");
+                return;
+            }
+
+            // Create water drops
+            for(let i = 0; i < 3; i++) {
+                const drop = new THREE.Mesh(
+                    new THREE.SphereGeometry(1),
+                    new THREE.MeshPhongMaterial({
+                        color: 0x00aaff,
+                        transparent: true,
+                        opacity: 0.8
+                    })
+                );
+                drop.position.copy(this.mesh.position);
+                drop.position.y -= 10;
+                drop.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    -5,
+                    (Math.random() - 0.5) * 2
+                );
+                drop.life = 30;
+                scene.add(drop);
+                waterDrops.push(drop);
+            }
+
+            // Consume water
+            stats.waterLevel = Math.max(0, stats.waterLevel - 1);
+            updateHUD();
+            this.lastWater = now;
+
+            // Check for plants to water
+            plants.forEach(plant => {
+                const dist = plant.mesh.position.distanceTo(this.mesh.position);
+                if(dist < 50 && this.mesh.position.y < 100) {
+                    plant.water(5);
+                }
+            });
+        }
+
+        refillWater() {
+            // Check if near water source
+            if(waterRefillStation) {
+                const dist = this.mesh.position.distanceTo(waterRefillStation.position);
+                if(dist < 50 && this.mesh.position.y < 50) {
+                    stats.waterLevel = Math.min(100, stats.waterLevel + 2);
+                    updateHUD();
+
+                    if(stats.waterLevel >= 100) {
+                        showModeIndicator("💧 Réservoir plein!");
+                    }
+                }
+            }
+        }
+    }
+
+    // Generate city map with plants
+    function generateCity() {
+        // Ground
+        const groundGeo = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE);
+        const groundMat = new THREE.MeshPhongMaterial({
+            color: 0x3a5f0b,
+            roughness: 0.9
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI/2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Central lake (water refill station)
+        const lakeMat = new THREE.MeshPhongMaterial({
+            color: 0x006994,
+            transparent: true,
+            opacity: 0.8,
+            shininess: 100
+        });
+        const lake = new THREE.Mesh(
+            new THREE.CircleGeometry(100, 32),
+            lakeMat
+        );
+        lake.rotation.x = -Math.PI/2;
+        lake.position.y = 0.1;
+        scene.add(lake);
+        waterRefillStation = lake;
+
+        // Fountain in center
+        const fountain = new THREE.Mesh(
+            new THREE.CylinderGeometry(10, 12, 5),
+            new THREE.MeshPhongMaterial({ color: 0x808080 })
+        );
+        fountain.position.y = 2.5;
+        scene.add(fountain);
+
+        // Water particle effect for fountain
+        const waterParticles = new THREE.Points(
+            new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 10, 0)
+            ]),
+            new THREE.PointsMaterial({
+                color: 0x00aaff,
+                size: 5,
+                transparent: true,
+                opacity: 0.6
+            })
+        );
+        scene.add(waterParticles);
+
+        // Generate roads
+        const roadMat = new THREE.MeshPhongMaterial({ color: 0x444444 });
+        for(let i = 1; i < CITY_BLOCKS; i++) {
+            // Horizontal roads
+            const roadH = new THREE.Mesh(
+                new THREE.PlaneGeometry(MAP_SIZE, 30),
+                roadMat
+            );
+            roadH.rotation.x = -Math.PI/2;
+            roadH.position.set(0, 0.1, -MAP_SIZE/2 + i * BLOCK_SIZE);
+            scene.add(roadH);
+
+            // Vertical roads
+            const roadV = new THREE.Mesh(
+                new THREE.PlaneGeometry(30, MAP_SIZE),
+                roadMat
+            );
+            roadV.rotation.x = -Math.PI/2;
+            roadV.position.set(-MAP_SIZE/2 + i * BLOCK_SIZE, 0.1, 0);
+            scene.add(roadV);
+        }
+
+        // Generate buildings and plants
+        generateBuildings();
+        generatePlants();
+    }
+
+    function generateBuildings() {
+        for(let i = 0; i < 20; i++) {
+            const building = new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    40 + Math.random() * 60,
+                    50 + Math.random() * 150,
+                    40 + Math.random() * 60
+                ),
+                new THREE.MeshPhongMaterial({
+                    color: new THREE.Color().setHSL(0.6, 0.1, 0.3 + Math.random() * 0.2)
+                })
+            );
+
+            const x = (Math.random() - 0.5) * (MAP_SIZE - 200);
+            const z = (Math.random() - 0.5) * (MAP_SIZE - 200);
+
+            // Avoid center lake area
+            if(Math.abs(x) > 150 || Math.abs(z) > 150) {
+                building.position.set(x, building.geometry.parameters.height/2, z);
+                building.castShadow = true;
+                building.receiveShadow = true;
+                scene.add(building);
+            }
+        }
+    }
+
+    function generatePlants() {
+        // Clear existing plants
+        plants.forEach(plant => {
+            scene.remove(plant.mesh);
+        });
+        plants = [];
+
+        const plantCount = 15 + currentLevel * 5; // More plants each level
+
+        for(let i = 0; i < plantCount; i++) {
+            const types = ['flower', 'tree', 'bush'];
+            const type = types[Math.floor(Math.random() * types.length)];
+
+            let x, z;
+            let validPosition = false;
+
+            // Find valid position (not too close to center or other plants)
+            while(!validPosition) {
+                x = (Math.random() - 0.5) * (MAP_SIZE - 100);
+                z = (Math.random() - 0.5) * (MAP_SIZE - 100);
+
+                // Check distance from center
+                if(Math.sqrt(x*x + z*z) > 150) {
+                    // Check distance from other plants
+                    validPosition = true;
+                    for(let plant of plants) {
+                        const dist = Math.sqrt(
+                            Math.pow(x - plant.position.x, 2) +
+                            Math.pow(z - plant.position.z, 2)
+                        );
+                        if(dist < 50) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const plant = new Plant(new THREE.Vector3(x, 0, z), type);
+            plants.push(plant);
+        }
+
+        document.getElementById('totalPlants').textContent = plants.length;
+    }
+
+    // Effects
+    function createWaterSplash(position) {
+        for(let i = 0; i < 20; i++) {
+            const particle = new THREE.Mesh(
+                new THREE.SphereGeometry(0.5),
+                new THREE.MeshBasicMaterial({
+                    color: 0x00aaff,
+                    transparent: true,
+                    opacity: 0.8
+                })
+            );
+            particle.position.copy(position);
+            particle.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 5,
+                Math.random() * 10,
+                (Math.random() - 0.5) * 5
+            );
+            particle.life = 30;
+            scene.add(particle);
+            particles.push(particle);
+        }
+    }
+
+    function showScorePopup(position, text) {
+        const popup = document.createElement('div');
+        popup.className = 'score-popup';
+        popup.textContent = text;
+
+        const vector = position.clone();
+        vector.project(camera);
+
+        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+
+        popup.style.left = x + 'px';
+        popup.style.top = y + 'px';
+
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 1500);
+    }
+
+    function showModeIndicator(text) {
+        const indicator = document.createElement('div');
+        indicator.className = 'mode-indicator';
+        indicator.textContent = text;
+        indicator.style.color = '#00ff00';
+        document.body.appendChild(indicator);
+        setTimeout(() => indicator.remove(), 2000);
+    }
+
+    // Game management
+    function startWateringMode() {
+        mode = 'watering';
+        stats.plantsWatered = 0;
+        stats.waterLevel = 100;
+        startTime = Date.now();
+        generatePlants();
+
+        // Remove enemies if any
+        enemies.forEach(enemy => scene.remove(enemy.mesh));
+        enemies = [];
+
+        document.getElementById('gameMode').textContent = 'ARROSAGE';
+        showModeIndicator("💧 Mode Arrosage - Trouvez les plantes!");
+        updateHUD();
+    }
+
+    function startCombatMode() {
+        mode = 'combat';
+        document.getElementById('gameMode').textContent = 'COMBAT';
+        showModeIndicator("⚔️ Mode Combat activé!");
+
+        // Spawn enemies
+        spawnEnemies();
+    }
+
+    function spawnEnemies() {
+        // Basic enemy spawning for combat mode
+        for(let i = 0; i < 5; i++) {
+            const enemy = new THREE.Mesh(
+                new THREE.OctahedronGeometry(10),
+                new THREE.MeshPhongMaterial({ color: 0xff0000 })
+            );
+            enemy.position.set(
+                (Math.random() - 0.5) * 500,
+                50 + Math.random() * 100,
+                (Math.random() - 0.5) * 500
+            );
+            scene.add(enemy);
+            enemies.push(enemy);
+        }
+    }
+
+    function updateHUD() {
+        document.getElementById('score').textContent = stats.score;
+        document.getElementById('plantsWatered').textContent = stats.plantsWatered;
+        document.getElementById('water').style.width = stats.waterLevel + '%';
+        document.getElementById('highScore').textContent = stats.highScore;
+
+        // Update high score
+        if(stats.score > stats.highScore) {
+            stats.highScore = stats.score;
+            localStorage.setItem('droneHighScore', stats.highScore);
+        }
+
+        // Check level completion
+        if(stats.plantsWatered >= plants.length && plants.length > 0) {
+            levelComplete();
+        }
+    }
+
+    function updateTimer() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        document.getElementById('timer').textContent =
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function levelComplete() {
+        const completeDiv = document.getElementById('levelComplete');
+        document.getElementById('finalScore').textContent = stats.score;
+        document.getElementById('finalPlants').textContent = stats.plantsWatered;
+        document.getElementById('finalTime').textContent = document.getElementById('timer').textContent;
+        completeDiv.style.display = 'block';
+
+        showModeIndicator("🎉 NIVEAU TERMINÉ! Excellent travail!");
+    }
+
+    function nextLevel() {
+        currentLevel++;
+        document.getElementById('levelComplete').style.display = 'none';
+        startWateringMode();
+        showModeIndicator(`🌱 NIVEAU ${currentLevel} - ${15 + currentLevel * 5} plantes à arroser!`);
+    }
+
+    function restartLevel() {
+        stats.score = 0;
+        stats.plantsWatered = 0;
+        stats.waterLevel = 100;
+        startTime = Date.now();
+        playerDrone.mesh.position.set(0, 100, 0);
+        playerDrone.velocity.set(0, 0, 0);
+        generatePlants();
+        updateHUD();
+        showModeIndicator("🔄 Niveau recommencé!");
+    }
+
+    function toggleCamera() {
+        cameraMode = (cameraMode + 1) % 3;
+        const modes = ['3ème Personne', 'FPS', 'Vue du Dessus'];
+        document.getElementById('cameraBtn').textContent = modes[cameraMode];
+    }
+
+    function updateCamera() {
+        if(!playerDrone) return;
+
+        switch(cameraMode) {
+            case 0: // Third person
+                const offset = new THREE.Vector3(0, 50, 100);
+                offset.applyQuaternion(playerDrone.mesh.quaternion);
+                camera.position.lerp(
+                    playerDrone.mesh.position.clone().add(offset),
+                    0.1
+                );
+                camera.lookAt(playerDrone.mesh.position);
+                break;
+            case 1: // FPS
+                camera.position.copy(playerDrone.mesh.position);
+                camera.position.y += 5;
+                const lookDir = new THREE.Vector3(0, 0, -100);
+                lookDir.applyQuaternion(playerDrone.mesh.quaternion);
+                camera.lookAt(playerDrone.mesh.position.clone().add(lookDir));
+                break;
+            case 2: // Top down
+                camera.position.set(
+                    playerDrone.mesh.position.x,
+                    playerDrone.mesh.position.y + 200,
+                    playerDrone.mesh.position.z + 50
+                );
+                camera.lookAt(playerDrone.mesh.position);
+                break;
+        }
+    }
+
+    function updateRadar() {
+        if(!playerDrone) return;
+
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+
+        ctx.clearRect(0, 0, 200, 200);
+
+        // Grid
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(100, 0);
+        ctx.lineTo(100, 200);
+        ctx.moveTo(0, 100);
+        ctx.lineTo(200, 100);
+        ctx.stroke();
+
+        // Circles
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+        ctx.beginPath();
+        ctx.arc(100, 100, 50, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(100, 100, 90, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Player
+        ctx.fillStyle = '#4facfe';
+        ctx.fillRect(98, 98, 4, 4);
+
+        // Plants
+        plants.forEach(plant => {
+            const dx = (plant.mesh.position.x - playerDrone.mesh.position.x) / 5;
+            const dz = (plant.mesh.position.z - playerDrone.mesh.position.z) / 5;
+
+            if(Math.abs(dx) < 100 && Math.abs(dz) < 100) {
+                ctx.fillStyle = plant.watered ? '#00ff00' : '#ffff00';
+                ctx.beginPath();
+                ctx.arc(100 + dx, 100 + dz, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        // Water source
+        if(waterRefillStation) {
+            const dx = (waterRefillStation.position.x - playerDrone.mesh.position.x) / 5;
+            const dz = (waterRefillStation.position.z - playerDrone.mesh.position.z) / 5;
+
+            if(Math.abs(dx) < 100 && Math.abs(dz) < 100) {
+                ctx.fillStyle = '#00aaff';
+                ctx.beginPath();
+                ctx.arc(100 + dx, 100 + dz, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Direction indicator
+        ctx.strokeStyle = '#00ff00';
+        ctx.beginPath();
+        ctx.moveTo(100, 100);
+        const angle = -playerDrone.mesh.rotation.y;
+        ctx.lineTo(100 + Math.sin(angle) * 20, 100 - Math.cos(angle) * 20);
+        ctx.stroke();
+    }
+
+    // Initialize
+    playerDrone = new PlayerDrone();
+    generateCity();
+    startWateringMode();
+
+    // Input handling
+    window.addEventListener('keydown', e => {
+        keys[e.key.toLowerCase()] = true;
+
+        if(e.key.toLowerCase() === 'w') {
+            playerDrone.waterPlants();
+        }
+        if(e.key.toLowerCase() === 'r') {
+            playerDrone.refillWater();
+        }
+        if(e.key.toLowerCase() === 'c') {
+            toggleCamera();
+        }
+    });
+
+    window.addEventListener('keyup', e => {
+        keys[e.key.toLowerCase()] = false;
+    });
+
+    window.addEventListener('click', () => {
+        if(mode === 'watering') {
+            playerDrone.waterPlants();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+    });
+
+    // Main game loop
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Update player
+        if(playerDrone) {
+            playerDrone.update();
+
+            // Auto-refill when near water
+            if(keys['r']) {
+                playerDrone.refillWater();
+            }
+        }
+
+        // Update plants
+        plants.forEach(plant => plant.update());
+
+        // Update water drops
+        waterDrops = waterDrops.filter(drop => {
+            drop.position.add(drop.velocity);
+            drop.velocity.y -= 0.3;
+            drop.life--;
+
+            // Check collision with ground
+            if(drop.position.y <= 0) {
+                createWaterSplash(drop.position);
+                scene.remove(drop);
+                return false;
+            }
+
+            if(drop.life <= 0) {
+                scene.remove(drop);
+                return false;
+            }
+            return true;
+        });
+
+        // Update particles
+        particles = particles.filter(particle => {
+            particle.position.add(particle.velocity);
+            particle.velocity.y -= 0.3;
+            particle.life--;
+            particle.material.opacity = particle.life / 30;
+
+            if(particle.life <= 0) {
+                scene.remove(particle);
+                return false;
+            }
+            return true;
+        });
+
+        // Update zone
+        let zone = "Centre Ville";
+        if(playerDrone) {
+            const px = playerDrone.mesh.position.x;
+            const pz = playerDrone.mesh.position.z;
+
+            if(Math.abs(px) < 100 && Math.abs(pz) < 100) {
+                zone = "Lac Central (Recharge 💧)";
+            } else if(px > MAP_SIZE/3) {
+                zone = "Quartier Est";
+            } else if(px < -MAP_SIZE/3) {
+                zone = "Quartier Ouest";
+            } else if(pz > MAP_SIZE/3) {
+                zone = "Quartier Nord";
+            } else if(pz < -MAP_SIZE/3) {
+                zone = "Quartier Sud";
+            }
+        }
+        document.getElementById('zone').textContent = zone;
+
+        updateCamera();
+        updateRadar();
+        updateTimer();
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+</script>
+</body>
+</html>

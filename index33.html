@@ -307,7 +307,7 @@
             this.speed = isPlayer ? CONFIG.PLAYER_SPEED : CONFIG.ENEMY_SPEED;
             this.lastShot = 0;
             this.fireRate = isPlayer ? 150 : 500;
-            this.missiles = 5;
+            this.missiles = 10;
 
             // Création du modèle 3D amélioré
             const group = new THREE.Group();
@@ -1251,9 +1251,9 @@
     function startSoloMode() {
         soloMode = true;
         CONFIG.gameMode = 'solo';
-        waveNumber = 1;
+        waveNumber = 0;
         enemiesKilled = 0;
-        waveEnemies = 3;
+        waveEnemies = 0;
 
         document.getElementById('menu').style.display = 'none';
         document.getElementById('hud').style.display = 'block';

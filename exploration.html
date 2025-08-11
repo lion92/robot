@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Exploration - Tropical Islands</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, rgba(30,60,114,0.9), rgba(42,82,152,0.8));
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(135,206,235,0.8);
+            min-width: 250px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(31,38,135,0.37);
+        }
+
+        #menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: linear-gradient(135deg, rgba(30,60,114,0.95), rgba(42,82,152,0.9));
+            padding: 50px;
+            border-radius: 30px;
+            border: 3px solid #00f2fe;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        }
+
+        #menu h1 {
+            font-size: 56px;
+            background: linear-gradient(45deg, #00f2fe, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .menu-button {
+            display: block;
+            width: 280px;
+            margin: 20px auto;
+            padding: 18px;
+            font-size: 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+        }
+
+        .menu-button:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(102,126,234,0.6);
+            background: linear-gradient(45deg, #764ba2, #667eea);
+        }
+
+        #explorationInfo {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(46,213,115,0.9), rgba(52,211,153,0.8));
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.5);
+            font-size: 18px;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        #explorationInfo div {
+            margin: 10px 0;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(30,60,114,0.9), rgba(42,82,152,0.8));
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(135,206,235,0.8);
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        .control-key {
+            color: #00f2fe;
+            font-weight: bold;
+            background: rgba(0,242,254,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .notification {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, rgba(102,126,234,0.95), rgba(118,75,162,0.95));
+            padding: 25px 50px;
+            border-radius: 25px;
+            font-size: 26px;
+            border: 2px solid rgba(255,255,255,0.5);
+            pointer-events: none;
+            animation: fadeOut 2s forwards;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            70% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+        }
+
+        #cameraControls {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            background: rgba(30,60,114,0.9);
+            padding: 15px;
+            border-radius: 15px;
+            display: none;
+        }
+
+        .camera-button {
+            display: block;
+            margin: 10px 0;
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            border: none;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .camera-button:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="menu">
+    <h1>🌴 DRONE EXPLORER 🌊</h1>
+    <button class="menu-button" onclick="startExplorationMode()">🗺️ Mode Exploration Libre</button>
+    <button class="menu-button" onclick="startTreasureHunt()">💎 Chasse au Trésor</button>
+    <button class="menu-button" onclick="startPhotoMode()">📸 Mode Photo</button>
+</div>
+
+<div id="explorationInfo">
+    <div>🗺️ MODE EXPLORATION</div>
+    <div>📍 Position: <span id="playerPos">X:0 Z:0</span></div>
+    <div>🏝️ Îles visitées: <span id="islandsVisited">0/8</span></div>
+    <div>💎 Trésors: <span id="treasuresFound">0</span></div>
+    <div>⏱️ Temps: <span id="explorationTime">00:00</span></div>
+    <div>🌅 <span id="dayTime">Jour</span></div>
+</div>
+
+<div id="controls">
+    <div><span class="control-key">ZQSD/↑↓←→</span> Déplacer</div>
+    <div><span class="control-key">ESPACE</span> Monter</div>
+    <div><span class="control-key">SHIFT</span> Descendre</div>
+    <div><span class="control-key">C</span> Changer Vue</div>
+    <div><span class="control-key">T</span> Turbo</div>
+    <div><span class="control-key">P</span> Photo</div>
+    <div><span class="control-key">M</span> Menu</div>
+</div>
+
+<div id="cameraControls">
+    <button class="camera-button" onclick="setCameraView('first')">👁️ Vue 1ère</button>
+    <button class="camera-button" onclick="setCameraView('third')">🎥 Vue 3ème</button>
+    <button class="camera-button" onclick="setCameraView('top')">🗺️ Vue Dessus</button>
+    <button class="camera-button" onclick="setCameraView('cinematic')">🎬 Cinématique</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Configuration
+    const CONFIG = {
+        ARENA_SIZE: 3000,
+        PLAYER_SPEED: 8,
+        TURBO_SPEED: 15
+    };
+
+    // Variables globales
+    let scene, camera, renderer;
+    let player;
+    let gameRunning = false;
+    let keys = {};
+    let water, sky;
+    let islands = [];
+    let dolphins = [];
+    let birds = [];
+    let particles = [];
+    let clouds = [];
+
+    // Variables exploration
+    let explorationMode = false;
+    let visitedIslands = new Set();
+    let treasuresFound = 0;
+    let explorationStartTime = 0;
+    let currentCameraView = 'third';
+    let dayNightCycle = 0;
+    let sunLight, moonLight;
+
+    // Classe Drone Explorateur
+    class ExploreDrone {
+        constructor() {
+            const group = new THREE.Group();
+
+            // Corps principal
+            const bodyGeometry = new THREE.SphereGeometry(12, 8, 6);
+            const bodyMaterial = new THREE.MeshPhongMaterial({
+                color: 0x4facfe,
+                emissive: 0x0066cc,
+                emissiveIntensity: 0.3,
+                shininess: 100
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.scale.y = 0.6;
+            group.add(body);
+
+            // Cockpit
+            const cockpitGeometry = new THREE.SphereGeometry(6, 8, 6);
+            const cockpitMaterial = new THREE.MeshPhongMaterial({
+                color: 0x1a1a2e,
+                emissive: 0x00f2fe,
+                emissiveIntensity: 0.5,
+                transparent: true,
+                opacity: 0.8
+            });
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.position.y = 3;
+            group.add(cockpit);
+
+            // Rotors
+            this.rotors = [];
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2;
+
+                // Pales du rotor
+                const bladeGeometry = new THREE.BoxGeometry(20, 0.5, 2);
+                const bladeMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x95a5a6,
+                    emissive: 0x4facfe,
+                    emissiveIntensity: 0.1
+                });
+
+                const bladeGroup = new THREE.Group();
+                const blade1 = new THREE.Mesh(bladeGeometry, bladeMaterial);
+                const blade2 = new THREE.Mesh(bladeGeometry, bladeMaterial);
+                blade2.rotation.y = Math.PI / 2;
+
+                bladeGroup.add(blade1);
+                bladeGroup.add(blade2);
+                bladeGroup.position.x = Math.cos(angle) * 25;
+                bladeGroup.position.z = Math.sin(angle) * 25;
+                bladeGroup.position.y = 8;
+
+                group.add(bladeGroup);
+                this.rotors.push(bladeGroup);
+            }
+
+            // Lumière
+            const light = new THREE.PointLight(0x4facfe, 1, 50);
+            light.position.y = 10;
+            group.add(light);
+
+            this.mesh = group;
+            this.mesh.position.set(0, 80, 0);
+            this.speed = CONFIG.PLAYER_SPEED;
+            this.velocity = new THREE.Vector3();
+
+            scene.add(this.mesh);
+        }
+
+        update() {
+            // Animation des rotors
+            const rotorSpeed = keys['t'] ? 0.8 : 0.4;
+            this.rotors.forEach(rotor => {
+                rotor.rotation.y += rotorSpeed;
+            });
+
+            // Mouvement fluide
+            this.velocity.multiplyScalar(0.95);
+            this.mesh.position.add(this.velocity);
+
+            // Limites de hauteur
+            if (this.mesh.position.y < 20) this.mesh.position.y = 20;
+            if (this.mesh.position.y > 400) this.mesh.position.y = 400;
+
+            // Limites de la carte
+            const limit = CONFIG.ARENA_SIZE / 2;
+            this.mesh.position.x = Math.max(-limit, Math.min(limit, this.mesh.position.x));
+            this.mesh.position.z = Math.max(-limit, Math.min(limit, this.mesh.position.z));
+        }
+    }
+
+    // Classe Dauphin
+    class Dolphin {
+        constructor(position) {
+            const group = new THREE.Group();
+
+            const bodyGeometry = new THREE.SphereGeometry(8, 8, 6);
+            const bodyMaterial = new THREE.MeshPhongMaterial({
+                color: 0x708090,
+                shininess: 100
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.scale.set(2, 0.8, 1);
+            group.add(body);
+
+            this.mesh = group;
+            this.mesh.position.copy(position);
+            this.speed = 2 + Math.random() * 2;
+            this.direction = Math.random() * Math.PI * 2;
+            this.jumpCooldown = 0;
+
+            scene.add(this.mesh);
+        }
+
+        update() {
+            this.mesh.position.x += Math.cos(this.direction) * this.speed;
+            this.mesh.position.z += Math.sin(this.direction) * this.speed;
+
+            if (Math.random() < 0.02) {
+                this.direction += (Math.random() - 0.5) * 0.5;
+            }
+
+            if (this.jumpCooldown <= 0 && Math.random() < 0.005) {
+                this.jumpCooldown = 200;
+                this.jumping = true;
+                this.jumpVelocity = 5;
+            }
+
+            if (this.jumping) {
+                this.mesh.position.y += this.jumpVelocity;
+                this.jumpVelocity -= 0.2;
+
+                if (this.mesh.position.y <= 0) {
+                    this.mesh.position.y = 0;
+                    this.jumping = false;
+                }
+            } else {
+                this.mesh.position.y = Math.sin(Date.now() * 0.003) * 2 - 2;
+            }
+
+            this.jumpCooldown--;
+
+            const limit = CONFIG.ARENA_SIZE / 2;
+            if (Math.abs(this.mesh.position.x) > limit ||
+                Math.abs(this.mesh.position.z) > limit) {
+                this.direction += Math.PI;
+            }
+
+            this.mesh.rotation.y = -this.direction + Math.PI / 2;
+        }
+    }
+
+    // Classe Oiseau
+    class Bird {
+        constructor(position) {
+            const group = new THREE.Group();
+
+            const bodyGeometry = new THREE.SphereGeometry(2, 6, 4);
+            const bodyMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffffff
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            group.add(body);
+
+            const wingGeometry = new THREE.BoxGeometry(8, 0.5, 3);
+            const leftWing = new THREE.Mesh(wingGeometry, bodyMaterial);
+            leftWing.position.x = -4;
+            const rightWing = new THREE.Mesh(wingGeometry, bodyMaterial);
+            rightWing.position.x = 4;
+
+            this.leftWing = leftWing;
+            this.rightWing = rightWing;
+            group.add(leftWing);
+            group.add(rightWing);
+
+            this.mesh = group;
+            this.mesh.position.copy(position);
+            this.speed = 1 + Math.random() * 2;
+            this.direction = Math.random() * Math.PI * 2;
+
+            scene.add(this.mesh);
+        }
+
+        update() {
+            const time = Date.now() * 0.003;
+
+            this.mesh.position.x += Math.cos(this.direction) * this.speed;
+            this.mesh.position.z += Math.sin(this.direction) * this.speed;
+            this.mesh.position.y = 150 + Math.sin(time) * 20;
+
+            this.leftWing.rotation.z = Math.sin(time * 5) * 0.5;
+            this.rightWing.rotation.z = -Math.sin(time * 5) * 0.5;
+
+            if (Math.random() < 0.01) {
+                this.direction += (Math.random() - 0.5);
+            }
+
+            const limit = CONFIG.ARENA_SIZE / 2;
+            if (Math.abs(this.mesh.position.x) > limit ||
+                Math.abs(this.mesh.position.z) > limit) {
+                this.direction += Math.PI;
+            }
+
+            this.mesh.rotation.y = -this.direction + Math.PI / 2;
+        }
+    }
+
+    // Initialisation
+    function init() {
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x87CEEB, 200, 3000);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 4000);
+        camera.position.set(0, 250, 500);
+
+        renderer = new THREE.WebGLRenderer({
+            canvas: document.getElementById('canvas'),
+            antialias: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+
+        // Ciel
+        const skyGeometry = new THREE.SphereGeometry(3000, 32, 32);
+        const skyMaterial = new THREE.MeshBasicMaterial({
+            color: 0x87CEEB,
+            side: THREE.BackSide
+        });
+        sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        scene.add(sky);
+
+        // Éclairage
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        sunLight = new THREE.DirectionalLight(0xffd700, 1.2);
+        sunLight.position.set(300, 600, 200);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+
+        // Océan
+        const waterGeometry = new THREE.PlaneGeometry(4000, 4000, 128, 128);
+        const waterMaterial = new THREE.MeshPhongMaterial({
+            color: 0x006994,
+            transparent: true,
+            opacity: 0.8,
+            shininess: 100
+        });
+
+        const vertices = waterGeometry.attributes.position.array;
+        for (let i = 0; i < vertices.length; i += 3) {
+            vertices[i + 2] = Math.sin(vertices[i] * 0.05) * 3;
+        }
+
+        water = new THREE.Mesh(waterGeometry, waterMaterial);
+        water.rotation.x = -Math.PI / 2;
+        scene.add(water);
+
+        // Îles
+        createIslands();
+
+        // Nuages
+        createClouds();
+
+        // Contrôles
+        document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    // Création des îles
+    function createIslands() {
+        for (let i = 0; i < 8; i++) {
+            const islandGroup = new THREE.Group();
+
+            const size = 100 + Math.random() * 100;
+            const islandGeometry = new THREE.ConeGeometry(size, 40, 8);
+            const islandMaterial = new THREE.MeshPhongMaterial({
+                color: 0xf4d03f,
+                flatShading: true
+            });
+            const island = new THREE.Mesh(islandGeometry, islandMaterial);
+            island.position.y = -20;
+            islandGroup.add(island);
+
+            // Végétation
+            const greenGeometry = new THREE.ConeGeometry(size * 0.7, 30, 8);
+            const greenMaterial = new THREE.MeshPhongMaterial({
+                color: 0x27ae60,
+                flatShading: true
+            });
+            const greenPart = new THREE.Mesh(greenGeometry, greenMaterial);
+            greenPart.position.y = 10;
+            islandGroup.add(greenPart);
+
+            // Trésor
+            if (Math.random() < 0.6) {
+                const treasureGeometry = new THREE.OctahedronGeometry(8, 0);
+                const treasureMaterial = new THREE.MeshPhongMaterial({
+                    color: 0xffd700,
+                    emissive: 0xffd700,
+                    emissiveIntensity: 0.3
+                });
+                const treasure = new THREE.Mesh(treasureGeometry, treasureMaterial);
+                treasure.position.y = 30;
+                treasure.userData = { type: 'treasure', collected: false };
+                islandGroup.add(treasure);
+                islandGroup.userData.hasTreasure = true;
+            }
+
+            const angle = (i / 8) * Math.PI * 2;
+            const distance = 600 + Math.random() * 800;
+            islandGroup.position.x = Math.cos(angle) * distance;
+            islandGroup.position.z = Math.sin(angle) * distance;
+
+            islandGroup.userData.id = i;
+            islandGroup.userData.discovered = false;
+
+            islands.push(islandGroup);
+            scene.add(islandGroup);
+        }
+    }
+
+    // Nuages
+    function createClouds() {
+        for (let i = 0; i < 20; i++) {
+            const cloudGroup = new THREE.Group();
+
+            for (let j = 0; j < 5; j++) {
+                const cloudGeometry = new THREE.SphereGeometry(30, 8, 6);
+                const cloudMaterial = new THREE.MeshPhongMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const cloudPart = new THREE.Mesh(cloudGeometry, cloudMaterial);
+                cloudPart.position.x = (Math.random() - 0.5) * 50;
+                cloudPart.position.y = (Math.random() - 0.5) * 20;
+                cloudPart.position.z = (Math.random() - 0.5) * 50;
+                cloudGroup.add(cloudPart);
+            }
+
+            cloudGroup.position.x = (Math.random() - 0.5) * 3000;
+            cloudGroup.position.y = 250 + Math.random() * 200;
+            cloudGroup.position.z = (Math.random() - 0.5) * 3000;
+            cloudGroup.userData = { speed: 0.2 + Math.random() * 0.3 };
+
+            clouds.push(cloudGroup);
+            scene.add(cloudGroup);
+        }
+    }
+
+    // Démarrage du mode exploration
+    function startExplorationMode() {
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('explorationInfo').style.display = 'block';
+        document.getElementById('controls').style.display = 'block';
+        document.getElementById('cameraControls').style.display = 'block';
+
+        explorationMode = true;
+        gameRunning = true;
+        explorationStartTime = Date.now();
+        visitedIslands.clear();
+        treasuresFound = 0;
+
+        // Créer le drone
+        player = new ExploreDrone();
+
+        // Créer la faune
+        for (let i = 0; i < 5; i++) {
+            dolphins.push(new Dolphin(new THREE.Vector3(
+                (Math.random() - 0.5) * CONFIG.ARENA_SIZE,
+                0,
+                (Math.random() - 0.5) * CONFIG.ARENA_SIZE
+            )));
+        }
+
+        for (let i = 0; i < 10; i++) {
+            birds.push(new Bird(new THREE.Vector3(
+                (Math.random() - 0.5) * CONFIG.ARENA_SIZE,
+                150,
+                (Math.random() - 0.5) * CONFIG.ARENA_SIZE
+            )));
+        }
+
+        showNotification('🗺️ Explorez les îles tropicales!');
+        animate();
+    }
+
+    // Modes additionnels
+    function startTreasureHunt() {
+        startExplorationMode();
+        showNotification('💎 Trouvez tous les trésors cachés!');
+    }
+
+    function startPhotoMode() {
+        startExplorationMode();
+        showNotification('📸 Mode Photo - Capturez les plus beaux paysages!');
+    }
+
+    // Changement de vue
+    function setCameraView(view) {
+        currentCameraView = view;
+        showNotification(`Vue: ${view.toUpperCase()}`);
+    }
+
+    // Animation principale
+    function animate() {
+        if (!gameRunning) return;
+        requestAnimationFrame(animate);
+
+        const time = Date.now() * 0.001;
+
+        // Animation de l'eau
+        if (water) {
+            const vertices = water.geometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                vertices[i + 2] = Math.sin(vertices[i] * 0.05 + time * 2) * 3;
+            }
+            water.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // Animation des nuages
+        clouds.forEach(cloud => {
+            cloud.position.x += cloud.userData.speed;
+            if (cloud.position.x > 2000) cloud.position.x = -2000;
+        });
+
+        // Mise à jour du joueur
+        if (player) {
+            updatePlayer();
+            player.update();
+            checkIslandProximity();
+            checkTreasures();
+        }
+
+        // Mise à jour de la faune
+        dolphins.forEach(dolphin => dolphin.update());
+        birds.forEach(bird => bird.update());
+
+        // Mise à jour des particules
+        particles = particles.filter(particle => {
+            particle.life--;
+            if (particle.velocity) {
+                particle.mesh.position.add(particle.velocity);
+                particle.velocity.multiplyScalar(0.95);
+            }
+            particle.mesh.material.opacity = particle.life / 60;
+            if (particle.life <= 0) {
+                scene.remove(particle.mesh);
+                return false;
+            }
+            return true;
+        });
+
+        // Rotation des trésors
+        islands.forEach(island => {
+            island.children.forEach(child => {
+                if (child.userData && child.userData.type === 'treasure' && !child.userData.collected) {
+                    child.rotation.y += 0.05;
+                    child.position.y = 30 + Math.sin(time * 3) * 5;
+                }
+            });
+        });
+
+        // Mise à jour de la caméra
+        updateCamera();
+
+        // Cycle jour/nuit
+        updateDayNightCycle();
+
+        // Mise à jour HUD
+        updateExplorationHUD();
+
+        renderer.render(scene, camera);
+    }
+
+    // Contrôles du joueur
+    function updatePlayer() {
+        const speed = keys['t'] ? CONFIG.TURBO_SPEED : CONFIG.PLAYER_SPEED;
+
+        if (keys['z'] || keys['arrowup']) player.velocity.z -= speed * 0.1;
+        if (keys['s'] || keys['arrowdown']) player.velocity.z += speed * 0.1;
+        if (keys['q'] || keys['arrowleft']) player.velocity.x -= speed * 0.1;
+        if (keys['d'] || keys['arrowright']) player.velocity.x += speed * 0.1;
+        if (keys[' ']) player.mesh.position.y += speed * 0.5;
+        if (keys['shift']) player.mesh.position.y -= speed * 0.5;
+
+        // Inclinaison du drone
+        player.mesh.rotation.z = -player.velocity.x * 0.05;
+        player.mesh.rotation.x = player.velocity.z * 0.05;
+    }
+
+    // Mise à jour de la caméra
+    function updateCamera() {
+        if (!player) return;
+
+        switch(currentCameraView) {
+            case 'first':
+                camera.position.copy(player.mesh.position);
+                camera.position.y += 10;
+                camera.lookAt(
+                    player.mesh.position.x - player.velocity.x * 10,
+                    player.mesh.position.y,
+                    player.mesh.position.z - player.velocity.z * 10
+                );
+                break;
+            case 'third':
+                camera.position.x = player.mesh.position.x;
+                camera.position.y = player.mesh.position.y + 100;
+                camera.position.z = player.mesh.position.z + 200;
+                camera.lookAt(player.mesh.position);
+                break;
+            case 'top':
+                camera.position.x = player.mesh.position.x;
+                camera.position.y = 500;
+                camera.position.z = player.mesh.position.z;
+                camera.lookAt(player.mesh.position);
+                break;
+            case 'cinematic':
+                const cinematicRadius = 300;
+                const cinematicAngle = Date.now() * 0.0005;
+                camera.position.x = player.mesh.position.x + Math.cos(cinematicAngle) * cinematicRadius;
+                camera.position.y = player.mesh.position.y + 150;
+                camera.position.z = player.mesh.position.z + Math.sin(cinematicAngle) * cinematicRadius;
+                camera.lookAt(player.mesh.position);
+                break;
+        }
+    }
+
+    // Vérification proximité îles
+    function checkIslandProximity() {
+        islands.forEach(island => {
+            const dist = player.mesh.position.distanceTo(island.position);
+            if (dist < 150 && !island.userData.discovered) {
+                island.userData.discovered = true;
+                visitedIslands.add(island.userData.id);
+                showNotification(`🏝️ Île découverte! (${visitedIslands.size}/8)`);
+            }
+        });
+    }
+
+    // Vérification trésors
+    function checkTreasures() {
+        islands.forEach(island => {
+            island.children.forEach(child => {
+                if (child.userData && child.userData.type === 'treasure' && !child.userData.collected) {
+                    const dist = player.mesh.position.distanceTo(
+                        new THREE.Vector3(
+                            island.position.x + child.position.x,
+                            island.position.y + child.position.y,
+                            island.position.z + child.position.z
+                        )
+                    );
+
+                    if (dist < 50) {
+                        child.userData.collected = true;
+                        treasuresFound++;
+                        scene.remove(child);
+                        showNotification(`💎 Trésor trouvé! Total: ${treasuresFound}`);
+                    }
+                }
+            });
+        });
+    }
+
+    // Cycle jour/nuit
+    function updateDayNightCycle() {
+        dayNightCycle += 0.001;
+        const dayProgress = (Math.sin(dayNightCycle) + 1) / 2;
+
+        // Couleur du ciel
+        const dayColor = new THREE.Color(0x87CEEB);
+        const nightColor = new THREE.Color(0x001a33);
+        sky.material.color.lerpColors(nightColor, dayColor, dayProgress);
+
+        // Intensité lumineuse
+        sunLight.intensity = 0.3 + dayProgress * 0.9;
+
+        // Brouillard
+        scene.fog.color.lerpColors(nightColor, dayColor, dayProgress);
+    }
+
+    // Mise à jour HUD exploration
+    function updateExplorationHUD() {
+        if (!explorationMode) return;
+
+        document.getElementById('playerPos').textContent =
+            `X:${Math.round(player.mesh.position.x)} Z:${Math.round(player.mesh.position.z)}`;
+
+        document.getElementById('islandsVisited').textContent =
+            `${visitedIslands.size}/8`;
+
+        document.getElementById('treasuresFound').textContent = treasuresFound;
+
+        const elapsedTime = Math.floor((Date.now() - explorationStartTime) / 1000);
+        const minutes = Math.floor(elapsedTime / 60);
+        const seconds = elapsedTime % 60;
+        document.getElementById('explorationTime').textContent =
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        const dayProgress = (Math.sin(dayNightCycle) + 1) / 2;
+        document.getElementById('dayTime').textContent =
+            dayProgress > 0.5 ? 'Jour ☀️' : 'Nuit 🌙';
+    }
+
+    // Notification
+    function showNotification(text) {
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = text;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 2000);
+    }
+
+    // Redimensionnement
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Lancement
+    window.addEventListener('load', init);
+</script>
+</body>
+</html>

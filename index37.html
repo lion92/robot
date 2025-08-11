@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Drone Battle Arena — Enhanced</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{
+            --glass: rgba(12,14,30,.55);
+            --bd: rgba(255,255,255,.08);
+            --blue:#4facfe;
+            --red:#ff6b6b;
+            --accent:#22d3ee;
+        }
+        body{
+            overflow:hidden; color:#fff;
+            font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Inter,Arial;
+            background:
+                    radial-gradient(1200px 600px at 12% -10%, #4f46e533, transparent),
+                    radial-gradient(1200px 600px at 110% 110%, #06b6d433, transparent),
+                    linear-gradient(135deg,#0b1222,#172a44 55%,#0d1b2a);
+        }
+        canvas#c{position:absolute;inset:0;z-index:0}
+        .glass{
+            background:var(--glass);
+            border:1px solid var(--bd);
+            backdrop-filter: blur(10px) saturate(120%);
+            box-shadow: 0 10px 30px rgba(0,0,0,.25);
+        }
+        #stats,#teams,#controls{ position:absolute; z-index:5; border-radius:12px; font-size:14px; }
+        #stats{ top:12px; left:12px; padding:14px 16px; min-width:240px }
+        #teams{ top:12px; right:12px; padding:14px 16px }
+        #controls{ bottom:14px; left:50%; transform:translateX(-50%); padding:10px 14px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center }
+        button{
+            padding:8px 14px; border:none; border-radius:10px; cursor:pointer; font-weight:600; color:#fff;
+            background: linear-gradient(135deg,#5865f2,#22d3ee);
+            box-shadow: 0 6px 16px rgba(34,211,238,.25);
+            transition: transform .15s ease, filter .15s ease;
+        }
+        button:hover{ transform: translateY(-1px); filter:brightness(1.06) }
+        button:active{ transform: scale(0.98) }
+        .team-blue{ color:var(--blue) }
+        .team-red{ color:var(--red) }
+        #winner{
+            position:absolute; z-index:6; left:50%; top:50%; transform:translate(-50%,-50%);
+            font-size:48px; font-weight:800; letter-spacing:.5px; display:none;
+            text-shadow:0 0 30px rgba(255,255,255,.35);
+            animation:pulse 1s infinite;
+        }
+        @keyframes pulse{
+            0%,100%{transform:translate(-50%,-50%) scale(1)}
+            50%{transform:translate(-50%,-50%) scale(1.06)}
+        }
+        .fx-vignette,.fx-noise{ pointer-events:none; position:fixed; inset:0; z-index:2 }
+        .fx-vignette{
+            background: radial-gradient(1200px 600px at 50% 60%, transparent 55%, rgba(0,0,0,.35) 85%);
+            mix-blend-mode:multiply;
+        }
+        .fx-noise{
+            background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 140 140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.04"/></svg>');
+            opacity:.45;
+            animation: jitter 7s linear infinite;
+        }
+        @keyframes jitter{
+            0%{transform:translate(0,0)}
+            50%{transform:translate(-1%,1%)}
+            100%{transform:translate(0,0)}
+        }
+        #error{
+            position:fixed; inset:0; display:none; place-items:center; z-index:10;
+            background: rgba(0,0,0,.8); text-align:center; padding:24px;
+        }
+        #error .box{ max-width:560px }
+        #error h2{ margin-bottom:8px }
+        #error p{ opacity:.85; margin-bottom:12px }
+        /* Minimap */
+        #mapWrap{ position:absolute; right:12px; bottom:12px; z-index:5; padding:8px; border-radius:12px }
+        #map{ display:block; width:160px; height:160px }
+        #hint{
+            position:absolute; left:12px; bottom:12px; z-index:5;
+            font-size:12px; opacity:.75; padding:8px 10px; border-radius:10px
+        }
+        /* FPS Counter */
+        #fps{
+            position:absolute; top:12px; left:50%; transform:translateX(-50%);
+            z-index:5; padding:6px 12px; border-radius:8px; font-size:12px;
+            font-family:monospace; color:#22d3ee;
+        }
+        /* Weather info */
+        #weather{
+            position:absolute; top:80px; left:12px; z-index:5;
+            padding:10px 14px; border-radius:10px; font-size:13px;
+            opacity:.9;
+        }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="stats" class="glass">
+    <h3 style="margin-bottom:8px;font-weight:800">⚔️ BATAILLE EN COURS</h3>
+    <div>Durée: <span id="time">0</span>s</div>
+    <div>Tirs: <span id="shots">0</span></div>
+    <div>Éliminations: <span id="kills">0</span></div>
+</div>
+
+<div id="teams" class="glass">
+    <div class="team-blue">🔵 Équipe Bleue: <span id="blue-count">0</span></div>
+    <div class="team-red">🔴 Équipe Rouge: <span id="red-count">0</span></div>
+</div>
+
+<div id="weather" class="glass">
+    <div>🌙 Nuit claire</div>
+    <div>💨 Vent: <span id="wind">5</span> km/h</div>
+</div>
+
+<div id="fps" class="glass">FPS: <span id="fps-val">60</span></div>
+
+<div id="controls" class="glass">
+    <button onclick="startBattle(5)">5v5</button>
+    <button onclick="startBattle(10)">10v10</button>
+    <button onclick="startBattle(20)">20v20 CHAOS</button>
+    <button onclick="toggleCamera()">📷 Vue</button>
+    <button onclick="toggleSpeed()">⏩ x<span id="speed">1</span></button>
+    <button onclick="toggleQuality()">⚡ Qualité</button>
+    <button onclick="togglePhoto()">📸 Photo</button>
+    <button onclick="togglePause()">⏯️ Pause</button>
+    <button onclick="resetArena()">♻️ Reset</button>
+</div>
+
+<div id="mapWrap" class="glass"><canvas id="map" width="160" height="160"></canvas></div>
+<div id="hint" class="glass">Raccourcis: [1-3]=Batailles • [C]=Vue • [Espace]=Pause • [Q]=Qualité • [P]=Photo • [R]=Reset</div>
+
+<div id="winner"></div>
+<div class="fx-vignette"></div>
+<div class="fx-noise"></div>
+
+<div id="error">
+    <div class="box">
+        <h2>Votre navigateur ne supporte pas WebGL 🧩</h2>
+        <p>Essayez avec Chrome, Edge, Firefox ou Safari récent.</p>
+        <button onclick="location.reload()">↻ Réessayer</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    let scene, camera, renderer;
+    let drones=[], bullets=[], trails=[], particles=[], powerups=[], trees=[], clouds=[];
+    let stats={time:0,shots:0,kills:0};
+    let gameSpeed=1, cameraMode=0, battleStart=0;
+    let boeing=null, quality='medium', photo=false, paused=false;
+    let windOffset = 0, lightningTimer = 0;
+    const buildings=[], lamps=[], birds=[];
+    const ARENA=600;
+
+    // FPS Counter
+    let fps = 60, lastTime = performance.now();
+    let frameCount = 0;
+
+    // --- INIT RENDERER + CHECK WEBGL ---
+    (function initRenderer(){
+        try{
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('c'),
+                antialias: quality !== 'low',
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            const gl = renderer.getContext();
+            if(!gl){ throw new Error('no-webgl'); }
+        }catch(e){
+            document.getElementById('error').style.display='grid';
+            window.startBattle = window.toggleCamera = window.toggleSpeed = window.toggleQuality = window.togglePhoto = window.togglePause = window.resetArena = function(){};
+            return;
+        }
+        boot();
+    })();
+
+    function boot(){
+        // --- SCÈNE ---
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x0b1222, 180, 1600);
+
+        camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 1, 3000);
+        camera.position.set(0, 320, 620);
+
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.shadowMap.enabled = quality !== 'low';
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setPixelRatio(quality === 'low' ? 1 : Math.min(window.devicePixelRatio, 2));
+
+        // --- LUMIÈRES ---
+        scene.add(new THREE.AmbientLight(0x223044, .6));
+        const moon = new THREE.DirectionalLight(0x8ab4ff, .8);
+        moon.position.set(300, 500, 200);
+        moon.castShadow = quality !== 'low';
+        moon.shadow.mapSize.set(quality === 'low' ? 512 : 1024, quality === 'low' ? 512 : 1024);
+        scene.add(moon);
+        scene.add(new THREE.HemisphereLight(0x0ea5e9, 0x0b1222, .35));
+
+        // --- SOL AMÉLIORÉ ---
+        const groundTex = new THREE.TextureLoader().load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+        groundTex.repeat.set(50, 50);
+        groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
+
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(1200,1200,10,10),
+            new THREE.MeshStandardMaterial({
+                color:0x1c3922,
+                roughness:.95,
+                metalness:.05,
+                bumpScale: 0.02
+            })
+        );
+        ground.rotation.x = -Math.PI/2;
+        ground.receiveShadow = true;
+        // Ajouter des ondulations au terrain
+        const vertices = ground.geometry.attributes.position.array;
+        for(let i = 0; i < vertices.length; i += 3){
+            vertices[i + 2] = Math.sin(vertices[i] * 0.01) * 3 + Math.cos(vertices[i + 1] * 0.01) * 3;
+        }
+        ground.geometry.computeVertexNormals();
+        scene.add(ground);
+
+        // Routes avec marquages
+        const pathMat = new THREE.MeshStandardMaterial({ color:0x3a3a3a, roughness:.9, metalness:.1 });
+        const markingMat = new THREE.MeshBasicMaterial({ color:0xffff66, transparent:true, opacity:0.7 });
+
+        [['H',1200,28,0.1],['V',28,1200,0.1]].forEach(([_,w,h,y])=>{
+            const p = new THREE.Mesh(new THREE.PlaneGeometry(w,h), pathMat);
+            p.rotation.x=-Math.PI/2;
+            p.position.y=y;
+            p.receiveShadow = true;
+            scene.add(p);
+
+            // Marquages routiers
+            if(quality !== 'low'){
+                for(let i = -500; i < 500; i += 40){
+                    const marking = new THREE.Mesh(
+                        new THREE.PlaneGeometry(_ === 'H' ? 20 : 2, _ === 'H' ? 2 : 20),
+                        markingMat
+                    );
+                    marking.rotation.x = -Math.PI/2;
+                    marking.position.set(_ === 'H' ? i : 0, y + 0.01, _ === 'V' ? i : 0);
+                    scene.add(marking);
+                }
+            }
+        });
+
+        // --- BÂTIMENTS AMÉLIORÉS ---
+        (function createBuildings(){
+            const colors=[0x22303e,0x2a3a4a,0x1f2a36,0x1c2631,0x1a2430];
+            const windowColors = [0xffd700, 0x87ceeb, 0xffa500];
+
+            for(let x=-500;x<=500;x+=150){
+                for(let z=-500;z<=500;z+=150){
+                    if(Math.abs(x)<150 && Math.abs(z)<150) continue;
+
+                    const w=40+Math.random()*40, d=40+Math.random()*40, h=90+Math.random()*210;
+                    const buildingGroup = new THREE.Group();
+
+                    // Bâtiment principal
+                    const b=new THREE.Mesh(
+                        new THREE.BoxGeometry(w,h,d),
+                        new THREE.MeshStandardMaterial({
+                            color: colors[(Math.random()*colors.length)|0],
+                            emissive:0x0b1a2a,
+                            emissiveIntensity:.1,
+                            roughness:.8,
+                            metalness:.2
+                        })
+                    );
+                    b.position.y = h/2;
+                    b.castShadow = quality !== 'low';
+                    b.receiveShadow = true;
+                    buildingGroup.add(b);
+
+                    // Fenêtres éclairées (optimisées)
+                    if(quality !== 'low' && Math.random() > 0.3){
+                        const windowRows = Math.floor(h / 20);
+                        const windowCols = Math.floor(w / 15);
+
+                        for(let row = 0; row < windowRows; row += 2){
+                            for(let col = 0; col < windowCols; col += 2){
+                                if(Math.random() > 0.4){
+                                    const windowLight = new THREE.Mesh(
+                                        new THREE.PlaneGeometry(8, 12),
+                                        new THREE.MeshBasicMaterial({
+                                            color: windowColors[Math.floor(Math.random() * windowColors.length)],
+                                            transparent: true,
+                                            opacity: 0.8 + Math.random() * 0.2
+                                        })
+                                    );
+                                    windowLight.position.set(
+                                        -w/2 + col * 15 + 7.5,
+                                        row * 20 + 10,
+                                        d/2 + 0.1
+                                    );
+                                    buildingGroup.add(windowLight);
+                                }
+                            }
+                        }
+                    }
+
+                    // Antenne sur le toit (quelques bâtiments)
+                    if(Math.random() > 0.7){
+                        const antenna = new THREE.Mesh(
+                            new THREE.CylinderGeometry(0.5, 0.5, 20),
+                            new THREE.MeshBasicMaterial({ color: 0x666666 })
+                        );
+                        antenna.position.set(0, h + 10, 0);
+                        buildingGroup.add(antenna);
+
+                        // Lumière clignotante
+                        const antennaLight = new THREE.PointLight(0xff0000, 0.5, 50);
+                        antennaLight.position.set(0, h + 20, 0);
+                        buildingGroup.add(antennaLight);
+                        buildingGroup.userData.antennaLight = antennaLight;
+                    }
+
+                    buildingGroup.position.set(
+                        x+(Math.random()-.5)*26,
+                        0,
+                        z+(Math.random()-.5)*26
+                    );
+                    scene.add(buildingGroup);
+                    buildings.push(buildingGroup);
+                }
+            }
+        })();
+
+        // --- LAMPADAIRES ---
+        if(quality !== 'low'){
+            for(let i = 0; i < 12; i++){
+                const lampGroup = new THREE.Group();
+
+                const pole = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1, 1.5, 40),
+                    new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 })
+                );
+                pole.position.y = 20;
+                lampGroup.add(pole);
+
+                const lamp = new THREE.Mesh(
+                    new THREE.SphereGeometry(3, 8, 8),
+                    new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.9 })
+                );
+                lamp.position.y = 42;
+                lampGroup.add(lamp);
+
+                const light = new THREE.PointLight(0xffff88, 0.8, 80);
+                light.position.y = 42;
+                lampGroup.add(light);
+
+                const angle = (i / 12) * Math.PI * 2;
+                lampGroup.position.set(
+                    Math.cos(angle) * 350,
+                    0,
+                    Math.sin(angle) * 350
+                );
+
+                scene.add(lampGroup);
+                lamps.push(lampGroup);
+            }
+        }
+
+        // --- MURS INVISIBLES ---
+        for(let i=0;i<4;i++){
+            const wall=new THREE.Mesh(
+                new THREE.BoxGeometry(i<2?1200:10,500,i<2?10:1200),
+                new THREE.MeshBasicMaterial({visible:false})
+            );
+            wall.position.set(
+                i===1?ARENA:i===3?-ARENA:0,
+                250,
+                i===0?ARENA:i===2?-ARENA:0
+            );
+            scene.add(wall);
+        }
+
+        // --- ÉTOILES AMÉLIORÉES ---
+        function makeStars(){
+            const n = quality === 'low' ? 500 : quality === 'medium' ? 1000 : 2000;
+            const geo=new THREE.BufferGeometry();
+            const pos=new Float32Array(n*3);
+            const colors=new Float32Array(n*3);
+
+            for(let i=0;i<n;i++){
+                pos[i*3+0]=(Math.random()-0.5)*3000;
+                pos[i*3+1]=400+Math.random()*1200;
+                pos[i*3+2]=(Math.random()-0.5)*3000;
+
+                // Couleurs variées des étoiles
+                const c = Math.random();
+                colors[i*3+0] = 0.9 + c * 0.1;
+                colors[i*3+1] = 0.9 + c * 0.1;
+                colors[i*3+2] = 1;
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+
+            const starMat=new THREE.PointsMaterial({
+                size:1.6,
+                vertexColors: true,
+                transparent:true,
+                opacity:.8,
+                depthWrite:false
+            });
+            const stars=new THREE.Points(geo, starMat);
+            scene.add(stars);
+        }
+        makeStars();
+
+        // --- LAC AMÉLIORÉ ---
+        const lakeGroup = new THREE.Group();
+
+        const lake = new THREE.Mesh(
+            new THREE.CircleGeometry(84,32),
+            new THREE.MeshStandardMaterial({
+                color:0x0b6b91,
+                roughness:.15,
+                metalness:.7,
+                transparent:true,
+                opacity:.85
+            })
+        );
+        lake.rotation.x=-Math.PI/2;
+        lake.position.y=0.03;
+        lake.receiveShadow=true;
+        lakeGroup.add(lake);
+
+        // Fontaine au centre
+        if(quality !== 'low'){
+            const fountain = new THREE.Mesh(
+                new THREE.CylinderGeometry(8, 10, 5),
+                new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.3, metalness: 0.7 })
+            );
+            fountain.position.y = 2.5;
+            lakeGroup.add(fountain);
+        }
+
+        scene.add(lakeGroup);
+
+        // --- ARBRES ---
+        function createTrees(){
+            if(quality === 'low') return;
+
+            const treePositions = [
+                {x: -200, z: -200}, {x: 200, z: -200},
+                {x: -200, z: 200}, {x: 200, z: 200},
+                {x: -350, z: 0}, {x: 350, z: 0},
+                {x: 0, z: -350}, {x: 0, z: 350}
+            ];
+
+            treePositions.forEach(pos => {
+                const treeGroup = new THREE.Group();
+
+                // Tronc
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(3, 4, 20),
+                    new THREE.MeshStandardMaterial({ color: 0x4a3c28, roughness: 0.9 })
+                );
+                trunk.position.y = 10;
+                trunk.castShadow = true;
+                treeGroup.add(trunk);
+
+                // Feuillage (3 niveaux)
+                for(let i = 0; i < 3; i++){
+                    const leaves = new THREE.Mesh(
+                        new THREE.ConeGeometry(15 - i*3, 15 - i*2),
+                        new THREE.MeshStandardMaterial({
+                            color: 0x0d5520,
+                            roughness: 0.8
+                        })
+                    );
+                    leaves.position.y = 25 + i*8;
+                    leaves.castShadow = true;
+                    treeGroup.add(leaves);
+                }
+
+                treeGroup.position.set(
+                    pos.x + (Math.random() - 0.5) * 20,
+                    0,
+                    pos.z + (Math.random() - 0.5) * 20
+                );
+
+                scene.add(treeGroup);
+                trees.push(treeGroup);
+            });
+        }
+        createTrees();
+
+        // --- NUAGES ---
+        function createClouds(){
+            if(quality === 'low') return;
+
+            for(let i = 0; i < 8; i++){
+                const cloudGroup = new THREE.Group();
+
+                // Créer un nuage avec plusieurs sphères
+                for(let j = 0; j < 5; j++){
+                    const puff = new THREE.Mesh(
+                        new THREE.SphereGeometry(20 + Math.random() * 15, 8, 6),
+                        new THREE.MeshBasicMaterial({
+                            color: 0x444466,
+                            transparent: true,
+                            opacity: 0.3
+                        })
+                    );
+                    puff.position.set(
+                        (Math.random() - 0.5) * 30,
+                        (Math.random() - 0.5) * 10,
+                        (Math.random() - 0.5) * 30
+                    );
+                    cloudGroup.add(puff);
+                }
+
+                cloudGroup.position.set(
+                    (Math.random() - 0.5) * 1000,
+                    500 + Math.random() * 200,
+                    (Math.random() - 0.5) * 1000
+                );
+                cloudGroup.userData.speed = 0.1 + Math.random() * 0.2;
+
+                scene.add(cloudGroup);
+                clouds.push(cloudGroup);
+            }
+        }
+        createClouds();
+
+        // --- OISEAUX ---
+        function createBirds(){
+            if(quality !== 'high') return;
+
+            for(let i = 0; i < 5; i++){
+                const bird = new THREE.Group();
+
+                const body = new THREE.Mesh(
+                    new THREE.SphereGeometry(2, 6, 4),
+                    new THREE.MeshBasicMaterial({ color: 0x111111 })
+                );
+                bird.add(body);
+
+                // Ailes
+                const wingGeo = new THREE.PlaneGeometry(8, 2);
+                const wingMat = new THREE.MeshBasicMaterial({
+                    color: 0x111111,
+                    side: THREE.DoubleSide
+                });
+
+                const leftWing = new THREE.Mesh(wingGeo, wingMat);
+                leftWing.position.x = -4;
+                bird.add(leftWing);
+
+                const rightWing = new THREE.Mesh(wingGeo, wingMat);
+                rightWing.position.x = 4;
+                bird.add(rightWing);
+
+                bird.userData.leftWing = leftWing;
+                bird.userData.rightWing = rightWing;
+
+                bird.position.set(
+                    (Math.random() - 0.5) * 800,
+                    300 + Math.random() * 200,
+                    (Math.random() - 0.5) * 800
+                );
+                bird.userData.speed = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    0,
+                    (Math.random() - 0.5) * 2
+                );
+
+                scene.add(bird);
+                birds.push(bird);
+            }
+        }
+        createBirds();
+
+        // --- BOEING AMÉLIORÉ ---
+        class Boeing747{
+            constructor(){
+                const g=new THREE.Group();
+                const matF=new THREE.MeshStandardMaterial({ color:0xc0c0c0, metalness:.9, roughness:.2 });
+
+                // Fuselage
+                const body=new THREE.Mesh(new THREE.CylinderGeometry(8,8,80,12),matF);
+                body.rotation.z=Math.PI/2;
+                body.castShadow = quality !== 'low';
+                g.add(body);
+
+                // Nez
+                const nose=new THREE.Mesh(new THREE.ConeGeometry(8,15,12),matF);
+                nose.rotation.z=-Math.PI/2;
+                nose.position.x=47.5;
+                g.add(nose);
+
+                // Queue
+                const tail=new THREE.Mesh(new THREE.ConeGeometry(8,10,12),matF);
+                tail.rotation.z=Math.PI/2;
+                tail.position.x=-45;
+                tail.scale.y=.8;
+                g.add(tail);
+
+                // Ailes
+                const wing=new THREE.Mesh(
+                    new THREE.BoxGeometry(60,1,15),
+                    new THREE.MeshStandardMaterial({color:0xa0a0a0, metalness:.8, roughness:.3})
+                );
+                wing.position.y=-2;
+                wing.castShadow=true;
+                g.add(wing);
+
+                // Moteurs
+                [{x:10,y:-5,z:20},{x:10,y:-5,z:-20},{x:-5,y:-5,z:35},{x:-5,y:-5,z:-35}].forEach(p=>{
+                    const e=new THREE.Mesh(
+                        new THREE.CylinderGeometry(3,3,10,8),
+                        new THREE.MeshStandardMaterial({color:0x333, metalness:.9})
+                    );
+                    e.rotation.z=Math.PI/2;
+                    e.position.set(p.x,p.y,p.z);
+                    g.add(e);
+                });
+
+                // Lumières
+                const strobe = new THREE.PointLight(0xffffff,2,100);
+                strobe.position.set(0,15,0);
+                g.add(strobe);
+                this.strobe=strobe;
+
+                // Feux de navigation
+                const navRed = new THREE.PointLight(0xff0000, 1, 50);
+                navRed.position.set(-30, 0, 0);
+                g.add(navRed);
+
+                const navGreen = new THREE.PointLight(0x00ff00, 1, 50);
+                navGreen.position.set(30, 0, 0);
+                g.add(navGreen);
+
+                this.mesh=g;
+                this.mesh.position.set(-800,420,-600);
+                this.velocity=new THREE.Vector3(2,0,1.5);
+                this.mesh.rotation.y=Math.atan2(1.5,2);
+                scene.add(this.mesh);
+            }
+            update(){
+                this.mesh.position.add(this.velocity);
+                if(this.mesh.position.x>1000){
+                    this.mesh.position.x=-1000;
+                    this.mesh.position.z=-600+Math.random()*1200;
+                    this.mesh.position.y=360+Math.random()*160;
+                }
+                this.strobe.intensity = Math.sin(Date.now()*0.01)>0?2:0;
+            }
+        }
+        boeing = new Boeing747();
+
+        // --- POWER-UPS AMÉLIORÉS ---
+        function spawnPowerups(n=6){
+            for(let i=0;i<n;i++){
+                const type = Math.random() < .33 ? 'heal' : Math.random() < .66 ? 'speed' : 'shield';
+                const color = type==='heal'? 0x22c55e : type==='speed'? 0xf59e0b : 0x8b5cf6;
+
+                const powerupGroup = new THREE.Group();
+
+                // Anneau principal
+                const m = new THREE.Mesh(
+                    new THREE.TorusGeometry(8,2,8,16),
+                    new THREE.MeshStandardMaterial({
+                        color,
+                        emissive: color,
+                        emissiveIntensity:.4,
+                        metalness:.4,
+                        roughness:.3
+                    })
+                );
+                m.rotation.x = Math.PI/2;
+                powerupGroup.add(m);
+
+                // Icône au centre
+                const icon = new THREE.Mesh(
+                    type === 'heal' ? new THREE.BoxGeometry(6, 2, 2) :
+                        type === 'speed' ? new THREE.ConeGeometry(3, 6, 8) :
+                            new THREE.OctahedronGeometry(4),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.8
+                    })
+                );
+                if(type === 'speed') icon.rotation.z = Math.PI;
+                powerupGroup.add(icon);
+
+                powerupGroup.position.set(
+                    (Math.random()-.5)*ARENA*1.6,
+                    8,
+                    (Math.random()-.5)*ARENA*1.6
+                );
+                powerupGroup.userData = { type, life: 60*10, icon };
+
+                scene.add(powerupGroup);
+                powerups.push(powerupGroup);
+            }
+        }
+        spawnPowerups();
+
+        // --- DRONES AMÉLIORÉS ---
+        class DroneAI{
+            constructor(team, pos){
+                const g=new THREE.Group();
+
+                // Corps principal
+                const body=new THREE.Mesh(
+                    new THREE.OctahedronGeometry(10,0),
+                    new THREE.MeshStandardMaterial({
+                        color: team==='blue'?0x4facfe:0xff6b6b,
+                        emissive: team==='blue'?0x1f66ff:0xcc2222,
+                        emissiveIntensity:.6,
+                        metalness:.25,
+                        roughness:.6
+                    })
+                );
+                body.castShadow = quality !== 'low';
+                g.add(body);
+
+                // Rotors améliorés
+                for(let i=0;i<4;i++){
+                    const a=i/4*Math.PI*2;
+                    const r=new THREE.Mesh(
+                        new THREE.BoxGeometry(15,1,3),
+                        new THREE.MeshBasicMaterial({
+                            color:0x0f1116,
+                            transparent:true,
+                            opacity:.85
+                        })
+                    );
+                    r.position.set(Math.cos(a)*12,5,Math.sin(a)*12);
+                    g.add(r);
+                }
+
+                // Lumière
+                const l=new THREE.PointLight(team==='blue'?0x4facfe:0xff6b6b,.6,60);
+                g.add(l);
+
+                // Bouclier visuel (invisible par défaut)
+                const shield = new THREE.Mesh(
+                    new THREE.SphereGeometry(15, 8, 6),
+                    new THREE.MeshBasicMaterial({
+                        color: 0x8b5cf6,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.BackSide
+                    })
+                );
+                g.add(shield);
+
+                this.mesh=g;
+                this.mesh.position.copy(pos);
+                this.team=team;
+                this.health=100;
+                this.maxHealth=100;
+                this.velocity=new THREE.Vector3();
+                this.target=null;
+                this.lastShot=0;
+                this.state='hunting';
+                this.accuracy=.7+Math.random()*.3;
+                this.aggressiveness=.5+Math.random()*.5;
+                this.reactionTime=120+Math.random()*200;
+                this.boostTimer=0;
+                this.shieldTimer=0;
+                this.shield = shield;
+
+                scene.add(this.mesh);
+            }
+
+            update(){
+                // Rotation des rotors
+                this.mesh.children.forEach((c,i)=>{
+                    if(i>0 && i<5) c.rotation.y += .6*gameSpeed;
+                });
+
+                // Timers
+                if(this.boostTimer>0) this.boostTimer -= 1*gameSpeed;
+                if(this.shieldTimer>0){
+                    this.shieldTimer -= 1*gameSpeed;
+                    this.shield.material.opacity = 0.3 * (this.shieldTimer / 180);
+                }
+
+                this.findTarget();
+                this.move();
+                this.fight();
+                this.mesh.position.add(this.velocity.clone().multiplyScalar(gameSpeed));
+
+                // Limites
+                ['x','z'].forEach(ax=>{
+                    if(Math.abs(this.mesh.position[ax])>ARENA-20){
+                        this.mesh.position[ax]=Math.sign(this.mesh.position[ax])*(ARENA-20);
+                        this.velocity[ax]*=-.5;
+                    }
+                });
+
+                // Hauteur avec variation
+                const minH=58,maxH=260;
+                const targetH=minH + Math.sin(Date.now()*0.001 + this.mesh.id)*30 + Math.random()*(maxH-minH-60);
+                this.mesh.position.y += (targetH - this.mesh.position.y)*.05;
+                this.mesh.position.y = Math.max(minH, Math.min(maxH, this.mesh.position.y));
+
+                // Power-ups
+                powerups.forEach((p,i)=>{
+                    if(p && this.mesh.position.distanceTo(p.position)<18){
+                        if(p.userData.type==='heal'){
+                            this.health = Math.min(this.maxHealth+20, this.health+35);
+                        } else if(p.userData.type==='speed'){
+                            this.boostTimer = 180;
+                        } else {
+                            this.shieldTimer = 180;
+                        }
+                        scene.remove(p);
+                        powerups.splice(i,1);
+                    }
+                });
+            }
+
+            findTarget(){
+                let md=Infinity, nt=null;
+                drones.forEach(d=>{
+                    if(d.team!==this.team && d.health>0){
+                        const dist=this.mesh.position.distanceTo(d.mesh.position);
+                        if(dist<md){
+                            md=dist;
+                            nt=d;
+                        }
+                    }
+                });
+                this.target=nt;
+                this.state = this.target ? (md<200?'combat':'pursuit') : 'patrol';
+            }
+
+            move(){
+                const base=3;
+                const speed = base * (this.boostTimer>0 ? 2 : 1);
+
+                if(this.state==='combat' && this.target){
+                    const a=Date.now()*0.002;
+                    const r=150;
+                    const tp=new THREE.Vector3(
+                        this.target.mesh.position.x+Math.cos(a)*r,
+                        this.mesh.position.y,
+                        this.target.mesh.position.z+Math.sin(a)*r
+                    );
+                    const dir=tp.clone().sub(this.mesh.position).normalize();
+                    this.velocity.lerp(dir.multiplyScalar(speed), .14);
+                    this.avoid();
+                } else if(this.state==='pursuit' && this.target){
+                    const dir=this.target.mesh.position.clone().sub(this.mesh.position).normalize();
+                    this.velocity.lerp(dir.multiplyScalar(speed*1.5), .07);
+                    this.avoid();
+                } else {
+                    if(Math.random()<.02){
+                        this.velocity.x+=(Math.random()-.5)*2;
+                        this.velocity.z+=(Math.random()-.5)*2;
+                    }
+                    this.velocity.multiplyScalar(.95);
+                    this.avoid();
+                }
+
+                if(this.velocity.length()>speed*2){
+                    this.velocity.normalize().multiplyScalar(speed*2);
+                }
+            }
+
+            avoid(){
+                buildings.forEach(b=>{
+                    const building = b.children[0]; // Le bâtiment principal est le premier enfant
+                    if(!building) return;
+
+                    const dist=this.mesh.position.distanceTo(building.position.clone().add(b.position));
+                    if(dist<80){
+                        const a=this.mesh.position.clone().sub(building.position.clone().add(b.position)).normalize();
+                        this.velocity.add(a.multiplyScalar(5));
+                        if(this.mesh.position.y < building.geometry.parameters.height + 20){
+                            this.velocity.y = 3;
+                        }
+                    }
+                });
+            }
+
+            fight(){
+                if(!this.target || this.target.health<=0) return;
+
+                const dist=this.mesh.position.distanceTo(this.target.mesh.position);
+                const now=Date.now();
+
+                if(dist<320 && now-this.lastShot>this.reactionTime){
+                    const t=dist/18;
+                    const predicted=this.target.mesh.position.clone().add(this.target.velocity.clone().multiplyScalar(t));
+                    if(Math.random() < this.accuracy*this.aggressiveness){
+                        this.shoot(predicted);
+                        this.lastShot=now;
+                    }
+                }
+            }
+
+            shoot(tp){
+                const b=new THREE.Mesh(
+                    new THREE.SphereGeometry(2,10,10),
+                    new THREE.MeshBasicMaterial({
+                        color:this.team==='blue'?0x00f2fe:0xff6b6b,
+                        emissive: this.team==='blue'?0x00f2fe:0xff6b6b,
+                        emissiveIntensity: 0.5
+                    })
+                );
+                b.position.copy(this.mesh.position);
+                b.velocity=tp.clone().sub(this.mesh.position).normalize().multiplyScalar(18);
+                b.team=this.team;
+                b.life=100;
+
+                // Trail amélioré
+                const trail = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints([
+                        b.position.clone(),
+                        b.position.clone().add(b.velocity.clone().multiplyScalar(.6))
+                    ]),
+                    new THREE.LineBasicMaterial({
+                        color: this.team==='blue'?0x8be9fd:0xffa3a3,
+                        transparent:true,
+                        opacity:.8,
+                        linewidth: 2
+                    })
+                );
+                scene.add(trail);
+                trails.push({ line: trail, life: 12 });
+
+                scene.add(b);
+                bullets.push(b);
+                stats.shots++;
+            }
+
+            takeDamage(n){
+                // Réduction des dégâts avec le bouclier
+                if(this.shieldTimer > 0){
+                    n = Math.floor(n * 0.3);
+                }
+
+                this.health-=n;
+
+                // Particules d'impact
+                for(let i=0;i<4;i++){
+                    const p=new THREE.Mesh(
+                        new THREE.TetrahedronGeometry(2),
+                        new THREE.MeshBasicMaterial({
+                            color:this.team==='blue'?0x4facfe:0xff6b6b
+                        })
+                    );
+                    p.position.copy(this.mesh.position);
+                    p.velocity=new THREE.Vector3(
+                        (Math.random()-.5)*8,
+                        Math.random()*8,
+                        (Math.random()-.5)*8
+                    );
+                    p.life=24;
+                    scene.add(p);
+                    particles.push(p);
+                }
+
+                if(this.health<=0){
+                    this.explode();
+                    return true;
+                }
+                return false;
+            }
+
+            explode(){
+                // Explosion améliorée
+                for(let i=0;i<26;i++){
+                    const p=new THREE.Mesh(
+                        new THREE.TetrahedronGeometry(3),
+                        new THREE.MeshBasicMaterial({
+                            color: Math.random()>.5?0xff7a1a:0xffc24d,
+                            emissive: Math.random()>.5?0xff7a1a:0xffc24d,
+                            emissiveIntensity: 0.5
+                        })
+                    );
+                    p.position.copy(this.mesh.position);
+                    p.velocity=new THREE.Vector3(
+                        (Math.random()-.5)*15,
+                        Math.random()*15,
+                        (Math.random()-.5)*15
+                    );
+                    p.life=40;
+                    scene.add(p);
+                    particles.push(p);
+                }
+
+                // Flash d'explosion
+                const flash = new THREE.PointLight(0xffaa00, 5, 100);
+                flash.position.copy(this.mesh.position);
+                scene.add(flash);
+                setTimeout(() => scene.remove(flash), 100);
+
+                scene.remove(this.mesh);
+                stats.kills++;
+            }
+        }
+
+        // --- API BOUTONS ---
+        window.startBattle = function(teamSize){
+            // Clear
+            drones.forEach(d=>scene.remove(d.mesh));
+            bullets.forEach(b=>scene.remove(b));
+            particles.forEach(p=>scene.remove(p));
+            trails.forEach(t=>scene.remove(t.line));
+            powerups.forEach(p=>scene.remove(p));
+
+            drones=[];
+            bullets=[];
+            particles=[];
+            trails=[];
+            powerups=[];
+            stats={time:0,shots:0,kills:0};
+            battleStart=Date.now();
+            document.getElementById('winner').style.display='none';
+            paused=false;
+            gameSpeed = Math.max(1, gameSpeed);
+
+            // Teams
+            for(let i=0;i<teamSize;i++){
+                drones.push(new DroneAI('blue', new THREE.Vector3(-400+Math.random()*100,110+Math.random()*110,(Math.random()-.5)*420)));
+                drones.push(new DroneAI('red',  new THREE.Vector3( 400-Math.random()*100,110+Math.random()*110,(Math.random()-.5)*420)));
+            }
+            spawnPowerups(6);
+        }
+
+        window.toggleCamera = function(){
+            cameraMode=(cameraMode+1)%3;
+        }
+
+        window.toggleSpeed = function(){
+            gameSpeed = gameSpeed===1?2: gameSpeed===2?4:1;
+            document.getElementById('speed').textContent=gameSpeed;
+        }
+
+        window.toggleQuality = function(){
+            quality = quality==='low'?'medium':quality==='medium'?'high':'low';
+            alert(`Qualité: ${quality === 'low' ? 'Basse ⚡' : quality === 'medium' ? 'Moyenne 🎮' : 'Haute 🌟'}`);
+            location.reload(); // Recharger pour appliquer les changements
+        }
+
+        window.togglePhoto = function(){
+            photo=!photo;
+            const ids=['stats','teams','controls','weather','fps'];
+            ids.forEach(id=>document.getElementById(id).style.display = photo?'none':'');
+            document.querySelector('.fx-vignette').style.display = photo?'none':'';
+            document.querySelector('.fx-noise').style.display = photo?'none':'';
+            document.getElementById('mapWrap').style.display = photo?'none':'';
+            document.getElementById('hint').style.display = photo?'none':'';
+        }
+
+        window.togglePause = function(){
+            paused=!paused;
+        }
+
+        window.resetArena = function(){
+            startBattle(drones.length/2|0);
+        }
+
+        // --- MINIMAP ---
+        const map = document.getElementById('map');
+        const mctx = map.getContext('2d');
+
+        function drawMap(){
+            mctx.clearRect(0,0,map.width,map.height);
+
+            // Fond avec gradient
+            const gradient = mctx.createRadialGradient(80, 80, 0, 80, 80, 80);
+            gradient.addColorStop(0, 'rgba(15,22,38,.7)');
+            gradient.addColorStop(1, 'rgba(15,22,38,.95)');
+            mctx.fillStyle = gradient;
+            mctx.fillRect(0,0,map.width,map.height);
+
+            // Grille
+            mctx.strokeStyle='rgba(255,255,255,.05)';
+            for(let i = 0; i <= 160; i += 20){
+                mctx.beginPath();
+                mctx.moveTo(i, 0);
+                mctx.lineTo(i, 160);
+                mctx.moveTo(0, i);
+                mctx.lineTo(160, i);
+                mctx.stroke();
+            }
+
+            // Bord
+            mctx.strokeStyle='rgba(255,255,255,.15)';
+            mctx.strokeRect(0,0,map.width,map.height);
+
+            // Lac
+            mctx.beginPath();
+            mctx.strokeStyle='rgba(147,197,253,.6)';
+            mctx.fillStyle='rgba(147,197,253,.1)';
+            mctx.arc(map.width/2,map.height/2,14,0,Math.PI*2);
+            mctx.fill();
+            mctx.stroke();
+
+            // Drones
+            const s = map.width/(ARENA*2);
+            drones.forEach(d=>{
+                const x = map.width/2 + d.mesh.position.x * s;
+                const y = map.height/2 + d.mesh.position.z * s;
+
+                // Aura autour du drone
+                const auraGradient = mctx.createRadialGradient(x, y, 0, x, y, 6);
+                auraGradient.addColorStop(0, d.team==='blue' ? 'rgba(79,172,254,0.5)' : 'rgba(255,107,107,0.5)');
+                auraGradient.addColorStop(1, 'transparent');
+                mctx.fillStyle = auraGradient;
+                mctx.fillRect(x-6,y-6,12,12);
+
+                mctx.fillStyle = d.team==='blue' ? '#4facfe' : '#ff6b6b';
+                mctx.fillRect(x-2,y-2,4,4);
+            });
+
+            // Power-ups
+            powerups.forEach(p=>{
+                const x = map.width/2 + p.position.x * s;
+                const y = map.height/2 + p.position.z * s;
+                mctx.fillStyle = p.userData.type==='heal' ? '#22c55e' :
+                    p.userData.type==='speed' ? '#f59e0b' : '#8b5cf6';
+                mctx.beginPath();
+                mctx.arc(x, y, 3, 0, Math.PI * 2);
+                mctx.fill();
+            });
+        }
+
+        // --- MAIN LOOP ---
+        function animate(){
+            requestAnimationFrame(animate);
+
+            // FPS Counter
+            frameCount++;
+            const currentTime = performance.now();
+            if(currentTime - lastTime >= 1000){
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+                document.getElementById('fps-val').textContent = fps;
+            }
+
+            if(paused){
+                renderer.render(scene,camera);
+                return;
+            }
+
+            // Animation du vent
+            windOffset += 0.01 * gameSpeed;
+            document.getElementById('wind').textContent = Math.floor(5 + Math.sin(windOffset) * 3);
+
+            // Animation des nuages
+            clouds.forEach(cloud => {
+                cloud.position.x += cloud.userData.speed * gameSpeed;
+                if(cloud.position.x > 1000) cloud.position.x = -1000;
+            });
+
+            // Animation des arbres (léger balancement)
+            trees.forEach((tree, i) => {
+                tree.rotation.z = Math.sin(windOffset + i) * 0.02;
+            });
+
+            // Animation des oiseaux
+            birds.forEach(bird => {
+                bird.position.add(bird.userData.speed);
+
+                // Battement d'ailes
+                const wingAngle = Math.sin(Date.now() * 0.01) * 0.5;
+                bird.userData.leftWing.rotation.z = -wingAngle;
+                bird.userData.rightWing.rotation.z = wingAngle;
+
+                // Limites
+                if(Math.abs(bird.position.x) > 800){
+                    bird.userData.speed.x *= -1;
+                }
+                if(Math.abs(bird.position.z) > 800){
+                    bird.userData.speed.z *= -1;
+                }
+            });
+
+            // Clignotement des antennes
+            buildings.forEach(b => {
+                if(b.userData.antennaLight){
+                    b.userData.antennaLight.intensity = Math.sin(Date.now() * 0.005) > 0 ? 1 : 0;
+                }
+            });
+
+            // Avion
+            if(boeing) boeing.update();
+
+            // Drones
+            drones = drones.filter(d=>{
+                if(d.health>0){
+                    d.update();
+                    return true;
+                }
+                return false;
+            });
+
+            // Bullets
+            bullets = bullets.filter(b=>{
+                b.position.add(b.velocity.clone().multiplyScalar(gameSpeed));
+                b.life -= gameSpeed;
+
+                drones.forEach((d,i)=>{
+                    if(d.team!==b.team && b.position.distanceTo(d.mesh.position)<15){
+                        if(d.takeDamage(25)){
+                            drones.splice(i,1);
+                        }
+                        scene.remove(b);
+                        b.life=0;
+                    }
+                });
+
+                if(b.life<=0){
+                    scene.remove(b);
+                    return false;
+                }
+                return true;
+            });
+
+            // Trails
+            trails = trails.filter(t=>{
+                t.life -= gameSpeed;
+                if(t.life<=0){
+                    scene.remove(t.line);
+                    return false;
+                }
+                t.line.material.opacity = Math.max(0, t.life/12);
+                return true;
+            });
+
+            // Particules
+            particles = particles.filter(p=>{
+                p.position.add(p.velocity.clone().multiplyScalar(gameSpeed));
+                p.velocity.y -= .3*gameSpeed;
+                p.life -= gameSpeed;
+
+                if(p.material.opacity!==undefined){
+                    p.material.opacity = p.life/40;
+                }
+
+                p.rotation.x += .1;
+                p.rotation.y += .1;
+
+                if(p.life<=0){
+                    scene.remove(p);
+                    return false;
+                }
+                return true;
+            });
+
+            // Power-ups
+            powerups = powerups.filter(p=>{
+                p.userData.life -= gameSpeed;
+                p.rotation.z += 0.05*gameSpeed;
+                p.rotation.y += 0.02*gameSpeed;
+
+                // Animation de l'icône
+                if(p.userData.icon){
+                    p.userData.icon.rotation.y += 0.1*gameSpeed;
+                }
+
+                if(p.userData.life<=0){
+                    scene.remove(p);
+                    return false;
+                }
+                return true;
+            });
+
+            if(Math.random()<0.01 && powerups.length<8){
+                spawnPowerups(1);
+            }
+
+            // Caméra
+            const t=Date.now()*0.0005;
+            switch(cameraMode){
+                case 0:
+                    camera.position.set(Math.cos(t)*640, 320, Math.sin(t)*640);
+                    camera.lookAt(0,0,0);
+                    break;
+                case 1:
+                    camera.position.set(0,820,0);
+                    camera.lookAt(0,0,0);
+                    break;
+                case 2:
+                    if(drones.length){
+                        const d=drones[(Math.random()*drones.length)|0];
+                        camera.position.lerp(d.mesh.position.clone().add(new THREE.Vector3(110,110,110)), .02);
+                        camera.lookAt(d.mesh.position);
+                    }
+                    break;
+            }
+
+            // UI
+            if(battleStart){
+                stats.time = Math.floor((Date.now()-battleStart)/1000);
+            }
+
+            const blue=drones.filter(d=>d.team==='blue').length;
+            const red=drones.filter(d=>d.team==='red').length;
+
+            document.getElementById('time').textContent=stats.time;
+            document.getElementById('shots').textContent=stats.shots;
+            document.getElementById('kills').textContent=stats.kills;
+            document.getElementById('blue-count').textContent=blue;
+            document.getElementById('red-count').textContent=red;
+
+            const w=document.getElementById('winner');
+            if(drones.length>0 && (blue===0||red===0)){
+                gameSpeed = 0.3;
+                w.textContent = blue>0 ? '🔵 VICTOIRE BLEUE!' : '🔴 VICTOIRE ROUGE!';
+                w.style.color = blue>0 ? 'var(--blue)' : 'var(--red)';
+                w.style.display='block';
+            }
+
+            // Minimap
+            drawMap();
+
+            renderer.render(scene,camera);
+        }
+
+        // START
+        startBattle(5);
+        animate();
+
+        // RESIZE
+        addEventListener('resize', ()=>{
+            camera.aspect = innerWidth/innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+
+        // Raccourcis clavier
+        addEventListener('keydown', (e)=>{
+            if(e.key==='1') startBattle(5);
+            if(e.key==='2') startBattle(10);
+            if(e.key==='3') startBattle(20);
+            if(e.key.toLowerCase()==='c') toggleCamera();
+            if(e.key===' ') { e.preventDefault(); togglePause(); }
+            if(e.key.toLowerCase()==='q') toggleQuality();
+            if(e.key.toLowerCase()==='p') togglePhoto();
+            if(e.key.toLowerCase()==='r') resetArena();
+        });
+    }
+</script>
+</body>
+</html>
